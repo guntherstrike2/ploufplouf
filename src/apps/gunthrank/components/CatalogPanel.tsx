@@ -20,6 +20,8 @@ export function CatalogPanel({ onClose, onAddFromCatalog, onAddFromIgdb }: Catal
   const [genreFilter, setGenreFilter] = useState<string | null>(null);
   const [platformFilter, setPlatformFilter] = useState<string | null>(null);
   const [offline, setOffline] = useState(false);
+  const [rateLimited, setRateLimited] = useState(false);
+  const [igdbError, setIgdbError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -48,7 +50,7 @@ export function CatalogPanel({ onClose, onAddFromCatalog, onAddFromIgdb }: Catal
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
-        const data = await igdbRes.json() as { results: IgdbSearchResult[]; offline?: boolean };
+        const data = await igdbRes.json() as { results: IgdbSearchResult[]; offline?: boolean; rateLimited?: boolean; error?: string };
         const newResults = data.results ?? [];
         // Only replace results if we got something, or if there's no text query active.
         // Prevents popular games from vanishing when text search returns empty.
@@ -56,9 +58,13 @@ export function CatalogPanel({ onClose, onAddFromCatalog, onAddFromIgdb }: Catal
           setIgdbResults(newResults);
         }
         setOffline(!!data.offline);
+        setRateLimited(!!data.rateLimited);
+        setIgdbError(data.error ?? null);
       } catch {
         if (query.length < 2) setIgdbResults([]);
         setOffline(true);
+        setRateLimited(false);
+        setIgdbError("IGDB inaccessible — vérifie ta connexion.");
       }
       setLoading(false);
     }, query.length >= 2 ? 300 : 0); // debounce only for text search, instant for filters
@@ -194,18 +200,28 @@ export function CatalogPanel({ onClose, onAddFromCatalog, onAddFromIgdb }: Catal
         </div>
       </div>
 
-      {/* Results count + offline */}
-      <div className="px-2 py-1 flex items-center gap-2" style={{ fontSize: "calc(var(--t-text-xs) * 0.8)", color: "var(--t-text-muted)" }}>
-        {loading ? (
-          <span>Recherche...</span>
-        ) : (
-          <>
+      {/* Results count + status */}
+      <div className="px-2 py-1 flex flex-col gap-0.5" style={{ fontSize: "calc(var(--t-text-xs) * 0.8)", color: "var(--t-text-muted)" }}>
+        <div className="flex items-center gap-2">
+          {loading ? (
+            <span>Recherche...</span>
+          ) : (
             <span>{filteredDbGames.length} locaux · {igdbResults.length} IGDB</span>
-            {offline && <span style={{ color: "var(--t-error)" }}>⚠ IGDB hors-ligne</span>}
-          </>
+          )}
+          {hasFilters && (
+            <button onClick={clearFilters} style={{ background: "none", border: "none", color: "var(--t-accent)", cursor: "pointer", fontSize: "inherit" }}>clear</button>
+          )}
+        </div>
+        {rateLimited && (
+          <span className="px-1 py-0.5" style={{ fontSize: "calc(var(--t-text-xs) * 0.75)", background: "#ff3300", color: "#fff" }}>
+            ⚡ Limite IGDB atteinte — réessaie dans quelques secondes
+          </span>
         )}
-        {hasFilters && (
-          <button onClick={clearFilters} style={{ background: "none", border: "none", color: "var(--t-accent)", cursor: "pointer", fontSize: "inherit" }}>clear</button>
+        {!rateLimited && igdbError && (
+          <span style={{ color: "var(--t-error)" }}>⚠ {igdbError}</span>
+        )}
+        {!rateLimited && !igdbError && offline && (
+          <span style={{ color: "var(--t-warning)" }}>⚠ IGDB hors-ligne</span>
         )}
       </div>
 

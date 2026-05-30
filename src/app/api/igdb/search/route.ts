@@ -57,7 +57,7 @@ async function getAccessToken(): Promise<string | null> {
   }
 }
 
-async function searchEndpoint(token: string, searchTerm: string, limit: number): Promise<number[]> {
+async function searchEndpoint(token: string, searchTerm: string, limit: number): Promise<{ ids: number[]; rateLimited: boolean }> {
   const res = await fetchWithRetry("https://api.igdb.com/v4/search", {
     method: "POST",
     headers: {
@@ -67,12 +67,13 @@ async function searchEndpoint(token: string, searchTerm: string, limit: number):
     },
     body: `search "${searchTerm}"; fields game; limit ${limit};`,
   });
+  if (res.status === 429) return { ids: [], rateLimited: true };
   if (!res.ok) {
     console.error("IGDB search endpoint error", res.status);
-    return [];
+    return { ids: [], rateLimited: false };
   }
   const data = await res.json() as Array<{ game: number }>;
-  return data.map((d) => d.game);
+  return { ids: data.map((d) => d.game), rateLimited: false };
 }
 
 async function queryIgdb(token: string, bodyStr: string) {
@@ -86,9 +87,10 @@ async function queryIgdb(token: string, bodyStr: string) {
     body: bodyStr,
   });
 
+  if (igdbRes.status === 429) return { data: null, rateLimited: true } as const;
   if (!igdbRes.ok) {
     console.error("IGDB API error", igdbRes.status, await igdbRes.text().catch(() => ""));
-    return null;
+    return { data: null, rateLimited: false } as const;
   }
 
   const raw = await igdbRes.json() as Array<{
@@ -100,26 +102,29 @@ async function queryIgdb(token: string, bodyStr: string) {
     first_release_date?: number; summary?: string;
   }>;
 
-  return raw.map((g) => ({
-    igdbId: g.id,
-    name: g.name,
-    slug: g.slug ?? null,
-    coverUrl: g.cover?.url
-      ? `https:${g.cover.url}`.replace("t_thumb", "t_cover_big")
-      : null,
-    platforms: g.platforms?.map((p) => p.name) ?? [],
-    genres: g.genres?.map((g2) => g2.name) ?? [],
-    publishers: g.involved_companies
-      ? [...new Set(g.involved_companies.filter((c) => c.publisher).map((c) => c.company.name))]
-      : [],
-    developers: g.involved_companies
-      ? [...new Set(g.involved_companies.filter((c) => c.developer).map((c) => c.company.name))]
-      : [],
-    releaseYear: g.first_release_date
-      ? new Date(g.first_release_date * 1000).getFullYear()
-      : null,
-    summary: g.summary ?? null,
-  }));
+  return {
+    data: raw.map((g) => ({
+      igdbId: g.id,
+      name: g.name,
+      slug: g.slug ?? null,
+      coverUrl: g.cover?.url
+        ? `https:${g.cover.url}`.replace("t_thumb", "t_cover_big")
+        : null,
+      platforms: g.platforms?.map((p) => p.name) ?? [],
+      genres: g.genres?.map((g2) => g2.name) ?? [],
+      publishers: g.involved_companies
+        ? [...new Set(g.involved_companies.filter((c) => c.publisher).map((c) => c.company.name))]
+        : [],
+      developers: g.involved_companies
+        ? [...new Set(g.involved_companies.filter((c) => c.developer).map((c) => c.company.name))]
+        : [],
+      releaseYear: g.first_release_date
+        ? new Date(g.first_release_date * 1000).getFullYear()
+        : null,
+      summary: g.summary ?? null,
+    })),
+    rateLimited: false,
+  } as const;
 }
 
 export async function POST(req: NextRequest) {
@@ -131,7 +136,7 @@ export async function POST(req: NextRequest) {
   const token = await getAccessToken();
   if (!token) {
     console.error("IGDB: no token");
-    return NextResponse.json({ offline: true, results: [] });
+    return NextResponse.json({ offline: true, results: [], error: "Impossible de se connecter à IGDB (token invalide)." });
   }
 
   type IgdbResult = { igdbId: number; name: string; slug: string | null; coverUrl: string | null; platforms: string[]; genres: string[]; publishers: string[]; developers: string[]; releaseYear: number | null; summary: string | null };
@@ -141,7 +146,9 @@ export async function POST(req: NextRequest) {
     if (!hasQuery && !genre && !platform) {
       const popularQuery = `where total_rating_count > 50; sort total_rating_count desc; fields ${FIELDS}; limit ${limit};`;
       console.log("IGDB popular:", popularQuery);
-      const popularResults: IgdbResult[] = (await queryIgdb(token, popularQuery)) ?? [];
+      const popular = await queryIgdb(token, popularQuery);
+      if (popular.rateLimited) return NextResponse.json({ results: [], rateLimited: true, error: "Limite IGDB atteinte — réessaie dans quelques secondes." });
+      const popularResults: IgdbResult[] = popular.data ?? [];
       console.log("IGDB popular: returned", popularResults.length, "results");
       return NextResponse.json({ results: popularResults });
     }
@@ -151,7 +158,8 @@ export async function POST(req: NextRequest) {
     // If we have a text query, use the dedicated /v4/search endpoint
     if (hasQuery) {
       console.log("IGDB text search:", query!.trim());
-      const gameIds = await searchEndpoint(token, query!.trim(), limit);
+      const { ids: gameIds, rateLimited: searchLimited } = await searchEndpoint(token, query!.trim(), limit);
+      if (searchLimited) return NextResponse.json({ results: [], rateLimited: true, error: "Limite IGDB atteinte — réessaie dans quelques secondes." });
 
       if (gameIds.length > 0) {
         // Fetch full game data for the matched IDs
@@ -164,7 +172,9 @@ export async function POST(req: NextRequest) {
           queryByIds = `where id = (${gameIds.join(",")}) & ${wheresForIds.join(" & ")}; sort total_rating_count desc; fields ${FIELDS}; limit ${limit};`;
         }
         console.log("IGDB fetching by IDs:", queryByIds.substring(0, 200));
-        results = (await queryIgdb(token, queryByIds)) ?? [];
+        const byIds = await queryIgdb(token, queryByIds);
+        if (byIds.rateLimited) return NextResponse.json({ results: [], rateLimited: true, error: "Limite IGDB atteinte — réessaie dans quelques secondes." });
+        results = byIds.data ?? [];
       }
     } else if (genre || platform) {
       // Genre/platform filters only (no text query)
@@ -175,13 +185,15 @@ export async function POST(req: NextRequest) {
 
       const bodyStr = `where ${wheres.join(" & ")}; sort total_rating_count desc; fields ${FIELDS}; limit ${limit};`;
       console.log("IGDB filter query:", bodyStr.substring(0, 200));
-      results = (await queryIgdb(token, bodyStr)) ?? [];
+      const filtered = await queryIgdb(token, bodyStr);
+      if (filtered.rateLimited) return NextResponse.json({ results: [], rateLimited: true, error: "Limite IGDB atteinte — réessaie dans quelques secondes." });
+      results = filtered.data ?? [];
     }
 
     console.log("IGDB: returned", results.length, "results");
     return NextResponse.json({ results });
   } catch (err) {
     console.error("IGDB exception:", err);
-    return NextResponse.json({ offline: true, results: [] });
+    return NextResponse.json({ offline: true, results: [], error: "IGDB inaccessible — vérifie ta connexion." });
   }
 }
