@@ -1,6 +1,6 @@
 import {
   BALL_R, FEVER_THRESHOLD, AIM_LINE_STEPS, PEG_BOUNCE,
-  W, BUCKET_W, BUCKET_SPEED, START_BALLS, STAR_COUNT,
+  W, BUCKET_W, BUCKET_SPEED, START_BALLS, STAR_COUNT, LAUNCHER_X,
 } from "../constants";
 import { buildLevel } from "../levels";
 import { isTarget } from "../peg-kinds";
@@ -57,6 +57,13 @@ export function makeInitialState(
     zoomLevel: 1,
     level,
     hitFreezeFrames: 0,
+
+    launcherX: LAUNCHER_X,
+    launcherTargetX: LAUNCHER_X,
+    launcherVx: 0,
+    launcherDragging: false,
+    launcherGrab: 0,
+
     stars: makeStars(),
     turnScoreStart: 0,
     orangeLeft,

@@ -14,6 +14,8 @@ export const AIM_LINE_STEPS = 180;
 export const SLOW_MO_DURATION = 90;
 export const LAUNCHER_X = W / 2;
 export const LAUNCHER_Y = 28;
+export const LAUNCHER_MARGIN = 28;       // marge bord ↔ centre de l'aigle (drag horizontal)
+export const LAUNCHER_GRAB_R = 34;       // rayon de saisie de l'aigle (espace canvas)
 
 export const START_BALLS = 12;     // œufs au démarrage d'une partie
 export const BUCKET_SPEED = 1.4;   // vitesse du panier (px/frame)

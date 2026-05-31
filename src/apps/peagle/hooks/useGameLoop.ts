@@ -8,7 +8,7 @@ import { resolveTheme } from "../engine/game-theme";
 import { tick } from "../engine/state/tick";
 import { makeInitialState } from "../engine/state/init";
 import { refreshAssetCache, ASSETS_CHANGED_EVENT } from "../engine/assets";
-import { W, H, LAUNCHER_X, LAUNCHER_Y, LAUNCH_SPEED } from "../engine/constants";
+import { W, H, LAUNCHER_Y, LAUNCH_SPEED, LAUNCHER_MARGIN, LAUNCHER_GRAB_R } from "../engine/constants";
 import { isTarget } from "../engine/peg-kinds";
 import type { GameState, UiState } from "../engine/types";
 import type { RunState } from "../engine/roguelite";
@@ -29,6 +29,28 @@ interface UseGameLoopOptions {
 
 function clampAngle(angle: number): number {
   return Math.max(0.15, Math.min(Math.PI - 0.15, angle));
+}
+
+function clampLauncherX(x: number): number {
+  return Math.max(LAUNCHER_MARGIN, Math.min(W - LAUNCHER_MARGIN, x));
+}
+
+// Petite gerbe de plumes au point (x, y) — feedback juicy de saisie / lâcher.
+function spawnFeathers(s: GameState, x: number, y: number, n: number): void {
+  const colors = ["#f5f3ec", "#e8e2d0", "#a06a34", "#7a4a22"];
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const sp = 0.5 + Math.random() * 1.9;
+    s.particles.push({
+      x, y,
+      vx: Math.cos(a) * sp,
+      vy: Math.sin(a) * sp - 0.6,
+      life: 1,
+      maxLife: 0.7 + Math.random() * 0.5,
+      color: colors[(Math.random() * colors.length) | 0]!,
+      size: 1.5 + Math.random() * 1.6,
+    });
+  }
 }
 
 export function useGameLoop({
@@ -134,7 +156,8 @@ export function useGameLoop({
   }, [resetGame]);
 
   function getAngle() {
-    const dx = mouseRef.current.x - LAUNCHER_X;
+    const s = stateRef.current;
+    const dx = mouseRef.current.x - s.launcherX;
     const dy = mouseRef.current.y - LAUNCHER_Y;
     return clampAngle(Math.atan2(dy, dx));
   }
@@ -145,55 +168,89 @@ export function useGameLoop({
 
     const mx = (clientX - rect.left) * (W / rect.width);
     const my = (clientY - rect.top) * (H / rect.height);
-    const angle = clampAngle(Math.atan2(my - LAUNCHER_Y, mx - LAUNCHER_X));
+    const angle = clampAngle(Math.atan2(my - LAUNCHER_Y, mx - s.launcherX));
 
-    s.ball = { x: LAUNCHER_X, y: LAUNCHER_Y, vx: Math.cos(angle) * LAUNCH_SPEED, vy: Math.sin(angle) * LAUNCH_SPEED, active: true, trail: [], trailHead: 0 };
+    s.ball = { x: s.launcherX, y: LAUNCHER_Y, vx: Math.cos(angle) * LAUNCH_SPEED, vy: Math.sin(angle) * LAUNCH_SPEED, active: true, trail: [], trailHead: 0 };
     s.balls -= 1;
     s.turnScoreStart = s.score;
     s.phase = "firing";
     syncUI();
   }, [syncUI]);
 
-  const handleClick = useCallback((e: { currentTarget: { getBoundingClientRect(): DOMRect }; clientX: number; clientY: number }) => {
-    fireBallAtClientPos(e.currentTarget.getBoundingClientRect(), e.clientX, e.clientY);
+  // ── Entrée pointeur unifiée (souris + tactile + stylet) ──────────────────────
+  // Saisir l'aigle (zone autour du lanceur) → drag horizontal. Cliquer ailleurs
+  // dans la zone de jeu → tirer.
+  const draggingRef = useRef(false);
+  const grabOffsetRef = useRef(0);
+  const pressFireRef = useRef(false);
+
+  const toCanvas = (rect: DOMRect, clientX: number, clientY: number) => ({
+    x: (clientX - rect.left) * (W / rect.width),
+    y: (clientY - rect.top) * (H / rect.height),
+  });
+
+  const handlePointerDown = useCallback((e: {
+    currentTarget: { getBoundingClientRect(): DOMRect; setPointerCapture?: (id: number) => void };
+    clientX: number; clientY: number; pointerId: number; preventDefault?: () => void;
+  }) => {
+    e.preventDefault?.();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const p = toCanvas(rect, e.clientX, e.clientY);
+    const s = stateRef.current;
+
+    if (s.phase === "aim" && !s.ball) {
+      const dx = p.x - s.launcherX, dy = p.y - LAUNCHER_Y;
+      if (dx * dx + dy * dy <= LAUNCHER_GRAB_R * LAUNCHER_GRAB_R) {
+        // Saisie de l'aigle → mode drag
+        draggingRef.current = true;
+        grabOffsetRef.current = s.launcherX - p.x;
+        s.launcherDragging = true;
+        spawnFeathers(s, s.launcherX, LAUNCHER_Y + 6, 6);
+        playBip();
+        e.currentTarget.setPointerCapture?.(e.pointerId);
+        return;
+      }
+    }
+    // Sinon : pression dans la zone de jeu → tir au relâchement
+    pressFireRef.current = true;
+    mouseRef.current = p;
+  }, [playBip, mouseRef]);
+
+  const handlePointerMove = useCallback((e: {
+    currentTarget: { getBoundingClientRect(): DOMRect }; clientX: number; clientY: number;
+  }) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const p = toCanvas(rect, e.clientX, e.clientY);
+    if (draggingRef.current) {
+      stateRef.current.launcherTargetX = clampLauncherX(p.x + grabOffsetRef.current);
+    } else {
+      mouseRef.current = p;
+    }
+  }, [mouseRef]);
+
+  const handlePointerUp = useCallback((e: {
+    currentTarget: { getBoundingClientRect(): DOMRect; releasePointerCapture?: (id: number) => void };
+    clientX: number; clientY: number; pointerId: number;
+  }) => {
+    if (draggingRef.current) {
+      draggingRef.current = false;
+      const s = stateRef.current;
+      s.launcherDragging = false;
+      s.launcherTargetX = clampLauncherX(s.launcherTargetX);
+      spawnFeathers(s, s.launcherX, LAUNCHER_Y + 6, 4);
+      e.currentTarget.releasePointerCapture?.(e.pointerId);
+      pressFireRef.current = false;
+      return;
+    }
+    if (pressFireRef.current) {
+      pressFireRef.current = false;
+      fireBallAtClientPos(e.currentTarget.getBoundingClientRect(), e.clientX, e.clientY);
+    }
   }, [fireBallAtClientPos]);
-
-  // Support tactile
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const updateAimFromTouch = (t: Touch) => {
-      const rect = canvas.getBoundingClientRect();
-      mouseRef.current = {
-        x: (t.clientX - rect.left) * (W / rect.width),
-        y: (t.clientY - rect.top) * (H / rect.height),
-      };
-    };
-
-    const onTouchStart = (e: TouchEvent) => { e.preventDefault(); const t = e.touches[0]; if (t) updateAimFromTouch(t); };
-    const onTouchMove = (e: TouchEvent) => { e.preventDefault(); const t = e.touches[0]; if (t) updateAimFromTouch(t); };
-    const onTouchEnd = (e: TouchEvent) => {
-      e.preventDefault();
-      const t = e.changedTouches[0];
-      if (!t) return;
-      updateAimFromTouch(t);
-      fireBallAtClientPos(canvas.getBoundingClientRect(), t.clientX, t.clientY);
-    };
-
-    canvas.addEventListener("touchstart", onTouchStart, { passive: false });
-    canvas.addEventListener("touchmove", onTouchMove, { passive: false });
-    canvas.addEventListener("touchend", onTouchEnd, { passive: false });
-    return () => {
-      canvas.removeEventListener("touchstart", onTouchStart);
-      canvas.removeEventListener("touchmove", onTouchMove);
-      canvas.removeEventListener("touchend", onTouchEnd);
-    };
-  }, [fireBallAtClientPos, mouseRef, canvasRef]);
 
   // Sync UI initiale
   useEffect(() => {
-    orangeTotalRef.current = stateRef.current.pegs.filter(isTarget).length;
+    orangeTotalRef.current = stateRef.current.pegs.filter(p => isTarget(p)).length;
     onOrangeTotalChange(orangeTotalRef.current);
     syncUI();
   }, [syncUI, onOrangeTotalChange]);
@@ -228,6 +285,21 @@ export function useGameLoop({
         theme: resolveTheme(),
         showHitboxes: devConfigRef.current?.showHitboxes ?? false,
       });
+
+      // Curseur dynamique : main ouverte au survol de l'aigle, main fermée pendant
+      // le drag → on comprend qu'on peut l'attraper et le déplacer.
+      const mp = mouseRef.current;
+      const dgx = mp.x - s.launcherX, dgy = mp.y - LAUNCHER_Y;
+      const overBird = s.phase === "aim" && !s.ball &&
+        dgx * dgx + dgy * dgy <= LAUNCHER_GRAB_R * LAUNCHER_GRAB_R;
+      canvas!.style.cursor = s.launcherDragging
+        ? "grabbing"
+        : overBird
+          ? "grab"
+          : s.phase === "aim"
+            ? "crosshair"
+            : "default";
+
       animRef.current = requestAnimationFrame(frame);
     }
 
@@ -236,5 +308,5 @@ export function useGameLoop({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [handleEvent, syncUI]);
 
-  return { stateRef, handleClick, resetGame, nextLevel, skipLevel };
+  return { stateRef, handlePointerDown, handlePointerMove, handlePointerUp, resetGame, nextLevel, skipLevel };
 }

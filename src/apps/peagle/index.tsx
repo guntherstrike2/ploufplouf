@@ -15,7 +15,7 @@ import { UpgradePicker } from "./components/UpgradePicker";
 import { SidePanel } from "./components/SidePanel";
 import { DevPanel } from "./components/DevPanel";
 import type { DevConfig } from "./components/DevPanel";
-import { W, H } from "./engine/constants";
+import { W } from "./engine/constants";
 import type { UiState, LeaderboardEntry, UpgradeId } from "./engine/types";
 import type { RunState } from "./engine/roguelite";
 import { makeInitialRunState, generateUpgradeOffer } from "./engine/roguelite";
@@ -97,7 +97,7 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
   const handleUiSync = useCallback((uiState: UiState) => setUi(uiState), []);
   const handleOrangeTotalChange = useCallback((total: number) => setUi(u => ({ ...u, orangeTotal: total })), []);
 
-  const { handleClick, resetGame, nextLevel, skipLevel } = useGameLoop({
+  const { handlePointerDown, handlePointerMove, handlePointerUp, resetGame, nextLevel, skipLevel } = useGameLoop({
     canvasRef,
     mouseRef,
     runStateRef,
@@ -119,14 +119,6 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     setUpgradeOffer(null);
     nextLevel();
   }, [nextLevel]);
-
-  const handleMouseMove = useCallback((e: { clientX: number; clientY: number; currentTarget: { getBoundingClientRect(): DOMRect } }) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    mouseRef.current = {
-      x: (e.clientX - rect.left) * (W / rect.width),
-      y: (e.clientY - rect.top) * (H / rect.height),
-    };
-  }, []);
 
   const startRun = useCallback(() => {
     devConfigRef.current = null;
@@ -175,8 +167,6 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     >
       {screen === "menu" && (
         <MainMenu
-          bestScore={bestScore}
-          displayName={displayName}
           isAdmin={isAdmin}
           onPlay={startRun}
           onLeaderboard={handleGoToLeaderboard}
@@ -235,8 +225,9 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
                 bestScore={bestScore}
                 user={user}
                 upgradeOfferPending={!!upgradeOffer}
-                onMouseMove={handleMouseMove}
-                onClick={handleClick}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
                 onReplay={handleReplay}
                 onLeaderboard={handleGoToLeaderboard}
                 onMenu={handleGoToMenu}

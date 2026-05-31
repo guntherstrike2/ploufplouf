@@ -1,4 +1,4 @@
-import { W, H, BUCKET_W, BUCKET_H, LAUNCHER_X, LAUNCHER_Y } from "../engine/constants";
+import { W, H, BUCKET_W, BUCKET_H, LAUNCHER_Y, LAUNCHER_MARGIN } from "../engine/constants";
 import { computeAimLine } from "../engine/physics";
 import { getActiveBird, getActiveBucket, getActiveAssetId, EAGLE_BODY, EAGLE_WING, EAGLE_WING_PIVOT, EAGLE_WING_ANCHOR } from "../engine/assets";
 import type { BirdSprite, BucketStyle } from "../engine/assets";
@@ -25,7 +25,7 @@ function drawBirdSkin(ctx: CanvasRenderingContext2D, skin: BirdSprite, cx: numbe
 // Aim line cache — computeAimLine is O(steps × pegs) = ~21 000 ops/frame.
 // During aim phase, pegs never change, so we only recompute when angle or hit
 // state changes. hitSerial = count of hit pegs (O(N) but 120 iters ≪ 21 000).
-const _aimCache = { angle: NaN, level: -1, hitSerial: -1, pts: [] as { x: number; y: number }[] };
+const _aimCache = { angle: NaN, level: -1, hitSerial: -1, lx: NaN, pts: [] as { x: number; y: number }[] };
 
 export function drawAimLine(ctx: CanvasRenderingContext2D, s: GameState, aimAngle: number): void {
   if (s.phase !== "aim") return;
@@ -33,15 +33,18 @@ export function drawAimLine(ctx: CanvasRenderingContext2D, s: GameState, aimAngl
   let hitSerial = 0;
   for (const p of s.pegs) if (p.hit) hitSerial++;
 
+  const lxRounded = Math.round(s.launcherX);
   if (
     _aimCache.level !== s.level ||
     _aimCache.hitSerial !== hitSerial ||
+    _aimCache.lx !== lxRounded ||
     Math.abs(_aimCache.angle - aimAngle) >= 0.001
   ) {
-    _aimCache.pts = computeAimLine(LAUNCHER_X, LAUNCHER_Y, aimAngle, s.pegs, s.effectiveBallR, s.effectiveAimSteps);
+    _aimCache.pts = computeAimLine(s.launcherX, LAUNCHER_Y, aimAngle, s.pegs, s.effectiveBallR, s.effectiveAimSteps);
     _aimCache.angle = aimAngle;
     _aimCache.level = s.level;
     _aimCache.hitSerial = hitSerial;
+    _aimCache.lx = lxRounded;
   }
 
   const pts = _aimCache.pts;
@@ -92,10 +95,17 @@ function drawTalonLeg(ctx: CanvasRenderingContext2D, dir: number, hipX: number, 
 }
 
 // Pattes de l'aigle, dessinées à part pour pouvoir s'écarter à la ponte.
-function drawEagleLegs(ctx: CanvasRenderingContext2D, ponte: number): void {
+// `swing` = balancier du bassin (pendule) → les pattes pendouillent et traînent
+// quand l'aigle se déplace, comme sur l'écran-titre. L'écartement reste piloté
+// par `ponte` (mécanique de ponte conservée).
+function drawEagleLegs(ctx: CanvasRenderingContext2D, ponte: number, swing: number): void {
   const ang = 0.12 + ponte * 0.8; // 0.12 rad au repos → grand écart à la ponte
-  drawTalonLeg(ctx, -1, 3.5, 12, ang, 13);
-  drawTalonLeg(ctx, +1, 3.5, 12, ang, 13);
+  ctx.save();
+  ctx.translate(0, 9);    // pivot de hanche
+  ctx.rotate(swing);      // tout le bassin balance
+  drawTalonLeg(ctx, -1, 3.5, 3, ang, 13);
+  drawTalonLeg(ctx, +1, 3.5, 3, ang, 13);
+  ctx.restore();
 }
 
 // Aile de l'aigle pré-rendue sur un canvas hors-écran : on la fait pivoter via
@@ -157,9 +167,82 @@ function drawWindStreaks(ctx: CanvasRenderingContext2D, phase: number): void {
   ctx.restore();
 }
 
-export function drawLauncher(ctx: CanvasRenderingContext2D, s: GameState, aimAngle: number): void {
+// Rail horizontal discret : signale que l'aigle se déplace de gauche à droite.
+// Visible seulement en phase de visée, pulse légèrement sous l'aigle.
+function drawLauncherRail(ctx: CanvasRenderingContext2D, s: GameState): void {
+  if (s.phase !== "aim") return;
+  const y = LAUNCHER_Y;
+  const pulse = 0.5 + 0.5 * Math.sin(s.animClock * 4);
+  const base = 0.14 + 0.08 * pulse + s.launcherGrab * 0.25;
+
   ctx.save();
-  ctx.translate(LAUNCHER_X, LAUNCHER_Y);
+  ctx.setLineDash([4, 6]);
+  ctx.lineDashOffset = -(s.animClock * 22);
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = `rgba(255,220,140,${base.toFixed(3)})`;
+  ctx.beginPath();
+  ctx.moveTo(LAUNCHER_MARGIN, y);
+  ctx.lineTo(W - LAUNCHER_MARGIN, y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Chevrons clignotants de part et d'autre de l'aigle → invite au drag
+  const hint = (0.25 + 0.55 * pulse) * (1 - s.launcherGrab);
+  if (hint > 0.04) {
+    ctx.strokeStyle = `rgba(255,235,170,${hint.toFixed(3)})`;
+    ctx.lineWidth = 2;
+    for (const dir of [-1, 1] as const) {
+      const cx = s.launcherX + dir * (26 + 3 * pulse);
+      ctx.beginPath();
+      ctx.moveTo(cx - dir * 4, y - 5);
+      ctx.lineTo(cx + dir * 4, y);
+      ctx.lineTo(cx - dir * 4, y + 5);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+export function drawLauncher(ctx: CanvasRenderingContext2D, s: GameState, aimAngle: number): void {
+  drawLauncherRail(ctx, s);
+
+  const vx = s.launcherVx;
+  const grab = s.launcherGrab;
+  const speed = Math.min(1, Math.abs(vx) / 7);
+
+  ctx.save();
+  ctx.translate(s.launcherX, LAUNCHER_Y);
+
+  // Lueur dorée à la saisie (halo radial, derrière tout)
+  if (grab > 0.01) {
+    const g = ctx.createRadialGradient(0, 0, 2, 0, 0, 42);
+    g.addColorStop(0, `rgba(255,222,120,${(0.45 * grab).toFixed(3)})`);
+    g.addColorStop(1, "rgba(255,222,120,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(-42, -42, 84, 84);
+  }
+
+  // Traits de vitesse traînant à l'opposé du mouvement (espace monde, non tourné)
+  if (speed > 0.12) {
+    ctx.save();
+    ctx.globalAlpha = speed * 0.55;
+    ctx.strokeStyle = "rgba(255,255,255,0.7)";
+    ctx.lineWidth = 1;
+    const dir = vx > 0 ? -1 : 1;
+    for (const dy of [-9, -3, 3, 9]) {
+      ctx.beginPath();
+      ctx.moveTo(dir * 18, dy);
+      ctx.lineTo(dir * (18 + 16 * speed), dy);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // Lean (banque dans le sens du déplacement) + squash & stretch + pop de saisie
+  const bank = Math.max(-0.26, Math.min(0.26, vx * 0.05));
+  const pop = 1 + grab * 0.12;
+  ctx.rotate(bank);
+  ctx.scale((1 + speed * 0.18) * pop, (1 - speed * 0.12) * pop);
 
   // L'œuf est pondu par les fesses : l'oiseau pointe son arrière dans la
   // direction de tir (rotation de aimAngle − π/2, soit 180° par rapport à
@@ -168,20 +251,26 @@ export function drawLauncher(ctx: CanvasRenderingContext2D, s: GameState, aimAng
 
   if (getActiveAssetId("bird") === "aigle") {
     // ── Aigle animé : ailes qui battent (vol) + bob + pattes qui s'écartent ──
-    const phase = s.animClock * 8;
-    const flap = Math.sin(phase) * 0.35;     // battement continu
+    const phase = s.animClock * 5.5;
+    const flap = Math.sin(phase) * (0.35 + speed * 0.3); // bat plus fort en mouvement
     const bob = Math.cos(phase) * 1.2;       // léger flottement vertical
     ctx.translate(0, bob);
 
     let ponte = 0;
     if (s.ball) {
-      const dx = s.ball.x - LAUNCHER_X, dy = s.ball.y - LAUNCHER_Y;
+      const dx = s.ball.x - s.launcherX, dy = s.ball.y - LAUNCHER_Y;
       ponte = Math.max(0, 1 - Math.hypot(dx, dy) / 70);
     }
 
+    // Balancier des pattes : elles traînent à l'opposé du déplacement (pendule)
+    // + léger frémissement idle. Le tout reste sous le corps quoi qu'il arrive.
+    const legSwing =
+      Math.max(-0.5, Math.min(0.5, -vx * 0.045)) +
+      Math.sin(s.animClock * 3.2) * 0.06;
+
     drawWindStreaks(ctx, phase);             // effet de vol (derrière tout)
     drawEagleWings(ctx, flap);               // ailes derrière le corps
-    drawEagleLegs(ctx, ponte);               // pattes (s'écartent à la ponte)
+    drawEagleLegs(ctx, ponte, legSwing);     // pattes (écart ponte + balancier)
     drawBirdSkin(ctx, EAGLE_BODY, 0, 0, 1);  // corps par-dessus
   } else {
     // Autres oiseaux : grille unique, taille cible ~48px.

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState, useMemo } from "react";
-import type { RefObject, MouseEvent } from "react";
+import type { RefObject, PointerEvent } from "react";
 import type { UiState } from "../engine/types";
 import { W, H } from "../engine/constants";
 import { captionBtn, btnRaised, PG } from "../styles";
@@ -31,8 +31,9 @@ interface GameCanvasProps {
   bestScore: number;
   user: { name?: string | null; email?: string | null; id?: string } | null;
   upgradeOfferPending: boolean;
-  onMouseMove: (e: MouseEvent<HTMLCanvasElement>) => void;
-  onClick: (e: MouseEvent<HTMLCanvasElement>) => void;
+  onPointerDown: (e: PointerEvent<HTMLCanvasElement>) => void;
+  onPointerMove: (e: PointerEvent<HTMLCanvasElement>) => void;
+  onPointerUp: (e: PointerEvent<HTMLCanvasElement>) => void;
   onReplay: () => void;
   onLeaderboard: () => void;
   onMenu: () => void;
@@ -44,8 +45,9 @@ export function GameCanvas({
   bestScore,
   user,
   upgradeOfferPending,
-  onMouseMove,
-  onClick,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
   onReplay,
   onLeaderboard,
   onMenu,
@@ -104,14 +106,16 @@ export function GameCanvas({
         style={{
           width: cssSize.w,
           height: cssSize.h,
-          cursor: ui.phase === "aim" ? "crosshair" : "default",
+          // curseur géré dynamiquement dans la boucle rAF (cf. useGameLoop) :
+          // grab/grabbing au survol & drag de l'aigle, crosshair en visée
           display: "block",
           imageRendering: "pixelated",
           touchAction: "none",
           background: "#060e04",
         }}
-        onMouseMove={onMouseMove}
-        onClick={onClick}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
       />
 
       {isGameOver && !upgradeOfferPending && (

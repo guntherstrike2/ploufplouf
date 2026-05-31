@@ -18,6 +18,17 @@ export function tick(s: GameState): TickResult {
 
   s.animClock += 0.03;
 
+  // Lanceur : ressort vers la cible de drag, avec léger dépassement → juicy.
+  // Toujours mis à jour (même en hit-freeze) pour rester réactif au doigt.
+  const lx = s.launcherTargetX - s.launcherX;
+  s.launcherVx = (s.launcherVx + lx * 0.45) * 0.6;
+  s.launcherX += s.launcherVx;
+  if (Math.abs(lx) < 0.05 && Math.abs(s.launcherVx) < 0.05) {
+    s.launcherX = s.launcherTargetX;
+    s.launcherVx = 0;
+  }
+  s.launcherGrab += ((s.launcherDragging ? 1 : 0) - s.launcherGrab) * 0.2;
+
   // Hit freeze : fige la physique, anime seulement les scales de pegs
   if (s.hitFreezeFrames > 0) {
     s.hitFreezeFrames--;

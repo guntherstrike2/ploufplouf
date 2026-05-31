@@ -91,6 +91,14 @@ export interface GameState {
   zoomLevel: number;
   level: number;
   hitFreezeFrames: number;
+
+  // Lanceur (aigle) déplaçable horizontalement par drag
+  launcherX: number;        // position rendue (où l'œuf apparaît)
+  launcherTargetX: number;  // cible suivie par ressort (mise à jour au drag)
+  launcherVx: number;       // vélocité du ressort → lean / squash juicy
+  launcherDragging: boolean;
+  launcherGrab: number;     // 0..1 anim de saisie (pop + lueur)
+
   stars: Star[];
   turnScoreStart: number;
   orangeLeft: number;
