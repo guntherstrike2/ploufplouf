@@ -88,3 +88,103 @@ export interface Filters {
   year: number | null;
   tiers: TierId[];
 }
+
+// ── Mode Journaliste ──
+
+/** Priorité des tiers pour le tiebreaker (plus haut = prioritaire). */
+export const TIER_PRIORITY: Record<TierId, number> = {
+  diamond: 5,
+  gold: 4,
+  silver: 3,
+  bronze: 2,
+  banger: 1,
+  caca: 0,
+};
+
+export interface JournalistCategory {
+  min: number;
+  max: number;
+  label: string;
+  emoji: string;
+  color: string;
+  bgColor: string;
+}
+
+/** Catégories journalistiques façon Console+. */
+export const JOURNALIST_CATEGORIES: JournalistCategory[] = [
+  { min: 95, max: 100, label: "MYTHIQUE", emoji: "👑", color: "#FFD700", bgColor: "#1a1a2e" },
+  { min: 85, max: 94,  label: "EXCEPTIONNEL", emoji: "🌟", color: "#FF6B6B", bgColor: "#1a1a2e" },
+  { min: 75, max: 84,  label: "EXCELLENT", emoji: "✨", color: "#4ECDC4", bgColor: "#1a1a2e" },
+  { min: 65, max: 74,  label: "TRÈS BON", emoji: "👍", color: "#45B7D1", bgColor: "#1a1a2e" },
+  { min: 50, max: 64,  label: "BON", emoji: "👌", color: "#96CEB4", bgColor: "#1a1a2e" },
+  { min: 35, max: 49,  label: "MOYEN", emoji: "😐", color: "#FFEAA7", bgColor: "#1a1a2e" },
+  { min: 20, max: 34,  label: "PASSABLE", emoji: "😬", color: "#DFE6E9", bgColor: "#1a1a2e" },
+  { min: 0,  max: 19,  label: "À ÉVITER", emoji: "💀", color: "#B2BEC3", bgColor: "#1a1a2e" },
+];
+
+/** Retourne la catégorie correspondant à un pourcentage. */
+export function getJournalistCategory(pct: number): JournalistCategory {
+  for (const cat of JOURNALIST_CATEGORIES) {
+    if (pct >= cat.min && pct <= cat.max) return cat;
+  }
+  return JOURNALIST_CATEGORIES[JOURNALIST_CATEGORIES.length - 1]!;
+}
+
+export interface JournalistEntry {
+  ranking: RankingEntry;
+  /** Position absolue (1-based) dans le classement journalistique. */
+  rank: number;
+  /** Note convertie en pourcentage (0-100). */
+  percentage: number;
+  /** Catégorie Console+. */
+  category: JournalistCategory;
+  /** Position dans le vrai classement du kiff (0 = meilleur), pour le tiebreaker. */
+  kiffRank: number;
+}
+
+/**
+ * Calcule la liste journalistique.
+ * @param displayRankings Les jeux à afficher (peut être filtré par plateforme/genre/année).
+ * @param kiffRankSource La source pour le calcul du "vrai classement du kiff" (tiebreaker).
+ *                        Si omis, utilise displayRankings.
+ */
+export function computeJournalistList(
+  displayRankings: RankingEntry[],
+  kiffRankSource?: RankingEntry[],
+): JournalistEntry[] {
+  const source = kiffRankSource ?? displayRankings;
+
+  // 1. Calculer le "kiff rank" global (position dans le classement par tiers)
+  const byKiffRank = [...source].sort((a, b) => {
+    const pa = TIER_PRIORITY[a.tier as TierId] ?? 0;
+    const pb = TIER_PRIORITY[b.tier as TierId] ?? 0;
+    if (pa !== pb) return pb - pa; // priorité décroissante
+    return a.sortOrder - b.sortOrder; // sortOrder croissant
+  });
+  const kiffRankMap = new Map<number, number>();
+  byKiffRank.forEach((r, i) => kiffRankMap.set(r.id, i));
+
+  // 2. Filtrer les jeux sans note (sur la liste d'affichage)
+  const withNotes = displayRankings.filter((r) => r.objectiveNote != null);
+
+  // 3. Trier par note décroissante, puis kiff rank croissant (tiebreaker)
+  withNotes.sort((a, b) => {
+    const noteDiff = (b.objectiveNote ?? 0) - (a.objectiveNote ?? 0);
+    if (noteDiff !== 0) return noteDiff;
+    const ka = kiffRankMap.get(a.id) ?? 9999;
+    const kb = kiffRankMap.get(b.id) ?? 9999;
+    return ka - kb;
+  });
+
+  // 4. Construire la liste finale
+  return withNotes.map((r, i) => {
+    const pct = (r.objectiveNote ?? 0) * 10;
+    return {
+      ranking: r,
+      rank: i + 1,
+      percentage: pct,
+      category: getJournalistCategory(pct),
+      kiffRank: kiffRankMap.get(r.id) ?? 9999,
+    };
+  });
+}
