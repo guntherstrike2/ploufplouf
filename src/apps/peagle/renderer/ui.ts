@@ -1,6 +1,6 @@
 import { W, H, BUCKET_W, BUCKET_H, LAUNCHER_X, LAUNCHER_Y } from "../engine/constants";
 import { computeAimLine } from "../engine/physics";
-import { getActiveBird, getActiveBucket, getActiveAssetId } from "../engine/assets";
+import { getActiveBird, getActiveBucket, getActiveAssetId, EAGLE_BODY, EAGLE_WING, EAGLE_WING_PIVOT, EAGLE_WING_ANCHOR } from "../engine/assets";
 import type { BirdSprite, BucketStyle } from "../engine/assets";
 import type { GameState } from "../engine/types";
 
@@ -98,34 +98,98 @@ function drawEagleLegs(ctx: CanvasRenderingContext2D, ponte: number): void {
   drawTalonLeg(ctx, +1, 3.5, 12, ang, 13);
 }
 
+// Aile de l'aigle pré-rendue sur un canvas hors-écran : on la fait pivoter via
+// drawImage (rotation bitmap → pas de trous, contrairement à des fillRect tournés).
+let _wingCanvas: HTMLCanvasElement | null = null;
+function getWingCanvas(): HTMLCanvasElement | null {
+  if (_wingCanvas) return _wingCanvas;
+  if (typeof document === "undefined") return null;
+  const g = EAGLE_WING.grid, rows = g.length, cols = g[0]?.length ?? 0;
+  const cv = document.createElement("canvas");
+  cv.width = cols; cv.height = rows;
+  const c = cv.getContext("2d");
+  if (!c) return null;
+  for (let r = 0; r < rows; r++) {
+    const row = g[r]!;
+    for (let x = 0; x < cols; x++) {
+      const ch = row[x]!;
+      const col = ch === "." ? null : EAGLE_WING.palette[ch];
+      if (col) { c.fillStyle = col; c.fillRect(x, r, 1, 1); }
+    }
+  }
+  _wingCanvas = cv;
+  return cv;
+}
+
+// Battement : chaque aile tourne autour de l'épaule (ancre). `flap` < 0 = aile
+// levée, > 0 = aile baissée. La droite est l'image miroir de la gauche.
+function drawEagleWings(ctx: CanvasRenderingContext2D, flap: number): void {
+  const wing = getWingCanvas();
+  if (!wing) return;
+  const { x: ax, y: ay } = EAGLE_WING_ANCHOR;
+  const { x: pvx, y: pvy } = EAGLE_WING_PIVOT;
+  ctx.imageSmoothingEnabled = false;
+  for (const dir of [-1, 1] as const) {
+    ctx.save();
+    ctx.translate(dir * -ax, ay);      // épaule (x miroité pour la droite)
+    if (dir > 0) ctx.scale(-1, 1);     // aile droite = miroir
+    ctx.rotate(flap);
+    ctx.drawImage(wing, -pvx, -pvy);
+    ctx.restore();
+  }
+}
+
+// Traits de vent aux bouts d'ailes, visibles surtout sur la descente (flap').
+function drawWindStreaks(ctx: CanvasRenderingContext2D, phase: number): void {
+  const a = Math.max(0, Math.cos(phase)) * 0.22; // pic en pleine descente
+  if (a < 0.02) return;
+  ctx.save();
+  ctx.strokeStyle = `rgba(255,255,255,${a.toFixed(3)})`;
+  ctx.lineWidth = 1;
+  for (const dir of [-1, 1] as const) {
+    for (const dy of [-2, 5]) {
+      ctx.beginPath();
+      ctx.moveTo(dir * 24, dy);
+      ctx.lineTo(dir * 31, dy); // court trait au-delà du bout d'aile
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
 export function drawLauncher(ctx: CanvasRenderingContext2D, s: GameState, aimAngle: number): void {
   ctx.save();
   ctx.translate(LAUNCHER_X, LAUNCHER_Y);
-
-  const skin = getActiveBird();
-  // cellPx dérivé d'une empreinte cible (~48px) → taille constante quelle que
-  // soit la résolution de la grille (9×9, 16×16, 48×48…).
-  const cols = skin.grid[0]?.length ?? 9;
-  const cellPx = Math.max(1, Math.round(48 / cols));
 
   // L'œuf est pondu par les fesses : l'oiseau pointe son arrière dans la
   // direction de tir (rotation de aimAngle − π/2, soit 180° par rapport à
   // « tête en avant »).
   ctx.rotate(aimAngle - Math.PI / 2);
 
-  // Intensité de ponte : ~1 quand l'œuf vient d'être pondu (proche du launcher),
-  // décroît à mesure qu'il s'éloigne. Pilote l'écartement des pattes. lol
-  let ponte = 0;
-  if (s.ball) {
-    const dx = s.ball.x - LAUNCHER_X, dy = s.ball.y - LAUNCHER_Y;
-    ponte = Math.max(0, 1 - Math.hypot(dx, dy) / 70);
+  if (getActiveAssetId("bird") === "aigle") {
+    // ── Aigle animé : ailes qui battent (vol) + bob + pattes qui s'écartent ──
+    const phase = s.animClock * 8;
+    const flap = Math.sin(phase) * 0.35;     // battement continu
+    const bob = Math.cos(phase) * 1.2;       // léger flottement vertical
+    ctx.translate(0, bob);
+
+    let ponte = 0;
+    if (s.ball) {
+      const dx = s.ball.x - LAUNCHER_X, dy = s.ball.y - LAUNCHER_Y;
+      ponte = Math.max(0, 1 - Math.hypot(dx, dy) / 70);
+    }
+
+    drawWindStreaks(ctx, phase);             // effet de vol (derrière tout)
+    drawEagleWings(ctx, flap);               // ailes derrière le corps
+    drawEagleLegs(ctx, ponte);               // pattes (s'écartent à la ponte)
+    drawBirdSkin(ctx, EAGLE_BODY, 0, 0, 1);  // corps par-dessus
+  } else {
+    // Autres oiseaux : grille unique, taille cible ~48px.
+    const skin = getActiveBird();
+    const cols = skin.grid[0]?.length ?? 9;
+    const cellPx = Math.max(1, Math.round(48 / cols));
+    drawBirdSkin(ctx, skin, 0, 0, cellPx);
   }
-
-  // Pattes derrière le corps (côté fesses, donc face à la cible) : elles
-  // dépassent sous l'aigle et s'écartent au moment de la ponte.
-  if (getActiveAssetId("bird") === "aigle") drawEagleLegs(ctx, ponte);
-
-  drawBirdSkin(ctx, skin, 0, 0, cellPx);
 
   ctx.restore();
 }

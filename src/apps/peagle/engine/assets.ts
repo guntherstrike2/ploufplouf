@@ -147,6 +147,96 @@ export const BACKGROUNDS: AssetVariant<BgVariant>[] = [
 // ─── Sprites d'oiseau (le lanceur) ───────────────────────────────────────────────
 // Grilles dessinées tête en haut. '.' = vide, autres lettres = clé de palette.
 
+// ─── Aigle : corps + aile séparés pour l'animation de vol (battement) ────────────
+// Le launcher dessine EAGLE_BODY puis l'aile gauche/droite en rotation autour de
+// l'épaule (EAGLE_WING_ANCHOR, pivot = EAGLE_WING_PIVOT). Généré par gen-eagle.mjs.
+const EAGLE_PALETTE: Record<string, string> = {
+  k: "#1a120a", H: "#ffffff", W: "#e9eef2", w: "#bcc7d2", g: "#8a9bad",
+  Y: "#ffd24a", y: "#f5a623", o: "#b86c14", a: "#ffcc33",
+  B: "#a06a34", m: "#7a4a22", d: "#4f2f16", D: "#301c0d",
+};
+
+export const EAGLE_BODY: BirdSprite = {
+  grid: [
+    "................................................",
+    "...................kkkkkkkkkk...................",
+    "..................kkWWWWWWWWkk..................",
+    ".................kkWwwwwwwwwWkk.................",
+    "................kkWwwHHHHHHwwWkk................",
+    "..............kkkWwwHHHHHHHHwwWkkkk.............",
+    "..............kgkwwHHHHHHHHHHwwkkgk.............",
+    "..............kgggggggHHHHHgggggggk.............",
+    "..............kkwaaaHHHHHHHHHaaakkk.............",
+    "...............kaakaaHHHHHHHaakaak..............",
+    "...............kwaaaHHHHHHHHHaaakk..............",
+    "...............kwwaWYYYYYYYYYWawk...............",
+    "...............kwwWWWYYYYYYYWWwwk...............",
+    "..............kkwwwWWyyyyyyyWwwwkk..............",
+    ".............kkWwwwWWyyyyyyyWwwwWkk.............",
+    "............kkWWWwwwWWyyyyyWwwwWWWkk............",
+    "...........kkWWWWwwwwWoyyyywwwwWWWWkk...........",
+    "...........kWWWWWWwwwwyooyywwwWWWWWWk...........",
+    "...........kWWWWWWWwwwwooywwwWWWWWWWk...........",
+    "...........kWWWWWWWWwwwwowwwWWWWWWWWk...........",
+    "...........kkWWWWWWWWWWWoWWWWWWWWWWkk...........",
+    "............kkWWWWWWWWWWWWWWWWWWWWkk............",
+    ".............kkWWWWWWWWWWWWWWWWWWkk.............",
+    ".............kmmmWWWWWWWWWWWWWWmmmk.............",
+    ".............kmmmmBBBBBBBBBBBBmmmmk.............",
+    ".............kmmmmBBmBmBBmBmBBmmmmk.............",
+    ".............kmmmBBdBBBBdBBBBdBmmmk.............",
+    ".............kmmmBBBBBBBBBBBBBBmmmk.............",
+    ".............kmmmBBBBBBBBBBBBBBmmmk.............",
+    ".............kmmmmBBmBmBBmBmBBmmmmk.............",
+    ".............kmmmBBdBBBBdBBBBdBmmmk.............",
+    ".............kmmmBBBBBBBBBBBBBBmmmk.............",
+    ".............kkmmBBBBBBBBBBBBBBmmkk.............",
+    "..............kmmmBBmBmBBmBmBBmmmk..............",
+    "..............kmmBBdBBBBdBBBBdBmmk..............",
+    "..............kkmmBBBBBBBBBBBBmmkk..............",
+    "...............kmmBBBBBBBBBBBBmmk...............",
+    "...............kkmmBmBmBBmBmBmmkk...............",
+  ],
+  palette: EAGLE_PALETTE,
+};
+
+export const EAGLE_WING: BirdSprite = {
+  grid: [
+    "............kkk.........",
+    "....kkkkkkkkkmkkk.......",
+    "....kmmmmmmBmmmmkkk.....",
+    "...kkmmmBBBBBBBmmmkkk...",
+    "..kkBBBBBBBBBBBBBBmmkkkk",
+    ".kkmBBBBBBBBBBBBBBBBBBmk",
+    "kkmBBBBBBBBBBBBBBBBBBmmk",
+    "kmmBBBBBBBBBBBBBBBBBmmmk",
+    "kmmmmmmmmmmmmmmmmmmmmmmk",
+    "kmmmmmmmmmmmmmmmmmmmmmmk",
+    "kmmmmmmmmmmmmmmmmmmmmmkk",
+    "kmmBBBmBBBmBBBmBBBmmmmk.",
+    "mmBBBBBBBBBBBBBBBBBmmkk.",
+    "DmmBBBmBBBmBBBmBBBmmmk..",
+    "Dmmmmmmmmmmmmmmmmmdmmk..",
+    "DDmmmmddddddddddddmkkk..",
+    "Ddddddddddddddddddkk....",
+    "DDddddddddddddddddk.....",
+    "DDDkdddkDDDkdkkkkkk.....",
+    "DDDkdddkDDDkddk.........",
+    "DDDkdddkDDDkddk.........",
+    "DDDkdddkDDDkddk.........",
+    "DDDkdddkDDDkddkk........",
+    "DDDkdddkDDDkdddk........",
+    "kDDkdddkDDDkkkkk........",
+    "kkDkdddkDDDk............",
+    ".kkkkkkkkkkk............",
+  ],
+  palette: EAGLE_PALETTE,
+};
+
+// Pivot (épaule) dans la grille d'aile, et son ancrage relatif au centre du corps.
+export const EAGLE_WING_PIVOT = { x: 22, y: 5 };
+export const EAGLE_WING_ANCHOR = { x: -2, y: -3 };
+
 export const BIRD_SPRITES: AssetVariant<BirdSprite>[] = [
   // Aigle de face, ailes déployées (48×48). Généré via scripts/gen-eagle.mjs
   // (sculpté par formes + contour auto), puis affiné. L'oiseau ne tourne pas.
