@@ -52,31 +52,15 @@ export function PeagleApp(_props: AppProps) {
   const [best, setBest] = useState<number>(readBest);
   const [finalScore, setFinalScore] = useState(0);
 
-  const resetTrackingRef = useRef<((p: GameState["phase"]) => void) | null>(null);
-
-  const installLevel = useCallback((run: RunState, startScore: number) => {
-    stateRef.current = createGame(resolveConfig(run), run.level, startScore);
-    resetTrackingRef.current?.("aim");
+  // ── core callbacks (independent of the loop hook) ────────────────────────
+  const handleSnapshot = useCallback((s: HudSnapshot) => {
+    setSnap(s);
+    setBest((b) => {
+      if (s.score <= b) return b;
+      if (typeof window !== "undefined") localStorage.setItem(BEST_KEY, String(s.score));
+      return s.score;
+    });
   }, []);
-
-  const startGame = useCallback(() => {
-    sound.init();
-    runRef.current = newRun();
-    installLevel(runRef.current, 0);
-    setSnap(null);
-    setScreen("game");
-  }, [installLevel, sound]);
-
-  const handleSnapshot = useCallback(
-    (s: HudSnapshot) => {
-      setSnap(s);
-      if (s.score > best) {
-        setBest(s.score);
-        if (typeof window !== "undefined") localStorage.setItem(BEST_KEY, String(s.score));
-      }
-    },
-    [best],
-  );
 
   const handleLevelWon = useCallback((score: number) => {
     runRef.current = { ...runRef.current, score };
@@ -86,23 +70,13 @@ export function PeagleApp(_props: AppProps) {
 
   const handleGameOver = useCallback((score: number) => {
     setFinalScore(score);
-    if (score > readBest()) {
-      setBest(score);
+    setBest((b) => {
+      if (score <= b) return b;
       if (typeof window !== "undefined") localStorage.setItem(BEST_KEY, String(score));
-    }
+      return score;
+    });
     setScreen("over");
   }, []);
-
-  const handlePick = useCallback(
-    (id: UpgradeId) => {
-      const carried = runRef.current.score;
-      const next = advanceLevel({ ...runRef.current, upgrades: [...runRef.current.upgrades, id] }, 0);
-      runRef.current = next;
-      installLevel(next, carried);
-      setScreen("game");
-    },
-    [installLevel],
-  );
 
   const { handlePointerMove, handleClick, resetTracking } = useGameLoop({
     canvasRef,
@@ -114,7 +88,34 @@ export function PeagleApp(_props: AppProps) {
     onGameOver: handleGameOver,
     onSnapshot: handleSnapshot,
   });
-  resetTrackingRef.current = resetTracking;
+
+  // ── level lifecycle (uses resetTracking returned by the loop hook) ───────
+  const installLevel = useCallback(
+    (run: RunState, startScore: number) => {
+      stateRef.current = createGame(resolveConfig(run), run.level, startScore);
+      resetTracking("aim");
+    },
+    [resetTracking],
+  );
+
+  const startGame = useCallback(() => {
+    sound.init();
+    runRef.current = newRun();
+    installLevel(runRef.current, 0);
+    setSnap(null);
+    setScreen("game");
+  }, [installLevel, sound]);
+
+  const handlePick = useCallback(
+    (id: UpgradeId) => {
+      const carried = runRef.current.score;
+      const next = advanceLevel({ ...runRef.current, upgrades: [...runRef.current.upgrades, id] }, 0);
+      runRef.current = next;
+      installLevel(next, carried);
+      setScreen("game");
+    },
+    [installLevel],
+  );
 
   if (screen === "menu") {
     return <MainMenu best={best} onPlay={startGame} />;

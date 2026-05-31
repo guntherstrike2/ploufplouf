@@ -8,6 +8,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   type MutableRefObject,
   type PointerEvent as ReactPointerEvent,
@@ -58,9 +59,12 @@ export function useGameLoop({
   const lastSnapRef = useRef<HudSnapshot | null>(null);
   const lastTimeRef = useRef<number>(0);
 
-  // keep callbacks fresh without restarting the rAF
+  // keep callbacks fresh without restarting the rAF — updated in a layout
+  // effect (never during render) so the rAF closure always reads current values
   const cbRef = useRef({ onLevelWon, onGameOver, onSnapshot, sfx, theme, active });
-  cbRef.current = { onLevelWon, onGameOver, onSnapshot, sfx, theme, active };
+  useLayoutEffect(() => {
+    cbRef.current = { onLevelWon, onGameOver, onSnapshot, sfx, theme, active };
+  });
 
   const toInternal = useCallback(
     (clientX: number, clientY: number) => {
