@@ -127,6 +127,21 @@ export function useGunthrankData() {
   }) => {
     const { toIndex, ...data } = gameData;
     if (devMode) {
+      // Try to translate the summary to French (MyMemory free API, no key needed)
+      let summaryFr: string | null = null;
+      if (data.summary) {
+        try {
+          const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(data.summary)}&langpair=en|fr`;
+          const res = await fetch(url);
+          if (res.ok) {
+            const json = await res.json() as { responseStatus: number; responseData: { translatedText: string } };
+            if (json.responseStatus === 200 && json.responseData.translatedText !== data.summary) {
+              summaryFr = json.responseData.translatedText;
+            }
+          }
+        } catch { /* ignore — fallback to English summary */ }
+      }
+
       const devGame: GameCatalogEntry = {
         id: Date.now(),
         igdbId: data.igdbId ?? null,
@@ -137,7 +152,7 @@ export function useGunthrankData() {
         genres: data.genres ? JSON.stringify(data.genres) : null,
         releaseDate: data.releaseDate ?? null,
         summary: data.summary ?? null,
-        summaryFr: null,
+        summaryFr,
         videos: data.videos ? JSON.stringify(data.videos) : null,
         createdAt: new Date(),
       };
