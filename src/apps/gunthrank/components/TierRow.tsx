@@ -470,7 +470,6 @@ export function TierRow({ tier, games, readOnly, viewLayout, recentlyMovedIds, o
             style={{
               display: "grid",
               gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))",
-              gridAutoRows: "1fr",
               alignContent: "start",
             }}
             onDragOverCapture={(e) => {
@@ -492,7 +491,6 @@ export function TierRow({ tier, games, readOnly, viewLayout, recentlyMovedIds, o
                   onDrop={(e) => handleListItemDrop(e, r.id, index)}
                   className="rounded"
                   style={{
-                    height: "100%",
                     // ── Swap glow ──
                     outline: isSwapTarget ? "3px solid var(--t-accent)" : "3px solid transparent",
                     outlineOffset: 3,

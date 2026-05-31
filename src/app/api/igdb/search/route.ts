@@ -21,7 +21,7 @@ function platformClause(platform: string): string {
 let cachedToken: string | null = null;
 let cachedExpiresAt = 0;
 
-const FIELDS = "name,slug,cover.url,platforms.name,genres.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name,first_release_date,summary";
+const FIELDS = "name,slug,cover.url,platforms.name,genres.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name,first_release_date,summary,videos.video_id,videos.name";
 
 async function fetchWithRetry(url: string, init: RequestInit, retries = 3): Promise<Response> {
   let lastErr: unknown;
@@ -125,6 +125,7 @@ async function queryIgdb(token: string, bodyStr: string) {
     genres?: Array<{ name: string }>;
     involved_companies?: Array<{ developer: boolean; publisher: boolean; company: { name: string } }>;
     first_release_date?: number; summary?: string;
+    videos?: Array<{ video_id: string; name?: string }>;
   }>;
 
   return {
@@ -147,6 +148,7 @@ async function queryIgdb(token: string, bodyStr: string) {
         ? new Date(g.first_release_date * 1000).getFullYear()
         : null,
       summary: g.summary ?? null,
+      videos: g.videos?.map((v) => ({ videoId: v.video_id, name: v.name ?? null })) ?? [],
     })),
     rateLimited: false,
   } as const;
@@ -164,7 +166,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ offline: true, results: [], error: "Impossible de se connecter à IGDB (token invalide)." });
   }
 
-  type IgdbResult = { igdbId: number; name: string; slug: string | null; coverUrl: string | null; platforms: string[]; genres: string[]; publishers: string[]; developers: string[]; releaseYear: number | null; summary: string | null };
+  type IgdbResult = { igdbId: number; name: string; slug: string | null; coverUrl: string | null; platforms: string[]; genres: string[]; publishers: string[]; developers: string[]; releaseYear: number | null; summary: string | null; videos: Array<{ videoId: string; name: string | null }> };
 
   try {
     // If no filters at all, return popular games

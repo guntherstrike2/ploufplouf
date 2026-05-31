@@ -359,6 +359,7 @@ export const gunthrankGames = sqliteTable("gunthrank_games", {
   releaseDate: integer("release_date"), // year only
   summary: text("summary"),
   summaryFr: text("summary_fr"),
+  videos: text("videos"),             // JSON array [{videoId: string, name: string}]
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
 

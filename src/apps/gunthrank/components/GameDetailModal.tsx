@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useSoundContext } from "@/lib/contexts/sound-context";
 import { getPlatformColor, type RankingEntry } from "../constants";
 
@@ -15,6 +15,8 @@ export function GameDetailModal({ ranking, readOnly, onClose, onRemove }: GameDe
   const { playClick, playDelete } = useSoundContext();
   const game = ranking.game!;
   const [commStats, setCommStats] = useState<{ avgNote: number | null; count: number } | null>(null);
+  const [fallbackVideos, setFallbackVideos] = useState<Array<{ videoId: string; name: string | null }> | null>(null);
+  const [videoExpanded, setVideoExpanded] = useState(false);
 
   useEffect(() => {
     fetch(`/api/gunthrank/games/${game.id}/community-stats`)
@@ -22,6 +24,20 @@ export function GameDetailModal({ ranking, readOnly, onClose, onRemove }: GameDe
       .then((d) => setCommStats(d as { avgNote: number | null; count: number }))
       .catch(() => {});
   }, [game.id]);
+
+  // Fetch videos on-the-fly for games that don't have them stored yet
+  useEffect(() => {
+    if (!game.igdbId) return;
+    const existing = (() => {
+      if (!game.videos) return [];
+      try { return JSON.parse(game.videos as string); } catch { return []; }
+    })();
+    if (existing.length > 0) return; // already has videos
+    fetch(`/api/igdb/videos?igdbId=${game.igdbId}`)
+      .then((r) => r.json())
+      .then((d) => { if (d.videos?.length) setFallbackVideos(d.videos); })
+      .catch(() => {});
+  }, [game.igdbId, game.videos]);
 
   const platforms: string[] = (() => {
     if (!game.platforms) return [];
@@ -31,6 +47,16 @@ export function GameDetailModal({ ranking, readOnly, onClose, onRemove }: GameDe
   const genres: string[] = (() => {
     if (!game.genres) return [];
     try { return JSON.parse(game.genres); } catch { return []; }
+  })();
+
+  const videos: Array<{ videoId: string; name: string | null }> = (() => {
+    const stored = (() => {
+      if (!game.videos) return [];
+      try { return JSON.parse(game.videos as string); } catch { return []; }
+    })();
+    if (stored.length > 0) return stored;
+    if (fallbackVideos) return fallbackVideos;
+    return [];
   })();
 
   return (
@@ -49,20 +75,22 @@ export function GameDetailModal({ ranking, readOnly, onClose, onRemove }: GameDe
       <div
         className="relative flex flex-col gap-3 p-4 overflow-auto"
         style={{
-          background: "var(--t-bg)",
+          background: videoExpanded ? "#000" : "var(--t-bg)",
           borderTop: "2px solid var(--t-border-light)",
           borderLeft: "2px solid var(--t-border-light)",
           borderBottom: "2px solid var(--t-border-dark)",
           borderRight: "2px solid var(--t-border-dark)",
-          width: 480,
-          maxHeight: "calc(100% - 100px)",
+          width: videoExpanded ? "100%" : 480,
+          height: videoExpanded ? "100%" : "auto",
+          maxHeight: videoExpanded ? "none" : "calc(100% - 100px)",
           color: "var(--t-text)",
           fontSize: "var(--t-text-sm)",
+          transition: "width 0.2s ease, height 0.2s ease",
         }}
       >
         {/* Close button */}
         <button
-          onClick={() => { playClick(); onClose(); }}
+          onClick={() => { playClick(); if (videoExpanded) setVideoExpanded(false); else onClose(); }}
           className="absolute top-2 right-2 px-2 py-0.5 font-bold"
           style={{
             fontSize: "var(--t-text-xs)",
@@ -73,12 +101,14 @@ export function GameDetailModal({ ranking, readOnly, onClose, onRemove }: GameDe
             borderBottom: "2px solid var(--t-border-dark)",
             borderRight: "2px solid var(--t-border-dark)",
             cursor: "pointer",
+            zIndex: 10,
           }}
         >
           ✕
         </button>
 
-        {/* Cover art */}
+        {/* Cover art — hide when expanded */}
+        {!videoExpanded && (
         <div className="flex justify-center">
           {game.coverUrl ? (
             <img
@@ -105,7 +135,64 @@ export function GameDetailModal({ ranking, readOnly, onClose, onRemove }: GameDe
             </div>
           )}
         </div>
+        )}
 
+        {/* Trailer */}
+        {videos.length > 0 && (() => {
+          const trailer = videos[0]!;
+          return (
+          <div
+            style={{
+              position: "relative",
+              paddingBottom: videoExpanded ? undefined : "56.25%",
+              height: videoExpanded ? "100%" : 0,
+              overflow: "hidden",
+              border: videoExpanded ? "none" : "2px solid var(--t-border-dark)",
+              background: "#000",
+              flex: videoExpanded ? 1 : undefined,
+            }}
+          >
+            <iframe
+              src={`https://www.youtube.com/embed/${trailer.videoId}?modestbranding=1&rel=0`}
+              title={trailer.name ?? "Trailer"}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+              allowFullScreen
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                border: "none",
+              }}
+            />
+            <button
+              onClick={() => setVideoExpanded(!videoExpanded)}
+              className="absolute flex items-center justify-center"
+              style={{
+                bottom: 6,
+                right: 6,
+                width: 30,
+                height: 28,
+                background: "rgba(0,0,0,0.75)",
+                color: "#fff",
+                border: "1px solid rgba(255,255,255,0.3)",
+                cursor: "pointer",
+                fontSize: "var(--t-text-md)",
+                borderRadius: 2,
+                zIndex: 2,
+                lineHeight: 1,
+              }}
+              title={videoExpanded ? "Réduire" : "Plein écran"}
+            >
+              {videoExpanded ? "✕" : "⛶"}
+            </button>
+          </div>
+          );
+        })()}
+
+        {!videoExpanded && (
+        <>
         {/* Name */}
         <h2 style={{ fontSize: "var(--t-text-lg)", fontWeight: 700, textAlign: "center" }}>
           {game.name}
@@ -271,6 +358,8 @@ export function GameDetailModal({ ranking, readOnly, onClose, onRemove }: GameDe
             Fermer
           </button>
         </div>
+        </>
+        )}
       </div>
     </div>
   );

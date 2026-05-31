@@ -79,6 +79,7 @@ export interface IgdbSearchResult {
   developers: string[];
   releaseYear: number | null;
   summary: string | null;
+  videos: Array<{ videoId: string; name: string | null }>;
 }
 
 export interface Filters {

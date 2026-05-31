@@ -118,6 +118,7 @@ export function useGunthrankData() {
     genres?: string[] | null;
     releaseDate?: number | null;
     summary?: string | null;
+    videos?: Array<{ videoId: string; name: string | null }> | null;
     tier: string;
     toIndex?: number;
     objectiveNote?: number | null;
@@ -137,6 +138,7 @@ export function useGunthrankData() {
         releaseDate: data.releaseDate ?? null,
         summary: data.summary ?? null,
         summaryFr: null,
+        videos: data.videos ? JSON.stringify(data.videos) : null,
         createdAt: new Date(),
       };
       const newId = Date.now() + 1;

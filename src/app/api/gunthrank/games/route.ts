@@ -38,15 +38,29 @@ export async function POST(req: NextRequest) {
     genres?: string[] | null;
     releaseDate?: number | null;
     summary?: string | null;
+    videos?: Array<{ videoId: string; name: string | null }> | null;
   };
 
-  // Check for existing game by igdbId or name
+  // Check for existing game by igdbId or name — update videos if new data available
   if (body.igdbId) {
     const existing = db().select().from(gunthrankGames).where(eq(gunthrankGames.igdbId, body.igdbId)).get();
-    if (existing) return NextResponse.json({ game: existing });
+    if (existing) {
+      // Merge in videos if the existing record doesn't have them yet
+      if (body.videos?.length && !existing.videos) {
+        db().update(gunthrankGames).set({ videos: JSON.stringify(body.videos) }).where(eq(gunthrankGames.id, existing.id)).run();
+        return NextResponse.json({ game: { ...existing, videos: JSON.stringify(body.videos) } });
+      }
+      return NextResponse.json({ game: existing });
+    }
   }
   const byName = db().select().from(gunthrankGames).where(eq(gunthrankGames.name, body.name)).get();
-  if (byName) return NextResponse.json({ game: byName });
+  if (byName) {
+    if (body.videos?.length && !byName.videos) {
+      db().update(gunthrankGames).set({ videos: JSON.stringify(body.videos) }).where(eq(gunthrankGames.id, byName.id)).run();
+      return NextResponse.json({ game: { ...byName, videos: JSON.stringify(body.videos) } });
+    }
+    return NextResponse.json({ game: byName });
+  }
 
   // Translate summary to French
   const summaryFr = body.summary ? await translateToFrench(body.summary) : null;
@@ -63,6 +77,7 @@ export async function POST(req: NextRequest) {
       releaseDate: body.releaseDate ?? null,
       summary: body.summary ?? null,
       summaryFr,
+      videos: body.videos ? JSON.stringify(body.videos) : null,
     })
     .returning()
     .get();
