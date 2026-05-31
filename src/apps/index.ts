@@ -25,6 +25,7 @@ import { manifest as publicProfile } from "./public-profile/manifest";
 import { manifest as solitaire } from "./solitaire/manifest";
 import { manifest as peagle } from "./peagle/manifest";
 import { manifest as peagleShowroom } from "./peagle-showroom/manifest";
+import { manifest as peagle2 } from "./peagle2/manifest";
 import { manifest as defrag } from "./defrag/manifest";
 import { manifest as notepad } from "./notepad/manifest";
 import { manifest as printer } from "./printer/manifest";
@@ -40,6 +41,7 @@ import { manifest as gunthrank } from "./gunthrank/manifest";
 export const APP_REGISTRY: AppManifest[] = [
   // Apps visibles dans le launcher (Start menu + desktop)
   peagle,
+  peagle2,
   ploufPlouf,
   profile,
   directory,
