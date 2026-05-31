@@ -1,5 +1,6 @@
 import { W, H } from "../constants";
 import { BALANCE } from "../balance";
+import { isTarget } from "../peg-kinds";
 import type { GameState } from "../types";
 import type { GameEvent } from "../events";
 
@@ -8,7 +9,7 @@ export function endOfTurn(s: GameState, events: GameEvent[]): void {
   s.combo = 0;
   s.scoreMultiplier = 1;
 
-  const remainingOrange = s.pegs.filter(p => p.orange).length;
+  const remainingOrange = s.pegs.filter(isTarget).length;
 
   if (remainingOrange === 0) {
     // Niveau gagné : bonus pour les œufs restants

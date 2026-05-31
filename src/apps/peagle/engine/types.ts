@@ -1,24 +1,29 @@
 import type { UpgradeId } from "./roguelite";
+import type { PegKind } from "./peg-kinds";
 
-export type { UpgradeId };
+export type { UpgradeId, PegKind };
 
-// Deux types de cibles seulement dans le squelette : orange (à détruire pour
-// gagner) et normale (bonus de points). Ajoute tes propres types ici puis
-// gère-les dans getPegType / le rendu / la physique.
+// PegType = catégorie VISUELLE (couleur d'anneau d'explosion). Le bumper, non
+// destructible, ne « pop » jamais : il est mappé sur "normal" par défaut.
+// La catégorie GAMEPLAY d'un peg est son `kind` (voir peg-kinds.ts).
 export type PegType = "orange" | "normal";
 
-export function getPegType(p: { orange: boolean }): PegType {
-  return p.orange ? "orange" : "normal";
+export function getPegType(p: { kind: PegKind }): PegType {
+  return p.kind === "orange" ? "orange" : "normal";
 }
 
 export interface Peg {
   x: number;
   y: number;
+  kind: PegKind;
   hit: boolean;
-  orange: boolean;
   popping: boolean;
   popAlpha: number;
   scale: number;
+  // Obstacles permanents (bumper) : frames avant de pouvoir re-toucher + flash
+  // d'impact (0..1) qui décroît chaque frame.
+  cooldown: number;
+  bump: number;
 }
 
 export interface Ball {

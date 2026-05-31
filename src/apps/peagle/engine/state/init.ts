@@ -3,6 +3,7 @@ import {
   W, BUCKET_W, BUCKET_SPEED, START_BALLS, STAR_COUNT,
 } from "../constants";
 import { buildLevel } from "../levels";
+import { isTarget } from "../peg-kinds";
 import type { GameState, Peg, Star } from "../types";
 import type { RunState } from "../roguelite";
 
@@ -30,7 +31,7 @@ export function makeInitialState(
   const effectivePegBounce = PEG_BOUNCE * (upgrades.includes("heavy_ball") ? 1.3 : 1);
 
   const pegs: Peg[] = buildLevel(level);
-  const orangeLeft = pegs.filter(p => p.orange).length;
+  const orangeLeft = pegs.filter(isTarget).length;
 
   return {
     pegs,

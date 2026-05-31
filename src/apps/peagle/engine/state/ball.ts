@@ -1,11 +1,11 @@
 import {
   PEG_R, BUCKET_H, BUCKET_W, WALL_BOUNCE, GRAVITY, FRICTION,
-  HIT_FREEZE_NORMAL, HIT_FREEZE_ORANGE, SLOW_MO_DURATION,
-  W, H,
+  SLOW_MO_DURATION, W, H,
 } from "../constants";
 import { BALANCE } from "../balance";
 import type { GameState, Ball } from "../types";
 import type { GameEvent } from "../events";
+import { PEG_KINDS } from "../peg-kinds";
 import { circleCollide } from "../physics";
 import { spawnParticles } from "./effects";
 
@@ -49,54 +49,69 @@ export function processBallPhysics(
       if (step === 0) { events.push({ kind: "sound", id: "bip" }); s.trauma = Math.min(1, s.trauma + BALANCE.wall.traumaPerHit); }
     }
 
-    // Pegs
+    // Pegs — comportement piloté par la table data-driven PEG_KINDS.
     for (const p of s.pegs) {
       if (p.hit) continue;
-      const result = circleCollide(b.x, b.y, b.vx, b.vy, s.effectiveBallR, p.x, p.y, PEG_R, s.effectivePegBounce);
+      if (p.cooldown > 0) continue; // obstacle permanent en cooldown : transparent
+      const def = PEG_KINDS[p.kind];
+      const result = circleCollide(b.x, b.y, b.vx, b.vy, s.effectiveBallR, p.x, p.y, PEG_R, s.effectivePegBounce * def.bounceMult);
       if (!result) continue;
 
       // Réflexion + correction de chevauchement
       b.vx = result.vx; b.vy = result.vy;
       const dx = b.x - p.x, dy = b.y - p.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      const nx = dx / dist, ny = dy / dist;
       const overlap = s.effectiveBallR + PEG_R - dist + 0.5;
-      b.x += (dx / dist) * overlap;
-      b.y += (dy / dist) * overlap;
+      b.x += nx * overlap;
+      b.y += ny * overlap;
 
-      // Pop du peg
-      p.hit = true; p.popping = true; p.popAlpha = BALANCE.peg.popStartAlpha; p.scale = BALANCE.peg.popStartScale;
-      if (p.orange) s.orangeLeft = Math.max(0, s.orangeLeft - 1);
+      // Kick d'un bumper : impulsion le long de la normale.
+      if (def.impulse > 0) { b.vx += nx * def.impulse; b.vy += ny * def.impulse; }
+
       s.combo += 1;
 
       // Score : base × multiplicateur de combo
       const comboMult = Math.max(1, Math.floor(s.combo / BALANCE.combo.interval));
       const totalMult = comboMult * s.scoreMultiplier;
-      const basePoints = p.orange ? BALANCE.score.orangeBase : BALANCE.score.normalBase;
-      const earned = Math.round(basePoints * totalMult);
+      const earned = Math.round(def.baseScore * totalMult);
       s.score += earned;
 
-      // Feedback (freeze, shake, flash, particules)
-      s.hitFreezeFrames = Math.max(s.hitFreezeFrames, p.orange ? HIT_FREEZE_ORANGE : HIT_FREEZE_NORMAL);
-      if (p.orange) { s.trauma = Math.min(1, s.trauma + BALANCE.trauma.orangePeg); s.flashWhite = Math.max(s.flashWhite, BALANCE.flash.orangePeg); }
-      else { s.trauma = Math.min(1, s.trauma + BALANCE.trauma.normalPeg); }
-      spawnParticles(s, p.x, p.y, p.orange, p.orange ? 20 : 8);
+      // Feedback (freeze, shake, flash, particules) — valeurs de la table.
+      s.hitFreezeFrames = Math.max(s.hitFreezeFrames, def.freezeFrames);
+      if (def.trauma > 0) s.trauma = Math.min(1, s.trauma + def.trauma);
+      if (def.flash > 0) s.flashWhite = Math.max(s.flashWhite, def.flash);
+      spawnParticles(s, p.x, p.y, def.hotParticles, def.particles);
 
-      // Dernière orange → ralenti dramatique
-      if (p.orange && s.orangeLeft === 0) {
-        s.slowMoFrames = SLOW_MO_DURATION;
-        s.flashWhite = 1.0;
-        s.floatingTexts.push({ x: W / 2, y: H / 2 - 30, text: "DERNIÈRE CIBLE !", life: 1, maxLife: 2.5, color: "#88ccff", combo: true, fontSize: 16 });
+      if (def.destructible) {
+        // Pop : le peg disparaît.
+        p.hit = true; p.popping = true; p.popAlpha = BALANCE.peg.popStartAlpha; p.scale = BALANCE.peg.popStartScale;
+        if (def.isTarget) {
+          s.orangeLeft = Math.max(0, s.orangeLeft - 1);
+          // Dernière cible → ralenti dramatique
+          if (s.orangeLeft === 0) {
+            s.slowMoFrames = SLOW_MO_DURATION;
+            s.flashWhite = 1.0;
+            s.floatingTexts.push({ x: W / 2, y: H / 2 - 30, text: "DERNIÈRE CIBLE !", life: 1, maxLife: 2.5, color: "#88ccff", combo: true, fontSize: 16 });
+          }
+        }
+      } else {
+        // Obstacle permanent (bumper) : reste en place, flash + cooldown anti-spam.
+        p.cooldown = def.cooldownFrames;
+        p.bump = 1;
+        p.scale = 1.5;
       }
 
       // Texte de score flottant
       const comboBonus = s.combo >= BALANCE.combo.interval && s.combo % BALANCE.combo.interval === 0;
       const popFontSize = Math.min(18, 11 + Math.floor(totalMult * 1.5));
+      const textColor = def.isTarget ? "#88ccff" : p.kind === "bumper" ? "#ffcc44" : "#ffffff";
       s.floatingTexts.push({
         x: p.x + (Math.random() - 0.5) * 20,
         y: p.y,
         text: totalMult > 1 ? `+${earned} ×${comboMult}` : `+${earned}`,
         life: 1, maxLife: 1,
-        color: p.orange ? "#88ccff" : "#ffffff",
+        color: textColor,
         combo: comboBonus,
         fontSize: comboBonus ? popFontSize + 2 : popFontSize,
       });
@@ -104,7 +119,7 @@ export function processBallPhysics(
         s.floatingTexts.push({ x: p.x, y: p.y - 22, text: `COMBO ×${comboMult}!`, life: 1, maxLife: 1.6, color: "#ffcc44", combo: true, fontSize: Math.min(20, 13 + comboMult * 2) });
       }
 
-      events.push({ kind: "sound", id: p.orange ? "pop" : "bip" });
+      events.push({ kind: "sound", id: def.sound });
     }
   }
 

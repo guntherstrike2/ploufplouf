@@ -23,10 +23,13 @@ engine/        ← logique PURE (aucun React, aucun audio). Testable, détermini
     pegs.ts    ← animations de pegs
     particles.ts, effects.ts ← juice
   physics.ts   ← maths de collision pures + ligne de visée
-  levels.ts    ← génération des tableaux de pegs
+  levels.ts    ← génération procédurale (motifs + Poisson + validation)  ⭐ #3
+  difficulty.ts← courbe de difficulté du run (tout est fn(level))
+  rng.ts       ← PRNG seedé déterministe (mulberry32) + helpers
+  peg-kinds.ts ← table data-driven des types de pegs/objets  ⭐ POINT D'EXTENSION #4
   tableau.ts   ← boîte à outils pour dessiner des layouts (grilles, arcs, pixel-art)
   roguelite.ts ← upgrades + run state  ⭐ POINT D'EXTENSION #1
-  types.ts     ← types de données (Peg, GameState, …)  ⭐ POINT D'EXTENSION #3
+  types.ts     ← types de données (Peg, GameState, …)
   game-theme.ts← couleurs du canvas
   balance.ts   ← toutes les valeurs d'équilibrage
   constants.ts ← dimensions, gravité, vitesses
@@ -97,72 +100,84 @@ const effectiveBallR = BALL_R * (upgrades.includes("bigger_ball") ? 1.3 : 1);
 
 ---
 
-## 3. ⭐ Ajouter un tableau (niveau)
+## 3. ⭐ La génération de niveaux (aléatoire seedé, structuré, validé)
 
-Fichier : [`engine/levels.ts`](engine/levels.ts).
+Fichier : [`engine/levels.ts`](engine/levels.ts). La génération n'est plus un
+cycle de layouts fixes : c'est un **pipeline procédural déterministe**.
 
-1. Écris un builder qui renvoie un `Peg[]` en utilisant la boîte à outils de
-   [`tableau.ts`](engine/tableau.ts) (`tHexGrid`, `tGrid`, `tCircle`, `tArc`,
-   `tLine`, `tPixelArt`, `dedup`).
-2. Ajoute-le à la liste `LAYOUTS`. Les niveaux cyclent automatiquement dessus.
-
-```ts
-function layoutSmiley(cx: number): Peg[] {
-  const face = [
-    "011111110",
-    "100000001",
-    "101000101",
-    "100000001",
-    "101000101",
-    "100111001",
-    "011111110",
-  ];
-  return tPixelArt(face, 26, 24, cx - 104, 120);
-}
-
-const LAYOUTS = [layoutGrid, layoutDiamond, layoutColumns, layoutSmiley]; // ←
+```
+seed = f(niveau)            ← rng.ts (mulberry32). Reproductible, debuggable.
+  → 1-2 MOTIFS piochés      ← squelette « qui a l'air voulu » (grille hex, anneaux…)
+  → remplissage POISSON     ← blue noise miroir : dense mais jamais collé/aggloméré
+  → DIFFICULTÉ              ← difficulty.ts : densité / % oranges / bumpers / jitter
+  → ASSIGNATION des kinds   ← système data-driven (peg-kinds.ts)
+  → VALIDATION (aim line)   ← generate-and-test : re-roll si trop peu atteignable
 ```
 
-Le `%` de cibles oranges est géré globalement dans `buildLevel` (croît avec le
-niveau). Pas besoin de le gérer dans le builder.
+**Ajouter un motif** = écrire un builder `(rng, area) => Peg[]` (utilise
+`tHexGrid`, `tGrid`, `tCircle`, `tArc`, `tLine`, `tPixelArt`, `makePeg`,
+`dedup` de [`tableau.ts`](engine/tableau.ts)) puis le référencer dans `MOTIFS`.
+**Tire ton aléatoire du `rng` fourni, jamais de `Math.random()`** (sinon tu
+casses le déterminisme et la validation). Reste centré/symétrique quand tu peux.
+
+```ts
+function motifSmiley(rng: Rng, a: Area): Peg[] {
+  const face = ["011111110","100000001","101000101","100000001","100111001","011111110"];
+  return tPixelArt(face, 26, 24, a.cx - 104, a.y0 + randInt(rng, 0, 20));
+}
+const MOTIFS = [motifHexField, motifRings, /* … */, motifSmiley]; // ←
+```
+
+**Régler la difficulté** (densité, % oranges, nb de bumpers, jitter au fil du
+run) → [`engine/difficulty.ts`](engine/difficulty.ts), tout est une fonction de
+`level` avec des `clamp` pour éviter les fins de run injouables.
 
 ---
 
-## 4. ⭐ Ajouter un type de cible (peg)
+## 4. ⭐ Ajouter un type d'objet/peg (data-driven)
 
-Le plus impliquant : il touche données + rendu + collision. Exemple : un peg
-**vert** qui donne un œuf bonus quand on le touche.
+Le système est **piloté par une table** : la collision lit `PEG_KINDS[p.kind]`,
+pas une chaîne de `if`. Le `bumper` (obstacle permanent qui renvoie l'œuf avec
+un kick) en est le 1er exemple — copie son entrée pour les 90 % de cas.
 
-1. **Données** — [`engine/types.ts`](engine/types.ts) :
+Exemple : un peg **vert** qui donne un œuf bonus quand on le touche.
+
+1. **Déclare le kind + sa définition** — [`engine/peg-kinds.ts`](engine/peg-kinds.ts) :
    ```ts
-   export type PegType = "orange" | "normal" | "green";       // + green
-   export function getPegType(p: { orange: boolean; green: boolean }): PegType {
-     if (p.orange) return "orange";
-     if (p.green) return "green";
-     return "normal";
-   }
-   export interface Peg { /* … */ green: boolean; }            // + champ
+   export type PegKind = "normal" | "orange" | "bumper" | "green";  // + green
+   export const PEG_KINDS = {
+     /* … */
+     green: { destructible: true, isTarget: false, bounceMult: 1, impulse: 0,
+              baseScore: 25, freezeFrames: 4, trauma: 0.08, flash: 0.2,
+              particles: 12, hotParticles: false, sound: "pop", cooldownFrames: 0 },
+   };
    ```
-   Pense à initialiser `green: false` dans la factory `makePeg` de
-   [`tableau.ts`](engine/tableau.ts).
+   C'est **tout** pour le comportement de base (score, rebond, juice, destructible
+   ou non, cible ou non). Pour le `kick` d'un obstacle → `impulse`.
 
-2. **Couleur** — [`engine/game-theme.ts`](engine/game-theme.ts) : ajoute les
-   couleurs `green*` dans `PegTheme` + `popRing.green`.
+2. **Couleur** — [`engine/game-theme.ts`](engine/game-theme.ts) : ajoute des
+   champs `green*` (optionnels) à `PegTheme`, comme `bumper*`.
 
-3. **Rendu** — [`renderer/pegs.ts`](renderer/pegs.ts) : ajoute une branche
-   `drawGreenPeg` (copie `drawNormalPeg`) dans `drawPegs`.
+3. **Rendu** — [`renderer/pegs.ts`](renderer/pegs.ts) : une branche
+   `else if (p.kind === "green")` + un `drawGreenPeg` (copie `drawNormalPeg`).
 
-4. **Effet/collision** — [`engine/state/ball.ts`](engine/state/ball.ts) : dans
-   la boucle de collision des pegs, après le pop :
+4. **Effet vraiment spécial seulement** — [`engine/state/ball.ts`](engine/state/ball.ts) :
+   si l'effet dépasse la table (donner un œuf, explosion en chaîne…), une petite
+   branche keyée par `kind`, après l'application des effets génériques :
    ```ts
-   if (p.green) { s.balls += 1; s.floatingTexts.push({ /* +1 œuf ! */ }); }
+   if (p.kind === "green") { s.balls += 1; /* + texte flottant */ }
    ```
 
-5. **Placement** — [`engine/levels.ts`](engine/levels.ts) : marque quelques
-   pegs `green` dans `buildLevel`.
+5. **Placement** — la difficulté ([`engine/difficulty.ts`](engine/difficulty.ts))
+   décide combien en poser ; l'assignation se fait dans `assignKinds`
+   ([`engine/levels.ts`](engine/levels.ts)), sur le modèle des bumpers.
 
-> Astuce : le code du tag `peagle-full` contient déjà des pegs verts, bombes,
-> armor, warp et boss complets — `git show peagle-full:src/apps/peagle/engine/state/ball.ts`.
+> `destructible:false` = obstacle permanent (bumper) : pas de pop, `cooldownFrames`
+> contre le spam, animation via `p.bump`/`p.scale`. `isTarget:true` = compte dans
+> la condition de victoire (orange).
+>
+> Astuce : le tag `peagle-full` contient bombes, armor, warp, boss complets —
+> `git show peagle-full:src/apps/peagle/engine/state/ball.ts`.
 
 ---
 

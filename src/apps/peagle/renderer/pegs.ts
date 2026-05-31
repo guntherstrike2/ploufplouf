@@ -89,17 +89,32 @@ function drawNormalPeg(ctx: CanvasRenderingContext2D, p: Peg, r: number, t: PegT
   }
 }
 
+// Bumper : obstacle permanent, légèrement plus gros, qui flashe quand on le
+// percute (p.bump 0..1). Jamais "hit" → toujours dessiné plein.
+function drawBumperPeg(ctx: CanvasRenderingContext2D, p: Peg, r: number, t: PegTheme): void {
+  const fill = p.bump > 0.4 ? (t.bumperHi ?? "#fff0a0") : (t.bumper ?? "#ffcc22");
+  const hi = t.bumperHi ?? "#fff0a0";
+  const dark = t.bumperDark ?? "#aa6600";
+  const glow = t.bumperGlow ?? "#ffee66";
+  pixelSquare(ctx, p.x, p.y, r * 1.18, fill, hi, dark, glow, 5 + p.bump * 18);
+  // Plot central (cible du bumper)
+  const cx = Math.round(p.x), cy = Math.round(p.y);
+  ctx.fillStyle = p.bump > 0.3 ? "#ffffff" : dark;
+  ctx.fillRect(cx - 1, cy - 1, 2, 2);
+}
+
 export function drawPegs(ctx: CanvasRenderingContext2D, s: GameState, inFever: boolean, feverIntensity: number, theme: GameTheme): void {
   const t = theme.peg;
   ctx.imageSmoothingEnabled = false;
 
   for (const p of s.pegs) {
-    const pulseExtra = inFever && p.orange && !p.hit ? Math.sin(s.feverPulse * 2) * 1.5 : 0;
+    const pulseExtra = inFever && p.kind === "orange" && !p.hit ? Math.sin(s.feverPulse * 2) * 1.5 : 0;
     const r = (PEG_R + pulseExtra) * p.scale;
 
     if (p.popping) ctx.globalAlpha = p.popAlpha;
 
-    if (p.orange) drawOrangePeg(ctx, p, r, inFever, feverIntensity, t);
+    if (p.kind === "orange") drawOrangePeg(ctx, p, r, inFever, feverIntensity, t);
+    else if (p.kind === "bumper") drawBumperPeg(ctx, p, r, t);
     else drawNormalPeg(ctx, p, r, t);
 
     if (p.popping) {

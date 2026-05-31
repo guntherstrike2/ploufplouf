@@ -10,6 +10,8 @@ export interface PegTheme {
   normal: string; normalHi: string; normalDark: string;
   orange: string; orangeHi: string; orangeDark: string;
   orangeFever: string; orangeGlow: string;
+  // Bumper (obstacle permanent) — optionnel : le renderer a un fallback doré.
+  bumper?: string; bumperHi?: string; bumperDark?: string; bumperGlow?: string;
   // Couleur de l'anneau d'explosion par type de peg
   popRing: Record<PegType, string>;
 }
@@ -50,6 +52,7 @@ export const THEME_FORET: GameTheme = {
     normal:   "#2233aa", normalHi:   "#4455ff", normalDark: "#000d44",
     orange:   "#ff5500", orangeHi:   "#ffdd44", orangeDark: "#882200",
     orangeFever: "#ff00cc", orangeGlow: "#ff88ee",
+    bumper:   "#ffcc22", bumperHi:   "#fff0a0", bumperDark: "#aa6600", bumperGlow: "#ffee66",
     popRing: {
       normal: "#4455ff", orange: "#ffaa00",
     },

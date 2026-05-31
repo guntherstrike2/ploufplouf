@@ -1,13 +1,13 @@
-import type { Peg } from "./types";
+import type { Peg, PegKind } from "./types";
 import { PEG_R } from "./constants";
 
 // ─── Peg factory ─────────────────────────────────────────────────────────────
 
-function makePeg(x: number, y: number): Peg {
-  return { x, y, hit: false, orange: false, popping: false, popAlpha: 1, scale: 1 };
+export function makePeg(x: number, y: number, kind: PegKind = "normal"): Peg {
+  return { x, y, kind, hit: false, popping: false, popAlpha: 1, scale: 1, cooldown: 0, bump: 0 };
 }
 
-type PegOverride = Partial<Pick<Peg, "orange">>;
+type PegOverride = Partial<Pick<Peg, "kind">>;
 
 function applyOv(p: Peg, ov?: PegOverride): Peg {
   return ov ? { ...p, ...ov } : p;

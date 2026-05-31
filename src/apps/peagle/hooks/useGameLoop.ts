@@ -9,6 +9,7 @@ import { tick } from "../engine/state/tick";
 import { makeInitialState } from "../engine/state/init";
 import { refreshAssetCache, ASSETS_CHANGED_EVENT } from "../engine/assets";
 import { W, H, LAUNCHER_X, LAUNCHER_Y, LAUNCH_SPEED } from "../engine/constants";
+import { isTarget } from "../engine/peg-kinds";
 import type { GameState, UiState } from "../engine/types";
 import type { RunState } from "../engine/roguelite";
 import type { GameEvent } from "../engine/events";
@@ -81,7 +82,7 @@ export function useGameLoop({
 
   const syncUI = useCallback((orangeLeft?: number) => {
     const s = stateRef.current;
-    const ol = orangeLeft ?? s.pegs.filter(p => p.orange && !p.hit).length;
+    const ol = orangeLeft ?? s.pegs.filter(p => isTarget(p) && !p.hit).length;
     onUiSync({
       balls: s.balls,
       score: s.score,
@@ -106,15 +107,17 @@ export function useGameLoop({
       if (dev.godMode) newState.balls = 9999;
       if (dev.orangePct !== null) {
         const pct = dev.orangePct / 100;
-        for (const p of newState.pegs) p.orange = false;
-        const count = Math.max(1, Math.round(newState.pegs.length * pct));
-        const order = [...newState.pegs.keys()].sort(() => Math.random() - 0.5);
-        for (let i = 0; i < Math.min(count, order.length); i++) newState.pegs[order[i]!]!.orange = true;
-        newState.orangeLeft = newState.pegs.filter(p => p.orange).length;
+        // On ne touche pas aux bumpers (obstacles) : on bascule normal ↔ orange.
+        const swappable = newState.pegs.filter(p => p.kind !== "bumper");
+        for (const p of swappable) p.kind = "normal";
+        const count = Math.max(1, Math.round(swappable.length * pct));
+        const order = [...swappable.keys()].sort(() => Math.random() - 0.5);
+        for (let i = 0; i < Math.min(count, order.length); i++) swappable[order[i]!]!.kind = "orange";
+        newState.orangeLeft = newState.pegs.filter(isTarget).length;
       }
     }
 
-    orangeTotalRef.current = newState.pegs.filter(p => p.orange).length;
+    orangeTotalRef.current = newState.pegs.filter(isTarget).length;
     onOrangeTotalChange(orangeTotalRef.current);
     stateRef.current = newState;
     syncUI();
@@ -190,7 +193,7 @@ export function useGameLoop({
 
   // Sync UI initiale
   useEffect(() => {
-    orangeTotalRef.current = stateRef.current.pegs.filter(p => p.orange).length;
+    orangeTotalRef.current = stateRef.current.pegs.filter(isTarget).length;
     onOrangeTotalChange(orangeTotalRef.current);
     syncUI();
   }, [syncUI, onOrangeTotalChange]);
