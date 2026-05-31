@@ -9,7 +9,6 @@ import { useCelebration } from "@/lib/hooks/use-celebration";
 import { useGunthrankData } from "./hooks/use-gunthrank-data";
 import { TierRow } from "./components/TierRow";
 import { GameDetailModal } from "./components/GameDetailModal";
-import { StatsDashboard } from "./components/StatsDashboard";
 import { OverlayView } from "./components/OverlayView";
 import { CatalogPanel } from "./components/CatalogPanel";
 import { KiffThemeProvider, useKiffTheme } from "./kiff-theme-context";
@@ -126,9 +125,9 @@ function GunthrankAppInner({ windowId }: { windowId: string }) {
     addGame, addFromCatalog, removeRanking, moveGame, reorderGame, swapGame, updateNote,
   } = useGunthrankData();
 
-  const [showStats, setShowStats] = useState(false);
   const [showOverlay, setShowOverlay] = useState(false);
   const [showCatalog, setShowCatalog] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [detailRanking, setDetailRanking] = useState<RankingEntry | null>(null);
   const [recentlyMovedIds, setRecentlyMovedIds] = useState<Set<number>>(new Set());
   const [viewLayout, setViewLayout] = useState<"list" | "grid">(() => {
@@ -246,22 +245,6 @@ function GunthrankAppInner({ windowId }: { windowId: string }) {
     playPop();
   };
 
-  const handleExport = async () => {
-    if (!tierListRef.current) return;
-    try {
-      const { toPng } = await import("html-to-image");
-      const dataUrl = await toPng(tierListRef.current, { pixelRatio: 2 });
-      const a = document.createElement("a");
-      a.href = dataUrl;
-      a.download = "classement-du-kiff.png";
-      a.click();
-      playVictory();
-      notify({ type: "success", title: "Image exportée !" });
-    } catch (e) {
-      notify({ type: "error", title: "Erreur d'export..." });
-    }
-  };
-
   const handleRemove = async (gameId: number) => {
     playDelete();
     await removeRanking(gameId);
@@ -360,90 +343,26 @@ function GunthrankAppInner({ windowId }: { windowId: string }) {
         </div>
       )}
 
-      {/* Stats panel */}
-      {showStats && (
-        <StatsDashboard
-          rankings={rankings}
-          allPlatforms={allPlatforms}
-          allGenres={allGenres}
-          onClose={() => setShowStats(false)}
-        />
-      )}
-
       {/* Sidebar + Content */}
       <div className="flex flex-1 overflow-hidden">
-        {/* ── Sidebar ── */}
+        {/* ── Sidebar (collapsible) ── */}
         <div
-          className="flex flex-col gap-0.5 p-2 overflow-auto flex-shrink-0"
+          className="flex flex-col gap-0.5 overflow-hidden flex-shrink-0"
           style={{
-            width: 168,
+            width: sidebarCollapsed ? 44 : 168,
             background: "var(--t-bg)",
             borderRight: "2px solid var(--t-border-dark)",
+            transition: "width 0.2s ease",
+            padding: sidebarCollapsed ? "4px" : "8px",
           }}
         >
-          {/* App title */}
-          <div
-            className="text-center font-bold pb-2 flex-shrink-0"
-            style={{
-              fontSize: "var(--t-text-sm)",
-              color: "var(--t-accent)",
-              letterSpacing: "0.02em",
-              borderBottom: "1px solid var(--t-border-dark)",
-              marginBottom: 2,
-            }}
-          >
-            🏆 GunthRank
-          </div>
-
-          {/* ── VUE ── */}
-          <div className="flex-shrink-0" style={{ marginTop: 4 }}>
-            <div
-              className="px-1 py-0.5 font-bold"
-              style={{ fontSize: "calc(var(--t-text-xs) * 0.9)", color: "var(--t-text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}
-            >
-              Vue
-            </div>
+          {/* Toggle + title row */}
+          <div className="flex items-center gap-1 flex-shrink-0" style={{ marginBottom: 4 }}>
             <button
-              onClick={() => { playClick(); goToMyRankings(); }}
-              className="w-full text-left px-2 py-1"
+              onClick={() => { playClick(); setSidebarCollapsed(!sidebarCollapsed); }}
+              className="flex-shrink-0 flex items-center justify-center"
               style={{
-                fontSize: "var(--t-text-sm)",
-                background: viewMode === "mine" ? "var(--t-accent)" : "var(--t-bg-dark)",
-                color: viewMode === "mine" ? "#fff" : "var(--t-text)",
-                borderTop: "2px solid var(--t-border-light)",
-                borderLeft: "2px solid var(--t-border-light)",
-                borderBottom: "2px solid var(--t-border-dark)",
-                borderRight: "2px solid var(--t-border-dark)",
-                cursor: "pointer",
-              }}
-            >
-              👤 Mon classement
-            </button>
-            <select
-              value={viewMode === "other" && viewedUser ? viewedUser.id : ""}
-              onChange={(e) => { if (!e.target.value) return; playClick(); selectUser(e.target.value); }}
-              onFocus={handleOpenUserPicker}
-              className="w-full px-1 py-1 mt-0.5"
-              style={{
-                fontSize: "var(--t-text-sm)",
-                background: "var(--t-bg-dark)",
-                color: "var(--t-text)",
-                borderTop: "2px solid var(--t-border-dark)",
-                borderLeft: "2px solid var(--t-border-dark)",
-                borderBottom: "2px solid var(--t-border-light)",
-                borderRight: "2px solid var(--t-border-light)",
-                cursor: "pointer",
-              }}
-            >
-              <option value="">Voir un autre...</option>
-              {availableUsers.map((u) => (
-                <option key={u.id} value={u.id}>{u.username ?? u.name}</option>
-              ))}
-            </select>
-            <button
-              onClick={() => { playClick(); toggleViewLayout(); }}
-              className="w-full text-left px-2 py-1 mt-0.5"
-              style={{
+                width: 28, height: 28,
                 fontSize: "var(--t-text-sm)",
                 background: "var(--t-bg-dark)",
                 color: "var(--t-text)",
@@ -453,211 +372,273 @@ function GunthrankAppInner({ windowId }: { windowId: string }) {
                 borderRight: "2px solid var(--t-border-dark)",
                 cursor: "pointer",
               }}
+              title={sidebarCollapsed ? "Ouvrir la sidebar" : "Fermer la sidebar"}
             >
-              {viewLayout === "list" ? "📋 Liste" : "⊞ Grille"}
+              {sidebarCollapsed ? "▶" : "◀"}
             </button>
+            {!sidebarCollapsed && (
+              <span
+                className="font-bold truncate"
+                style={{ fontSize: "var(--t-text-xs)", color: "var(--t-accent)", letterSpacing: "0.01em" }}
+              >
+                Classem. du Kiff
+              </span>
+            )}
           </div>
 
-          {/* ── FILTRES ── */}
-          <div className="flex-shrink-0" style={{ marginTop: 6 }}>
-            <div
-              className="px-1 py-0.5 font-bold flex items-center justify-between"
-              style={{ fontSize: "calc(var(--t-text-xs) * 0.9)", color: "var(--t-text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}
+          {/* ── RECHERCHER — hero action ── */}
+          {!readOnly && (
+            <button
+              onClick={() => {
+                playClick();
+                const willOpen = !showCatalog;
+                setShowCatalog(willOpen);
+                if (willOpen) setSidebarCollapsed(true);
+              }}
+              className="flex-shrink-0 flex items-center gap-1.5 px-2 py-2 w-full font-bold"
+              style={{
+                fontSize: sidebarCollapsed ? "var(--t-text-md)" : "var(--t-text-sm)",
+                background: "var(--t-accent)",
+                color: "#fff",
+                borderTop: "2px solid var(--t-border-light)",
+                borderLeft: "2px solid var(--t-border-light)",
+                borderBottom: "2px solid var(--t-border-dark)",
+                borderRight: "2px solid var(--t-border-dark)",
+                cursor: "pointer",
+                justifyContent: sidebarCollapsed ? "center" : "flex-start",
+                borderRadius: 3,
+                textShadow: "0 1px 2px rgba(0,0,0,0.3)",
+              }}
+              title="Rechercher un jeu à classer"
             >
-              Filtres
-              {(filters.platform || filters.genre || filters.year) && (
-                <button
-                  onClick={() => { playClick(); setFilters({ platform: null, genre: null, year: null, tiers: [] }); }}
+              <span style={{ fontSize: sidebarCollapsed ? "var(--t-text-md)" : "var(--t-text-lg)" }}>🔍</span>
+              {!sidebarCollapsed && "Rechercher un jeu"}
+            </button>
+          )}
+
+          {!sidebarCollapsed && (
+            <>
+              {/* ── VUE ── */}
+              <div className="flex-shrink-0" style={{ marginTop: 4 }}>
+                <div
+                  className="px-1 py-0.5 font-bold"
+                  style={{ fontSize: "calc(var(--t-text-xs) * 0.9)", color: "var(--t-text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}
+                >
+                  Vue
+                </div>
+                <select
+                  value={viewMode === "other" && viewedUser ? viewedUser.id : "__mine__"}
+                  onChange={(e) => {
+                    playClick();
+                    const val = e.target.value;
+                    if (val === "__mine__") { goToMyRankings(); } else { selectUser(val); }
+                  }}
+                  onFocus={handleOpenUserPicker}
+                  className="w-full px-1 py-1"
                   style={{
-                    fontSize: "calc(var(--t-text-xs) * 0.8)",
-                    background: "var(--t-error)",
-                    color: "#fff",
-                    border: "none",
+                    fontSize: "var(--t-text-sm)",
+                    background: viewMode === "mine" ? "var(--t-accent)" : "var(--t-bg-dark)",
+                    color: viewMode === "mine" ? "#fff" : "var(--t-text)",
+                    borderTop: "2px solid var(--t-border-dark)",
+                    borderLeft: "2px solid var(--t-border-dark)",
+                    borderBottom: "2px solid var(--t-border-light)",
+                    borderRight: "2px solid var(--t-border-light)",
                     cursor: "pointer",
-                    padding: "1px 4px",
+                    fontWeight: viewMode === "mine" ? "bold" : "normal",
                   }}
                 >
-                  ✕
-                </button>
-              )}
-            </div>
-            <select
-              value={filters.platform ?? ""}
-              onChange={(e) => { playClick(); setFilters({ ...filters, platform: e.target.value || null }); }}
-              className="w-full px-1 py-1"
-              style={{
-                fontSize: "var(--t-text-sm)",
-                background: "var(--t-bg-dark)",
-                color: "var(--t-text)",
-                borderTop: "2px solid var(--t-border-dark)",
-                borderLeft: "2px solid var(--t-border-dark)",
-                borderBottom: "2px solid var(--t-border-light)",
-                borderRight: "2px solid var(--t-border-light)",
-              }}
-            >
-              <option value="">🖥️ Plateforme</option>
-              {allPlatforms.map((p) => (<option key={p} value={p}>{p}</option>))}
-            </select>
-            <select
-              value={filters.genre ?? ""}
-              onChange={(e) => { playClick(); setFilters({ ...filters, genre: e.target.value || null }); }}
-              className="w-full px-1 py-1 mt-0.5"
-              style={{
-                fontSize: "var(--t-text-sm)",
-                background: "var(--t-bg-dark)",
-                color: "var(--t-text)",
-                borderTop: "2px solid var(--t-border-dark)",
-                borderLeft: "2px solid var(--t-border-dark)",
-                borderBottom: "2px solid var(--t-border-light)",
-                borderRight: "2px solid var(--t-border-light)",
-              }}
-            >
-              <option value="">🎮 Genre</option>
-              {allGenres.map((g) => (<option key={g} value={g}>{g}</option>))}
-            </select>
-            <select
-              value={filters.year ?? ""}
-              onChange={(e) => { playClick(); setFilters({ ...filters, year: e.target.value ? parseInt(e.target.value, 10) : null }); }}
-              className="w-full px-1 py-1 mt-0.5"
-              style={{
-                fontSize: "var(--t-text-sm)",
-                background: "var(--t-bg-dark)",
-                color: "var(--t-text)",
-                borderTop: "2px solid var(--t-border-dark)",
-                borderLeft: "2px solid var(--t-border-dark)",
-                borderBottom: "2px solid var(--t-border-light)",
-                borderRight: "2px solid var(--t-border-light)",
-              }}
-            >
-              <option value="">📅 Année</option>
-              {allYears.map((y) => (<option key={y} value={y}>{y}</option>))}
-            </select>
-          </div>
+                  <option value="__mine__">👤 Mon classement</option>
+                  {availableUsers.map((u) => (
+                    <option key={u.id} value={u.id}>{u.username ?? u.name}</option>
+                  ))}
+                </select>
+              </div>
 
-          {/* ── OUTILS ── */}
-          <div className="flex-shrink-0" style={{ marginTop: 6 }}>
-            <div
-              className="px-1 py-0.5 font-bold"
-              style={{ fontSize: "calc(var(--t-text-xs) * 0.9)", color: "var(--t-text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}
-            >
-              Outils
-            </div>
-            {!readOnly && (
+              {/* ── THÈME ── */}
+              <div className="flex-shrink-0" style={{ marginTop: 6 }}>
+                <div
+                  className="px-1 py-0.5 font-bold"
+                  style={{ fontSize: "calc(var(--t-text-xs) * 0.9)", color: "var(--t-text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}
+                >
+                  Thème
+                </div>
+                <div className="flex gap-0.5 mt-0.5">
+                  <button
+                    onClick={() => { playClick(); toggleViewLayout(); }}
+                    className="flex-1 text-center px-1 py-1"
+                    style={{
+                      fontSize: "var(--t-text-sm)",
+                      background: "var(--t-bg-dark)",
+                      color: "var(--t-text)",
+                      borderTop: "2px solid var(--t-border-light)",
+                      borderLeft: "2px solid var(--t-border-light)",
+                      borderBottom: "2px solid var(--t-border-dark)",
+                      borderRight: "2px solid var(--t-border-dark)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {viewLayout === "list" ? "📋 Liste" : "⊞ Grille"}
+                  </button>
+                  <button
+                    onClick={toggleEffects}
+                    className="flex-1 text-center px-1 py-1"
+                    style={{
+                      fontSize: "var(--t-text-sm)",
+                      background: effectsOn ? "var(--t-bg)" : "var(--t-bg-dark)",
+                      color: effectsOn ? "var(--t-text)" : "var(--t-text-muted)",
+                      borderTop: effectsOn ? "2px solid var(--t-border-dark)" : "2px solid var(--t-border-light)",
+                      borderLeft: effectsOn ? "2px solid var(--t-border-dark)" : "2px solid var(--t-border-light)",
+                      borderBottom: effectsOn ? "2px solid var(--t-border-light)" : "2px solid var(--t-border-dark)",
+                      borderRight: effectsOn ? "2px solid var(--t-border-light)" : "2px solid var(--t-border-dark)",
+                      cursor: "pointer",
+                      opacity: effectsOn ? 1 : 0.55,
+                    }}
+                    title={effectsOn ? "Effets visuels activés" : "Effets visuels désactivés"}
+                  >
+                    {effectsOn ? "✨ ON" : "✨ OFF"}
+                  </button>
+                </div>
+                <div className="mt-0.5">
+                  <ThemeDropdown />
+                </div>
+              </div>
+
+              {/* ── FILTRES ── */}
+              <div className="flex-shrink-0" style={{ marginTop: 6 }}>
+                <div
+                  className="px-1 py-0.5 font-bold flex items-center justify-between"
+                  style={{ fontSize: "calc(var(--t-text-xs) * 0.9)", color: "var(--t-text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}
+                >
+                  Filtres
+                  {(filters.platform || filters.genre || filters.year) && (
+                    <button
+                      onClick={() => { playClick(); setFilters({ platform: null, genre: null, year: null, tiers: [] }); }}
+                      style={{
+                        fontSize: "calc(var(--t-text-xs) * 0.8)",
+                        background: "var(--t-error)",
+                        color: "#fff",
+                        border: "none",
+                        cursor: "pointer",
+                        padding: "1px 4px",
+                      }}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+                <select
+                  value={filters.platform ?? ""}
+                  onChange={(e) => { playClick(); setFilters({ ...filters, platform: e.target.value || null }); }}
+                  className="w-full px-1 py-1"
+                  style={{
+                    fontSize: "var(--t-text-sm)",
+                    background: "var(--t-bg-dark)",
+                    color: "var(--t-text)",
+                    borderTop: "2px solid var(--t-border-dark)",
+                    borderLeft: "2px solid var(--t-border-dark)",
+                    borderBottom: "2px solid var(--t-border-light)",
+                    borderRight: "2px solid var(--t-border-light)",
+                  }}
+                >
+                  <option value="">🖥️ Plateforme</option>
+                  {allPlatforms.map((p) => (<option key={p} value={p}>{p}</option>))}
+                </select>
+                <select
+                  value={filters.genre ?? ""}
+                  onChange={(e) => { playClick(); setFilters({ ...filters, genre: e.target.value || null }); }}
+                  className="w-full px-1 py-1 mt-0.5"
+                  style={{
+                    fontSize: "var(--t-text-sm)",
+                    background: "var(--t-bg-dark)",
+                    color: "var(--t-text)",
+                    borderTop: "2px solid var(--t-border-dark)",
+                    borderLeft: "2px solid var(--t-border-dark)",
+                    borderBottom: "2px solid var(--t-border-light)",
+                    borderRight: "2px solid var(--t-border-light)",
+                  }}
+                >
+                  <option value="">🎮 Genre</option>
+                  {allGenres.map((g) => (<option key={g} value={g}>{g}</option>))}
+                </select>
+                <select
+                  value={filters.year ?? ""}
+                  onChange={(e) => { playClick(); setFilters({ ...filters, year: e.target.value ? parseInt(e.target.value, 10) : null }); }}
+                  className="w-full px-1 py-1 mt-0.5"
+                  style={{
+                    fontSize: "var(--t-text-sm)",
+                    background: "var(--t-bg-dark)",
+                    color: "var(--t-text)",
+                    borderTop: "2px solid var(--t-border-dark)",
+                    borderLeft: "2px solid var(--t-border-dark)",
+                    borderBottom: "2px solid var(--t-border-light)",
+                    borderRight: "2px solid var(--t-border-light)",
+                  }}
+                >
+                  <option value="">📅 Année</option>
+                  {allYears.map((y) => (<option key={y} value={y}>{y}</option>))}
+                </select>
+              </div>
+
+              {/* Overlay */}
               <button
-                onClick={() => { playClick(); setShowCatalog(!showCatalog); }}
-                className="w-full text-left px-2 py-1"
+                onClick={() => setShowOverlay(true)}
+                className="w-full text-left px-2 py-1 flex-shrink-0"
                 style={{
                   fontSize: "var(--t-text-sm)",
-                  background: showCatalog ? "var(--t-accent)" : "var(--t-bg-dark)",
-                  color: showCatalog ? "#fff" : "var(--t-text)",
+                  background: "var(--t-bg-dark)",
+                  color: "var(--t-text)",
                   borderTop: "2px solid var(--t-border-light)",
                   borderLeft: "2px solid var(--t-border-light)",
                   borderBottom: "2px solid var(--t-border-dark)",
                   borderRight: "2px solid var(--t-border-dark)",
                   cursor: "pointer",
+                  marginTop: 6,
                 }}
               >
-                {showCatalog ? "🔍 Rechercher ▾" : "🔍 Rechercher"}
+                📺 Overlay
               </button>
-            )}
-            <button
-              onClick={() => { playClick(); setShowStats(!showStats); }}
-              className="w-full text-left px-2 py-1 mt-0.5"
-              style={{
-                fontSize: "var(--t-text-sm)",
-                background: showStats ? "var(--t-accent)" : "var(--t-bg-dark)",
-                color: showStats ? "#fff" : "var(--t-text)",
-                borderTop: "2px solid var(--t-border-light)",
-                borderLeft: "2px solid var(--t-border-light)",
-                borderBottom: "2px solid var(--t-border-dark)",
-                borderRight: "2px solid var(--t-border-dark)",
-                cursor: "pointer",
-              }}
-            >
-              {showStats ? "📊 Stats ▾" : "📊 Stats"}
-            </button>
-            <button
-              onClick={() => setShowOverlay(true)}
-              className="w-full text-left px-2 py-1 mt-0.5"
-              style={{
-                fontSize: "var(--t-text-sm)",
-                background: "var(--t-bg-dark)",
-                color: "var(--t-text)",
-                borderTop: "2px solid var(--t-border-light)",
-                borderLeft: "2px solid var(--t-border-light)",
-                borderBottom: "2px solid var(--t-border-dark)",
-                borderRight: "2px solid var(--t-border-dark)",
-                cursor: "pointer",
-              }}
-            >
-              📺 Overlay
-            </button>
-            <button
-              onClick={handleExport}
-              className="w-full text-left px-2 py-1 mt-0.5"
-              style={{
-                fontSize: "var(--t-text-sm)",
-                background: "var(--t-bg-dark)",
-                color: "var(--t-text)",
-                borderTop: "2px solid var(--t-border-light)",
-                borderLeft: "2px solid var(--t-border-light)",
-                borderBottom: "2px solid var(--t-border-dark)",
-                borderRight: "2px solid var(--t-border-dark)",
-                cursor: "pointer",
-              }}
-            >
-              📷 Export
-            </button>
-          </div>
 
-          {/* ── RÉGLAGES ── */}
-          <div className="flex-shrink-0" style={{ marginTop: 6 }}>
-            <div
-              className="px-1 py-0.5 font-bold"
-              style={{ fontSize: "calc(var(--t-text-xs) * 0.9)", color: "var(--t-text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}
-            >
-              Réglages
-            </div>
-            <div className="mt-0.5">
-              <ThemeDropdown />
-            </div>
-            <div className="flex gap-0.5 mt-0.5">
-              <button
-                onClick={toggleEffects}
-                className="flex-1 text-center px-1 py-1"
-                style={{
-                  fontSize: "var(--t-text-sm)",
-                  background: effectsOn ? "var(--t-bg)" : "var(--t-bg-dark)",
-                  color: effectsOn ? "var(--t-text)" : "var(--t-text-muted)",
-                  borderTop: effectsOn ? "2px solid var(--t-border-dark)" : "2px solid var(--t-border-light)",
-                  borderLeft: effectsOn ? "2px solid var(--t-border-dark)" : "2px solid var(--t-border-light)",
-                  borderBottom: effectsOn ? "2px solid var(--t-border-light)" : "2px solid var(--t-border-dark)",
-                  borderRight: effectsOn ? "2px solid var(--t-border-light)" : "2px solid var(--t-border-dark)",
-                  cursor: "pointer",
-                  opacity: effectsOn ? 1 : 0.55,
-                }}
-                title={effectsOn ? "Effets visuels activés" : "Effets visuels désactivés — son uniquement"}
-              >
-                {effectsOn ? "✨ ON" : "✨ OFF"}
-              </button>
+              {/* Spacer — pushes DEV to bottom */}
+              <div className="flex-1" />
+
+              {/* DEV — tiny, bottom-left */}
               <button
                 onClick={() => { playClick(); setDevMode(!devMode); }}
-                className="flex-1 text-center px-1 py-1"
+                className="flex-shrink-0 px-1 py-0.5"
                 style={{
-                  fontSize: "var(--t-text-sm)",
-                  background: devMode ? "#ff3300" : "var(--t-bg-dark)",
+                  fontSize: "calc(var(--t-text-xs) * 0.7)",
+                  background: devMode ? "#ff3300" : "transparent",
                   color: devMode ? "#fff" : "var(--t-text-muted)",
-                  borderTop: devMode ? "2px solid var(--t-border-dark)" : "2px solid var(--t-border-light)",
-                  borderLeft: devMode ? "2px solid var(--t-border-dark)" : "2px solid var(--t-border-light)",
-                  borderBottom: devMode ? "2px solid var(--t-border-light)" : "2px solid var(--t-border-dark)",
-                  borderRight: devMode ? "2px solid var(--t-border-light)" : "2px solid var(--t-border-dark)",
+                  border: devMode ? "none" : "1px dashed var(--t-border-dark)",
                   cursor: "pointer",
+                  opacity: devMode ? 1 : 0.4,
+                  alignSelf: "flex-start",
                 }}
+                title="Mode développement"
               >
-                DEV
+                {devMode ? "DEV ⚡" : "dev"}
               </button>
+            </>
+          )}
+
+          {/* Collapsed icon shortcuts */}
+          {sidebarCollapsed && (
+            <div className="flex flex-col items-center gap-1.5" style={{ marginTop: 8 }}>
+              <button
+                onClick={() => { playClick(); goToMyRankings(); }}
+                title="Mon classement"
+                style={{
+                  fontSize: "var(--t-text-md)", background: "none", border: "none", cursor: "pointer",
+                  color: viewMode === "mine" ? "var(--t-accent)" : "var(--t-text-muted)",
+                }}
+              >👤</button>
+              <button
+                onClick={() => { playClick(); toggleViewLayout(); }}
+                title={viewLayout === "list" ? "Passer en Grille" : "Passer en Liste"}
+                style={{ fontSize: "var(--t-text-md)", background: "none", border: "none", cursor: "pointer", color: "var(--t-text-muted)" }}
+              >{viewLayout === "list" ? "⊞" : "📋"}</button>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Tier list + Catalog */}

@@ -84,18 +84,17 @@ export function TierRow({ tier, games, readOnly, viewLayout, recentlyMovedIds, o
           bestTarget = { rankingId: rid, before: distX < 0 };
         }
       } else {
-        // ── List: vertical flow ──
-        const centerY = rect.top + rect.height / 2;
-        const distY = clientY - centerY;
-        const absDistY = Math.abs(distY);
-        // Also consider horizontal distance (for multi-column grid layouts)
-        const horizOverlap = clientX >= rect.left && clientX <= rect.right;
-        const dist = horizOverlap
-          ? absDistY
-          : absDistY + Math.abs(clientX - (rect.left + rect.width / 2)) * 2;
+        // ── List: horizontal flow (rows in a multi-column grid) ──
+        const centerX = rect.left + rect.width / 2;
+        const vertOverlap = clientY >= rect.top && clientY <= rect.bottom;
+        const distX = clientX - centerX;
+        // Prefer rows in the same visual row; penalize different rows
+        const dist = vertOverlap
+          ? Math.abs(distX)
+          : Math.abs(distX) + Math.abs(clientY - (rect.top + rect.height / 2)) * 3;
         if (dist < bestDist) {
           bestDist = dist;
-          bestTarget = { rankingId: rid, before: distY < 0 };
+          bestTarget = { rankingId: rid, before: distX < 0 };
         }
       }
     });
@@ -142,14 +141,10 @@ export function TierRow({ tier, games, readOnly, viewLayout, recentlyMovedIds, o
 
   // ── List mode: 3-zone handlers (insert before / swap / insert after) ──
   //
-  // Each row is split vertically into 3 zones:
-  //   ┌──────────────────────────────┐
-  //   │ ▲ insert before    (top 25%) │
-  //   │                              │
-  //   │ ↕ swap             (mid 50%) │
-  //   │                              │
-  //   │ ▼ insert after  (bottom 25%) │
-  //   └──────────────────────────────┘
+  // Like grid, each row is split horizontally into 3 zones:
+  //   ▐███▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓███▌
+  //    ← insert      ↕ swap     insert →
+  //    before                    after
   //
   const handleListItemDragOver = useCallback((e: React.DragEvent, rankingId: number) => {
     if (readOnly) return;
@@ -158,15 +153,15 @@ export function TierRow({ tier, games, readOnly, viewLayout, recentlyMovedIds, o
     setDragOver(false);
 
     const rect = e.currentTarget.getBoundingClientRect();
-    const relY = e.clientY - rect.top;
-    const ratio = relY / rect.height;
+    const relX = e.clientX - rect.left;
+    const ratio = relX / rect.width;
 
-    if (ratio < 0.25) {
-      // Top — insert before this row
+    if (ratio < 0.3) {
+      // Left edge — insert before this row
       setSwapTargetId(null);
       setInsertTarget({ rankingId, before: true });
-    } else if (ratio > 0.75) {
-      // Bottom — insert after this row
+    } else if (ratio > 0.7) {
+      // Right edge — insert after this row
       setSwapTargetId(null);
       setInsertTarget({ rankingId, before: false });
     } else {
@@ -182,10 +177,10 @@ export function TierRow({ tier, games, readOnly, viewLayout, recentlyMovedIds, o
     e.stopPropagation();
 
     const rect = e.currentTarget.getBoundingClientRect();
-    const relY = e.clientY - rect.top;
-    const ratio = relY / rect.height;
-    const inTopZone = ratio < 0.25;
-    const inBottomZone = ratio > 0.75;
+    const relX = e.clientX - rect.left;
+    const ratio = relX / rect.width;
+    const inLeftZone = ratio < 0.3;
+    const inRightZone = ratio > 0.7;
 
     setSwapTargetId(null);
     setInsertTarget(null);
@@ -194,7 +189,7 @@ export function TierRow({ tier, games, readOnly, viewLayout, recentlyMovedIds, o
     const raw = e.dataTransfer.getData("text/plain");
 
     // Determine the effective insert index based on zone
-    const effectiveIndex = inTopZone ? targetIndex : inBottomZone ? targetIndex + 1 : targetIndex;
+    const effectiveIndex = inLeftZone ? targetIndex : inRightZone ? targetIndex + 1 : targetIndex;
 
     // Catalog / IGDB drops — always insert, never swap
     if (raw.startsWith("igdb:")) {
@@ -224,7 +219,7 @@ export function TierRow({ tier, games, readOnly, viewLayout, recentlyMovedIds, o
     // Same tier
     if (rankingId === targetRankingId) return; // dropped on itself
 
-    if (inTopZone || inBottomZone) {
+    if (inLeftZone || inRightZone) {
       // Edge zone — insert at position
       onReorder?.(rankingId, effectiveIndex);
     } else {
@@ -471,14 +466,14 @@ export function TierRow({ tier, games, readOnly, viewLayout, recentlyMovedIds, o
           </div>
         ) : (
           <div
-            className="gap-2 p-2 flex-1 overflow-auto"
+            className="gap-1 p-2 flex-1 overflow-auto"
             style={{
               display: "grid",
               gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))",
+              gridAutoRows: "1fr",
               alignContent: "start",
             }}
             onDragOverCapture={(e) => {
-              // Capture phase: track mouse for floating preview, fires even if children stopPropagation
               setDragState((prev) => prev ? { ...prev, x: e.clientX, y: e.clientY } : null);
             }}
             onDragEndCapture={() => setDragState(null)}
@@ -497,30 +492,31 @@ export function TierRow({ tier, games, readOnly, viewLayout, recentlyMovedIds, o
                   onDrop={(e) => handleListItemDrop(e, r.id, index)}
                   className="rounded"
                   style={{
+                    height: "100%",
                     // ── Swap glow ──
                     outline: isSwapTarget ? "3px solid var(--t-accent)" : "3px solid transparent",
                     outlineOffset: 3,
                     boxShadow: isSwapTarget ? "0 0 16px 4px var(--t-accent)" : "none",
                     filter: isSwapTarget ? "brightness(1.08)" : "none",
-                    transform: isSwapTarget ? "scale(1.03)" : "scale(1)",
-                    // ── Insert bars ──
-                    borderTop: isInsertBefore ? "4px solid var(--t-accent)" : "4px solid transparent",
-                    borderBottom: isInsertAfter ? "4px solid var(--t-accent)" : "4px solid transparent",
+                    transform: isSwapTarget ? "scale(1.02)" : "scale(1)",
+                    // ── Insert bars (horizontal like grid) ──
+                    borderLeft: isInsertBefore ? "4px solid var(--t-accent)" : "4px solid transparent",
+                    borderRight: isInsertAfter ? "4px solid var(--t-accent)" : "4px solid transparent",
                     // ── Shared ──
                     transition: "outline 0.12s, box-shadow 0.12s, filter 0.12s, transform 0.12s, border 0.08s",
                     zIndex: isSwapTarget ? 2 : isInsertBefore || isInsertAfter ? 1 : 0,
                     position: "relative",
                   }}
                 >
-                  {/* Insert arrow indicator */}
-                  {isInsertBefore && (
+                  {/* Insert arrow indicator — horizontal */}
+                  {(isInsertBefore || isInsertAfter) && (
                     <div
                       className="absolute flex items-center justify-center"
                       style={{
-                        left: 0,
-                        right: 0,
-                        top: -14,
-                        height: 20,
+                        top: 0,
+                        bottom: 0,
+                        [isInsertBefore ? "left" : "right"]: -10,
+                        width: 20,
                         color: "var(--t-accent)",
                         fontSize: "var(--t-text-lg)",
                         fontWeight: "bold",
@@ -529,26 +525,7 @@ export function TierRow({ tier, games, readOnly, viewLayout, recentlyMovedIds, o
                         textShadow: "0 0 8px var(--t-accent)",
                       }}
                     >
-                      ▲
-                    </div>
-                  )}
-                  {isInsertAfter && (
-                    <div
-                      className="absolute flex items-center justify-center"
-                      style={{
-                        left: 0,
-                        right: 0,
-                        bottom: -14,
-                        height: 20,
-                        color: "var(--t-accent)",
-                        fontSize: "var(--t-text-lg)",
-                        fontWeight: "bold",
-                        zIndex: 5,
-                        pointerEvents: "none",
-                        textShadow: "0 0 8px var(--t-accent)",
-                      }}
-                    >
-                      ▼
+                      {isInsertBefore ? "◀" : "▶"}
                     </div>
                   )}
                   <GameRow

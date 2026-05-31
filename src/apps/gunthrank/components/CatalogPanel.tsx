@@ -122,7 +122,7 @@ export function CatalogPanel({ onClose, onAddFromCatalog, onAddFromIgdb }: Catal
         className="flex items-center justify-between px-2 py-1.5"
         style={{ borderBottom: "1px solid var(--t-border-dark)" }}
       >
-        <span style={{ fontSize: "var(--t-text-xs)", fontWeight: "bold" }}>Catalogue</span>
+        <span style={{ fontSize: "var(--t-text-sm)", fontWeight: "bold" }}>Catalogue</span>
         <button
           onClick={onClose}
           style={{
@@ -146,7 +146,7 @@ export function CatalogPanel({ onClose, onAddFromCatalog, onAddFromIgdb }: Catal
           placeholder="Rechercher un jeu..."
           className="w-full px-2 py-1"
           style={{
-            fontSize: "var(--t-text-xs)",
+            fontSize: "var(--t-text-sm)",
             background: "var(--t-app-bg)",
             color: "var(--t-text)",
             borderTop: "2px solid var(--t-border-dark)",
@@ -159,7 +159,7 @@ export function CatalogPanel({ onClose, onAddFromCatalog, onAddFromIgdb }: Catal
 
       {/* Quick filters */}
       <div className="px-2 py-1.5" style={{ borderBottom: "1px solid var(--t-border-dark)" }}>
-        <div style={{ fontSize: "calc(var(--t-text-xs) * 0.8)", color: "var(--t-text-muted)", marginBottom: 2 }}>Genre</div>
+        <div style={{ fontSize: "var(--t-text-xs)", color: "var(--t-text-muted)", marginBottom: 2 }}>Genre</div>
         <div className="flex flex-wrap gap-1 max-h-16 overflow-auto">
           {POPULAR_GENRES.map((g) => (
             <button
@@ -167,7 +167,7 @@ export function CatalogPanel({ onClose, onAddFromCatalog, onAddFromIgdb }: Catal
               onClick={() => setGenreFilter(genreFilter === g ? null : g)}
               className="px-1 py-0.5 flex-shrink-0"
               style={{
-                fontSize: "calc(var(--t-text-xs) * 0.75)",
+                fontSize: "calc(var(--t-text-xs) * 0.85)",
                 background: genreFilter === g ? "var(--t-accent)" : "var(--t-bg-dark)",
                 color: genreFilter === g ? "#fff" : "var(--t-text-muted)",
                 border: "none",
@@ -179,7 +179,7 @@ export function CatalogPanel({ onClose, onAddFromCatalog, onAddFromIgdb }: Catal
           ))}
         </div>
 
-        <div style={{ fontSize: "calc(var(--t-text-xs) * 0.8)", color: "var(--t-text-muted)", marginTop: 4, marginBottom: 2 }}>Plateforme</div>
+        <div style={{ fontSize: "var(--t-text-xs)", color: "var(--t-text-muted)", marginTop: 4, marginBottom: 2 }}>Plateforme</div>
         <div className="flex flex-wrap gap-1 max-h-16 overflow-auto">
           {POPULAR_PLATFORMS.map((p) => (
             <button
@@ -187,7 +187,7 @@ export function CatalogPanel({ onClose, onAddFromCatalog, onAddFromIgdb }: Catal
               onClick={() => setPlatformFilter(platformFilter === p ? null : p)}
               className="px-1 py-0.5 flex-shrink-0"
               style={{
-                fontSize: "calc(var(--t-text-xs) * 0.75)",
+                fontSize: "calc(var(--t-text-xs) * 0.85)",
                 background: platformFilter === p ? "var(--t-accent)" : "var(--t-bg-dark)",
                 color: platformFilter === p ? "#fff" : "var(--t-text-muted)",
                 border: "none",
@@ -201,7 +201,7 @@ export function CatalogPanel({ onClose, onAddFromCatalog, onAddFromIgdb }: Catal
       </div>
 
       {/* Results count + status */}
-      <div className="px-2 py-1 flex flex-col gap-0.5" style={{ fontSize: "calc(var(--t-text-xs) * 0.8)", color: "var(--t-text-muted)" }}>
+      <div className="px-2 py-1 flex flex-col gap-0.5" style={{ fontSize: "var(--t-text-xs)", color: "var(--t-text-muted)" }}>
         <div className="flex items-center gap-2">
           {loading ? (
             <span>Recherche...</span>
@@ -213,7 +213,7 @@ export function CatalogPanel({ onClose, onAddFromCatalog, onAddFromIgdb }: Catal
           )}
         </div>
         {rateLimited && (
-          <span className="px-1 py-0.5" style={{ fontSize: "calc(var(--t-text-xs) * 0.75)", background: "#ff3300", color: "#fff" }}>
+          <span className="px-1 py-0.5" style={{ fontSize: "calc(var(--t-text-xs) * 0.85)", background: "#ff3300", color: "#fff" }}>
             ⚡ Limite IGDB atteinte — réessaie dans quelques secondes
           </span>
         )}
@@ -248,9 +248,9 @@ export function CatalogPanel({ onClose, onAddFromCatalog, onAddFromIgdb }: Catal
                 </div>
               )}
               <div className="min-w-0 flex-1">
-                <div className="truncate" style={{ fontSize: "var(--t-text-xs)" }}>{game.name}</div>
+                <div className="truncate" style={{ fontSize: "var(--t-text-sm)" }}>{game.name}</div>
                 {game.platforms && (
-                  <div style={{ fontSize: "calc(var(--t-text-xs) * 0.8)", color: "var(--t-text-muted)" }}>
+                  <div style={{ fontSize: "var(--t-text-xs)", color: "var(--t-text-muted)" }}>
                     {(JSON.parse(game.platforms) as string[]).slice(0, 2).join(", ")}
                   </div>
                 )}
@@ -333,12 +333,12 @@ export function CatalogPanel({ onClose, onAddFromCatalog, onAddFromIgdb }: Catal
               <div className="min-w-0 flex-1">
                 <div className="truncate flex items-center gap-1" style={{ fontSize: "var(--t-text-xs)" }}>
                   {game.name}
-                  <span className="flex-shrink-0 px-1" style={{ fontSize: "calc(var(--t-text-xs) * 0.7)", background: "var(--t-accent)", color: "#fff" }}>IGDB</span>
+                  <span className="flex-shrink-0 px-1" style={{ fontSize: "calc(var(--t-text-xs) * 0.85)", background: "var(--t-accent)", color: "#fff" }}>IGDB</span>
                 </div>
-                <div style={{ fontSize: "calc(var(--t-text-xs) * 0.8)", color: "var(--t-text-muted)" }}>
+                <div style={{ fontSize: "var(--t-text-xs)", color: "var(--t-text-muted)" }}>
                   {game.genres.slice(0, 2).join(", ")}
                 </div>
-                <div style={{ fontSize: "calc(var(--t-text-xs) * 0.75)", color: "var(--t-text-muted)" }}>
+                <div style={{ fontSize: "calc(var(--t-text-xs) * 0.85)", color: "var(--t-text-muted)" }}>
                   {game.platforms.slice(0, 2).join(", ")}
                   {game.publishers.length > 0 ? ` — ${game.publishers[0]}` : ""}
                 </div>
@@ -400,7 +400,7 @@ export function CatalogPanel({ onClose, onAddFromCatalog, onAddFromIgdb }: Catal
         })}
 
         {!loading && filteredDbGames.length === 0 && igdbResults.length === 0 && (
-          <div className="px-2 py-2" style={{ fontSize: "var(--t-text-xs)", color: "var(--t-text-muted)" }}>
+          <div className="px-2 py-2" style={{ fontSize: "var(--t-text-sm)", color: "var(--t-text-muted)" }}>
             {offline ? "IGDB hors-ligne. Vérifie ta connexion." : hasFilters ? "Aucun résultat." : "Aucun jeu trouvé."}
           </div>
         )}
