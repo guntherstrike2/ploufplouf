@@ -13,12 +13,12 @@ export interface TickResult {
   orangeLeft: number;
 }
 
-export function tick(s: GameState, ironWillUsed: boolean): TickResult {
+export function tick(s: GameState): TickResult {
   const events: GameEvent[] = [];
 
   s.animClock += 0.03;
 
-  // Hit freeze: pause physics, only animate peg scales/cooldowns
+  // Hit freeze : fige la physique, anime seulement les scales de pegs
   if (s.hitFreezeFrames > 0) {
     s.hitFreezeFrames--;
     updatePegAnimations(s);
@@ -34,9 +34,8 @@ export function tick(s: GameState, ironWillUsed: boolean): TickResult {
   if (Math.abs(s.zoomLevel - 1) < 0.004) s.zoomLevel = 1;
 
   updateBucket(s, timeScale);
-  if (s.magnetFrames > 0) s.magnetFrames--;
 
-  // Fever pulse — use pre-tracked count instead of re-filtering
+  // Pulsation "fièvre" quand il reste peu d'oranges
   const orangeLeft = s.orangeLeft;
   const inFever = orangeLeft <= s.effectiveFeverThreshold && orangeLeft > 0;
   if (inFever) s.feverPulse = (s.feverPulse + 0.08) % (Math.PI * 2);
@@ -52,21 +51,10 @@ export function tick(s: GameState, ironWillUsed: boolean): TickResult {
 
   updatePegAnimations(s);
 
-  // Decay decor flash
-  for (const d of s.decors) {
-    if (d.flashFrames > 0) d.flashFrames--;
-  }
-
-  // Ball physics (main + extra balls)
+  // Physique de l'œuf
   if (s.ball?.active) processBallPhysics(s.ball, s, timeScale, events);
 
-  const extraCount = s.extraBalls.length;
-  for (let i = 0; i < extraCount; i++) {
-    const eb = s.extraBalls[i]!;
-    if (eb.active) processBallPhysics(eb, s, timeScale, events);
-  }
-
-  // Pop animations
+  // Animations de pop
   for (const p of s.pegs) {
     if (p.popping) {
       p.popAlpha -= 0.07;
@@ -77,12 +65,10 @@ export function tick(s: GameState, ironWillUsed: boolean): TickResult {
   updateParticles(s, timeScale);
 
   if (s.ball && !s.ball.active) s.ball = null;
-  s.extraBalls = s.extraBalls.filter(eb => eb.active);
 
-  // End of turn
-  const anyBallActive = s.ball?.active === true || s.extraBalls.length > 0;
-  if (s.phase === "firing" && !anyBallActive) {
-    endOfTurn(s, ironWillUsed, events);
+  // Fin de tour
+  if (s.phase === "firing" && !s.ball) {
+    endOfTurn(s, events);
     return { events, syncUI: true, orangeLeft };
   }
 

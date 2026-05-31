@@ -1,113 +1,10 @@
-import { W, H, BUCKET_W, BUCKET_H, LAUNCHER_X, LAUNCHER_Y, BONUS_BUCKET_XS } from "../engine/constants";
+import { W, H, BUCKET_W, BUCKET_H, LAUNCHER_X, LAUNCHER_Y } from "../engine/constants";
 import { computeAimLine } from "../engine/physics";
-import { FACE, HI, SHD, DARK } from "./theme";
-const NAVY = "#ff6b35"; // warm orange for launcher pixel art
-import { win98Button, raisedBevel } from "./helpers";
+import { getActiveBird, getActiveBucket } from "../engine/assets";
+import type { BirdSprite, BucketStyle } from "../engine/assets";
 import type { GameState } from "../engine/types";
 
-interface BirdSkin {
-  grid: readonly string[];
-  palette: Record<string, string>;
-}
-
-// Skins indexed by skin id — each grid is rendered upside-down (queue en haut, pattes vers le bas)
-const BIRD_SKINS: Record<string, BirdSkin> = {
-  // ── Pélicans ───────────────────────────────────────────────────────────────
-  pelican_1: {
-    grid: ["...y.y...", "...www...", "..wywyw..", "..wwwyy.", ".wbbbbbb.", "wwbbbbbww", ".wbbbbbw.", "...wbbw...", "...www..."],
-    palette: { w: "#f0ece0", b: "#d4c4a0", y: "#f5c542" },
-  },
-  pelican_2: {
-    grid: ["...y.y...", "...www...", "..wywyw..", "...wbbw..", ".wbbbbwa.", "wwbbbbwa.", "..wbbbba.", "...wbbww.", "....www.."],
-    palette: { w: "#e8f4ff", b: "#c8e0ff", a: "#ff7722", y: "#ffdd44" },
-  },
-  pelican_3: {
-    grid: ["...y.y...", "...www...", "..wnyw...", "..wppw...", ".wppppw..", "wwppppww.", ".wppppw..", "..wpppw..", "...www..."],
-    palette: { w: "#ffe8f0", p: "#ffaacc", n: "#ff6688", y: "#ffdd44" },
-  },
-  pelican_4: {
-    grid: ["...ydy...", "...wdw...", "..wddw...", "..wddw...", ".wbbbbw..", "wwbbbbww.", ".wbbbbw..", "...wbbw...", "...www..."],
-    palette: { w: "#c8a878", b: "#a07848", d: "#884422", y: "#f5c542" },
-  },
-  pelican_5: {
-    grid: ["...r.r...", "...ggg...", "..gorgg..", "..goorr..", ".gooooog.", "ggooooogg", ".gooooog.", "..ggoog..", "...ggg..."],
-    palette: { g: "#ffd700", o: "#ffeeaa", r: "#ff4422" },
-  },
-
-  // ── Corbeaux ───────────────────────────────────────────────────────────────
-  corbeau_1: {
-    grid: ["..b...b..", "..bb.bb..", "..bbbbb..", ".bbbbbbb.", "bbbbbbbb.", ".bbbbbbb.", "..bbbbb..", "..brrbb..", "...bbb..."],
-    palette: { b: "#1a1a2e", r: "#ff2244" },
-  },
-  corbeau_2: {
-    grid: ["..b...b..", "..bb.bb..", "..bbbbb..", ".bbbbbbb.", "bbbbbbbb.", "..brrb...", "..bbbbb..", ".hbbbbh..", "..hhhh..."],
-    palette: { b: "#1a1a2e", r: "#ff2244", h: "#111111" },
-  },
-  corbeau_3: {
-    grid: ["..p...p..", "..pp.pp..", "..ppppp..", ".ppppppp.", "pppppppp.", ".ppppppp.", "..ppppp..", "..pvvpp..", "...ppp..."],
-    palette: { p: "#2d0a4e", v: "#cc00ff" },
-  },
-  corbeau_4: {
-    grid: ["..b...b..", "..bb.bb..", "..bbbbb..", "bbbbbbbb.", ".bbbbbbb.", "..bbbbb..", "..bXrbb..", "...bbb...", "........."],
-    palette: { b: "#1a1a2e", r: "#ff2244", X: "#cc2200" },
-  },
-  corbeau_5: {
-    grid: ["..w...w..", "..ww.ww..", "..wwwww..", "wwwwwwww.", ".wwwwwww.", "..wwwww..", "..wwwww..", "..wrrww..", "...www..."],
-    palette: { w: "#e8e0f0", r: "#ff2244" },
-  },
-
-  // ── Faucons ────────────────────────────────────────────────────────────────
-  faucon_1: {
-    grid: ["...y..y..", "..mbbm...", "..mbbm...", ".mbbbbbm.", "mmwwwwwmm", ".mwwwwwm.", "..mwwwm..", "..mbbwm..", "...mmm..."],
-    palette: { m: "#1a1a1a", b: "#8b6040", w: "#f0ece8", y: "#f5c542" },
-  },
-  faucon_2: {
-    grid: ["...y..y..", "..r.r.r..", "..rdddr..", ".rrrddrr.", "rrrrrrrr.", ".rrrrrrr.", "..rrrrr..", "..roorr..", "...rrr..."],
-    palette: { r: "#cc4422", o: "#ffcc88", d: "#882200", y: "#f5c542" },
-  },
-  faucon_3: {
-    grid: ["...g..g..", "..w..w...", "..wggw...", ".wgggggw.", "wwwwwwww.", ".wwwwwww.", "..wwwww..", "..wggww..", "...www..."],
-    palette: { w: "#f8f0e8", g: "#ffd700" },
-  },
-  faucon_4: {
-    grid: ["...y..y..", "..w..w...", "..wwsww..", ".wwwwwww.", "wwswwsww.", ".wwwwwww.", "..wwwww..", "..wsbww..", "...www..."],
-    palette: { w: "#f8fcff", s: "#334455", b: "#4488cc", y: "#f5c542" },
-  },
-  faucon_5: {
-    grid: ["...e..e..", "..c..c...", "..ceec...", ".cceeecc.", "cccccccc.", ".ccccccc.", "..ccccc..", "..cnnccc.", "...ccc..."],
-    palette: { c: "#003344", n: "#00ffff", e: "#00ff88" },
-  },
-};
-
-// Fallback — aigle générique utilisé si aucun skin n'est sélectionné
-const DEFAULT_SKIN: BirdSkin = {
-  grid: [
-    "...ywy...",
-    "...wbw...",
-    ".wbbbbbw.",
-    "wwbbbbbww",
-    ".wbbbbbb.",
-    "..wwwyy.",
-    "..wywyw..",
-    "..wbwbw..",
-    "...www...",
-  ],
-  palette: { w: "#f5f0e8", b: "#8b5e3c", y: "#f5c542" },
-};
-
-function getActiveSkin(classId: string): BirdSkin {
-  if (typeof window === "undefined") return DEFAULT_SKIN;
-  try {
-    const stored = JSON.parse(localStorage.getItem("peagle_active_skins") ?? "{}") as Record<string, string>;
-    const skinId = stored[classId];
-    if (skinId && BIRD_SKINS[skinId]) return BIRD_SKINS[skinId]!;
-  } catch { /* ignore */ }
-  // Default skin per class
-  const defaults: Record<string, string> = { canonnier: "pelican_1", alchimiste: "corbeau_1", sniper: "faucon_1" };
-  return BIRD_SKINS[defaults[classId] ?? ""] ?? DEFAULT_SKIN;
-}
-
-function drawBirdSkin(ctx: CanvasRenderingContext2D, skin: BirdSkin, cx: number, cy: number, cellPx: number) {
+function drawBirdSkin(ctx: CanvasRenderingContext2D, skin: BirdSprite, cx: number, cy: number, cellPx: number) {
   const rows = skin.grid.length;
   const cols = skin.grid[0]?.length ?? 9;
   const ox = cx - (cols * cellPx) / 2;
@@ -141,7 +38,7 @@ export function drawAimLine(ctx: CanvasRenderingContext2D, s: GameState, aimAngl
     _aimCache.hitSerial !== hitSerial ||
     Math.abs(_aimCache.angle - aimAngle) >= 0.001
   ) {
-    _aimCache.pts = computeAimLine(LAUNCHER_X, LAUNCHER_Y, aimAngle, s.pegs, s.decors, s.effectiveBallR, s.effectiveAimSteps);
+    _aimCache.pts = computeAimLine(LAUNCHER_X, LAUNCHER_Y, aimAngle, s.pegs, s.effectiveBallR, s.effectiveAimSteps);
     _aimCache.angle = aimAngle;
     _aimCache.level = s.level;
     _aimCache.hitSerial = hitSerial;
@@ -175,7 +72,7 @@ export function drawLauncher(ctx: CanvasRenderingContext2D, s: GameState, aimAng
   ctx.save();
   ctx.translate(LAUNCHER_X, LAUNCHER_Y);
 
-  const skin = getActiveSkin(s.runClassId);
+  const skin = getActiveBird();
 
   if (s.phase === "aim" || s.phase === "firing") {
     ctx.save();
@@ -226,10 +123,11 @@ function drawNest(
   ctx: CanvasRenderingContext2D,
   cx: number, cy: number,
   w: number, h: number,
-  eggColor: string, eggHiColor: string,
+  style: BucketStyle,
   flash: boolean,
   animClock: number,
 ): void {
+  const { egg: eggColor, eggHi: eggHiColor } = style;
   // cy = centre vertical du nid
   // Le nid est une cuvette en U — plus large que haut
   const nestW = w + 10;     // légèrement plus large que le bucket
@@ -249,7 +147,7 @@ function drawNest(
   // On dessine le nid couche par couche du foncé vers le clair
 
   // Couche de base (la plus foncée — fond du creux)
-  ctx.fillStyle = "#1c0a02";
+  ctx.fillStyle = style.nestDark;
   // Cuvette U : on dessine la forme avec des lignes horizontales de plus en plus larges
   for (let row = 0; row < nestH; row++) {
     const t = row / nestH;
@@ -260,8 +158,8 @@ function drawNest(
     ctx.fillRect(rowX, rowY, rowW, 1);
   }
 
-  // Brindilles intermédiaires brun moyen
-  ctx.fillStyle = "#4a2208";
+  // Brindilles intermédiaires
+  ctx.fillStyle = style.nestMid;
   for (let row = 2; row < nestH - 1; row += 2) {
     const t = row / nestH;
     const rowW = Math.round((nestW - 8) * (0.28 + 0.68 * t));
@@ -271,7 +169,7 @@ function drawNest(
   }
 
   // Brindilles claires entrelacées (lignes verticales légères)
-  ctx.fillStyle = "#6b3c12";
+  ctx.fillStyle = style.nestLight;
   for (let col = -Math.floor(nestW / 2) + 4; col < Math.floor(nestW / 2) - 3; col += 5) {
     const absX = Math.round(cx + col);
     // hauteur visible de cette colonne dans la cuvette
@@ -282,25 +180,25 @@ function drawNest(
 
   // Brindilles qui dépassent sur les côtés et en bas — les plus claires
   for (const seg of TWIG_SEGS) {
-    drawTwig(ctx, cx, nestBot - Math.round(nestH * 0.3), seg.sx, seg.sy, seg.ex, seg.ey, "#7a4418");
+    drawTwig(ctx, cx, nestBot - Math.round(nestH * 0.3), seg.sx, seg.sy, seg.ex, seg.ey, style.nestRim);
   }
-  // Quelques brindilles accent encore plus claires
+  // Quelques brindilles accent
   for (const seg of TWIG_SEGS) {
-    drawTwig(ctx, cx, nestBot - Math.round(nestH * 0.3) - 1, seg.sx - 1, seg.sy - 1, seg.ex - 1, seg.ey - 1, "#5a2e0a");
+    drawTwig(ctx, cx, nestBot - Math.round(nestH * 0.3) - 1, seg.sx - 1, seg.sy - 1, seg.ex - 1, seg.ey - 1, style.nestMid);
   }
 
   // Reflet — bord supérieur légèrement plus clair
-  ctx.fillStyle = "#8c5020";
+  ctx.fillStyle = style.nestRim;
   ctx.fillRect(Math.round(cx - nestW / 2) + 2, nestTop, Math.round(nestW * 0.35), 1);
   ctx.fillRect(Math.round(cx + nestW * 0.15), nestTop, Math.round(nestW * 0.35), 1);
 
   // ── Fond intérieur du creux — zone où repose l'œuf ──────────────────────────
   const innerW = Math.round(nestW * 0.55);
   const innerH = Math.round(nestH * 0.4);
-  ctx.fillStyle = "#2a1208";
+  ctx.fillStyle = style.nestDark;
   ctx.fillRect(Math.round(cx - innerW / 2), nestMid - innerH + 2, innerW, innerH);
   // Duvet — quelques pixels plus clairs
-  ctx.fillStyle = "#3a1c0c";
+  ctx.fillStyle = style.nestMid;
   ctx.fillRect(Math.round(cx - innerW / 2) + 2, nestMid - innerH + 4, innerW - 4, innerH - 4);
 
   // ── Œuf ─────────────────────────────────────────────────────────────────────
@@ -340,27 +238,9 @@ function drawNest(
 
 export function drawBuckets(ctx: CanvasRenderingContext2D, s: GameState): void {
   const bucketMidY = H - BUCKET_H / 2 - 4;
+  const bucket = getActiveBucket();
   ctx.save();
-
-  if (s.balls === 0 && s.phase === "firing") {
-    const eggForMult = (m: number) => m === 5
-      ? { egg: "#e8c840", hi: "#ffe870" }   // doré
-      : m === 3
-      ? { egg: "#5599ee", hi: "#99ccff" }   // bleu
-      : { egg: "#e8e4d8", hi: "#ffffff" };  // blanc tacheté
-
-    for (let i = 0; i < 3; i++) {
-      const bx = BONUS_BUCKET_XS[i]!;
-      const flash = (s.bonusBucketFlash[i] ?? 0) > 0;
-      const mult = s.bonusBucketMults[i] ?? 1;
-      const eg = eggForMult(mult);
-      drawNest(ctx, bx + BUCKET_W / 2, bucketMidY, BUCKET_W, BUCKET_H + 4, eg.egg, eg.hi, flash, s.animClock);
-    }
-  } else {
-    const isFlash = s.bucketFlash > 0;
-    drawNest(ctx, s.bucket + BUCKET_W / 2, bucketMidY, BUCKET_W, BUCKET_H + 4, "#e8e4d8", "#ffffff", isFlash, s.animClock);
-  }
-
+  drawNest(ctx, s.bucket + BUCKET_W / 2, bucketMidY, BUCKET_W, BUCKET_H + 4, bucket, s.bucketFlash > 0, s.animClock);
   ctx.restore();
 
   // Sol herbeux sous les nids

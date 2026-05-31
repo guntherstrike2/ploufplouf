@@ -2,8 +2,7 @@ import type { GameState } from "../engine/types";
 import type { GameTheme } from "../engine/game-theme";
 import { PEG_R } from "../engine/constants";
 import { drawBackground } from "./background";
-import { drawWarpCables, drawPegs } from "./pegs";
-import { drawDecors, drawDecorHitboxes } from "./decor";
+import { drawPegs } from "./pegs";
 import { drawAimLine, drawLauncher, drawBuckets } from "./ui";
 import { drawBall } from "./ball";
 import { drawParticles, drawFloatingTexts, drawScreenFlash, drawVignette, drawBezel } from "./effects";
@@ -28,7 +27,7 @@ export function drawFrame(
 
   ctx.save();
 
-  // Camera: zoom follows ball during slow-mo, otherwise just screen shake
+  // Caméra : zoom suit l'œuf en slow-mo, sinon juste le screen shake
   if (hasZoom && s.ball) {
     const W = 480, H = 640;
     ctx.translate(s.shakeX * 0.4, s.shakeY * 0.4);
@@ -40,28 +39,23 @@ export function drawFrame(
   }
 
   drawBackground(ctx, s, feverIntensity, theme);
-  drawDecors(ctx, s);
   drawAimLine(ctx, s, aimAngle);
-  drawWarpCables(ctx, s, theme);
   drawPegs(ctx, s, inFever, feverIntensity, theme);
   drawParticles(ctx, s);
 
   if (s.ball?.active) drawBall(ctx, s.ball, inSlowMo);
-  for (const eb of s.extraBalls) {
-    if (eb.active) drawBall(ctx, eb, inSlowMo);
-  }
 
   drawFloatingTexts(ctx, s);
   drawLauncher(ctx, s, aimAngle);
   drawBuckets(ctx, s);
 
-  ctx.restore(); // end camera transform
+  ctx.restore(); // fin transform caméra
 
   drawBezel(ctx);
   drawScreenFlash(ctx, s, inFever, theme);
   drawVignette(ctx, s);
 
-  if (showHitboxes) { drawDebugHitboxes(ctx, s); drawDecorHitboxes(ctx, s); }
+  if (showHitboxes) drawDebugHitboxes(ctx, s);
 }
 
 function drawDebugHitboxes(ctx: CanvasRenderingContext2D, s: GameState): void {
@@ -75,12 +69,10 @@ function drawDebugHitboxes(ctx: CanvasRenderingContext2D, s: GameState): void {
     ctx.stroke();
   }
   const ballR = s.effectiveBallR;
-  const balls = s.ball ? [s.ball, ...s.extraBalls] : s.extraBalls;
-  ctx.strokeStyle = "rgba(0,255,255,0.7)";
-  for (const b of balls) {
-    if (!b.active) continue;
+  if (s.ball?.active) {
+    ctx.strokeStyle = "rgba(0,255,255,0.7)";
     ctx.beginPath();
-    ctx.arc(b.x, b.y, ballR, 0, Math.PI * 2);
+    ctx.arc(s.ball.x, s.ball.y, ballR, 0, Math.PI * 2);
     ctx.stroke();
   }
   ctx.restore();

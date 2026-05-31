@@ -37,7 +37,7 @@ export const lucideTheme: IconTheme = {
   style: "colored-bg",
   icons: {
     peagle:              { icon: Target,          color: "#c0392b" },
-    "peagle-showroom":   { icon: Palette,         color: "#9b59b6" },
+    "peagle-gallery":    { icon: Palette,         color: "#9b59b6" },
     "plouf-plouf":   { icon: Droplets,        color: "#2980b9" },
     profile:         { icon: User,            color: "#8e44ad" },
     directory:       { icon: Users,           color: "#27ae60" },

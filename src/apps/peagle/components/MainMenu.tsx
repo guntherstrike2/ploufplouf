@@ -3,18 +3,16 @@
 import { useState } from "react";
 import "../peagle.css";
 import { captionBtn } from "../styles";
-import { PegIcon } from "./PegIcon";
-import { ForestBackground } from "./ForestBackground";
-import { AnnouncementsOverlay, useAnnouncements } from "./AnnouncementPopup";
+import { DevPanel } from "./DevPanel";
+import type { DevConfig } from "./DevPanel";
 
 const NW = {
   bg:        "#060e04",
   surface:   "#0c1a08",
   surface2:  "#122010",
-  border:    "#1e3a18",
   hi:        "#3a6030",
   sh:        "#020501",
-  gold:      "#88cc44",     // vert-lime luciole
+  gold:      "#88cc44",
   goldLight: "#aaee66",
   amber:     "#66bb33",
   text:      "#c8e8b0",
@@ -23,22 +21,13 @@ const NW = {
   titleFrom: "#0a1a06",
   titleTo:   "#060e04",
 } as const;
-import { PeagleLogo } from "./PeagleLogo";
-import { DevPanel, type DevConfig } from "./DevPanel";
 
 const TIPS = [
-  "ASTUCE : Les cibles orange sont les vraies cibles. Les bleues ? Décoration. Comme les plumes inutiles de l'autruche.",
-  "ASTUCE : Lancez l'œuf avec la souris. Oui, c'est tout. Non il n'y a pas d'autre mécanisme. Si.",
-  "ASTUCE : Le panier en bas rapporte des œufs. L'aigle y a mis ses économies. Respectez le panier.",
-  "ASTUCE : Les cibles vertes donnent des pouvoirs. L'aigle les a mangées par erreur. Ça a quand même marché.",
-  "ASTUCE : Si vous perdez, c'est la physique. Jamais vous. La physique est injuste et l'aigle le sait.",
-  "ASTUCE : Le mode Fièvre s'active quand il reste peu de cibles oranges. L'aigle devient incontrôlable. Comme d'habitude.",
-  "ASTUCE : Vous lancez des œufs d'aigle sur des cibles. C'est exactement aussi stupide que ça en a l'air.",
-  "ASTUCE : Les bombes explosent et détruisent les voisins. Exactement comme dans la vraie vie, mais en moins lourd.",
-  "ASTUCE : Le score monte quand vous touchez des trucs. C'est à peu près toute la philosophie du jeu.",
-  "ASTUCE : Ce jeu a été inspecté par des ornithologues. Aucun n'a survécu pour confirmer.",
-  "ASTUCE : Vous jouez à Peggle. Mais avec des aigles. La FDA n'a pas encore statué si c'est un médicament.",
-  "ASTUCE : Choisissez une classe avant de jouer. Le Faucon juge ceux qui choisissent le Pélican. Injustement.",
+  "ASTUCE : Les cibles orange sont les vraies cibles. Les bleues ? Bonus de points.",
+  "ASTUCE : Lancez l'œuf avec la souris. Visez, cliquez. C'est tout.",
+  "ASTUCE : Le panier en bas rattrape les œufs qui tombent. Profitez-en.",
+  "ASTUCE : Enchaînez les pegs sans rater pour faire grimper le combo.",
+  "ASTUCE : Cassez toutes les cibles oranges pour gagner le niveau et choisir un bonus.",
 ];
 
 interface MainMenuProps {
@@ -53,7 +42,7 @@ interface MainMenuProps {
 export function MainMenu({ bestScore, displayName, isAdmin, onPlay, onLeaderboard, onDevLaunch }: MainMenuProps) {
   const [tip] = useState(() => TIPS[Math.floor(Math.random() * TIPS.length)]!);
   const [showDev, setShowDev] = useState(false);
-  const { announcements, popupAnnouncement, showChangelog, dismiss, openChangelog, setShowChangelog } = useAnnouncements();
+
   return (
     <div
       className="peagle-root"
@@ -62,36 +51,19 @@ export function MainMenu({ bestScore, displayName, isAdmin, onPlay, onLeaderboar
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: "#060e04",
+        background: "linear-gradient(to bottom, #122010 0%, #0a1806 55%, #060e04 100%)",
         overflow: "hidden",
         userSelect: "none",
         position: "relative",
       }}
     >
-      <ForestBackground />
-
-      {/* DevPanel overlay */}
       {showDev && (
         <DevPanel
           onClose={() => setShowDev(false)}
           onLaunch={(cfg) => { setShowDev(false); onDevLaunch(cfg); }}
-          onApplyTheme={() => {}}
         />
       )}
 
-      {/* Announcements overlay (popup + changelog) */}
-      {!showDev && (
-        <AnnouncementsOverlay
-          announcements={announcements}
-          popupAnnouncement={popupAnnouncement}
-          showChangelog={showChangelog}
-          onDismiss={dismiss}
-          onMoreInfo={openChangelog}
-          onCloseChangelog={() => setShowChangelog(false)}
-        />
-      )}
-
-      {/* Dialog centré */}
       <div
         style={{
           width: 320,
@@ -104,10 +76,10 @@ export function MainMenu({ bestScore, displayName, isAdmin, onPlay, onLeaderboar
           borderLeftColor: NW.hi,
           borderBottomColor: NW.sh,
           borderRightColor: NW.sh,
-          boxShadow: `6px 6px 0 rgba(0,0,0,0.8), 0 0 50px rgba(200,134,10,0.1)`,
+          boxShadow: `6px 6px 0 rgba(0,0,0,0.8), 0 0 50px rgba(120,200,40,0.1)`,
         }}
       >
-        {/* Titlebar — plumes d'or */}
+        {/* Titlebar */}
         <div
           style={{
             display: "flex",
@@ -124,12 +96,9 @@ export function MainMenu({ bestScore, displayName, isAdmin, onPlay, onLeaderboar
             flex: 1,
             fontFamily: "var(--pg-font)",
             letterSpacing: "0.05em",
-            display: "flex",
-            alignItems: "center",
-            gap: 5,
             textShadow: `0 0 8px ${NW.gold}88`,
           }}>
-            <PegIcon id="eagle" size={10} /> PEAGLE 98
+            🦅 PEAGLE 98
           </span>
           {(["─", "□", "×"] as const).map((ch) => (
             <div
@@ -149,29 +118,31 @@ export function MainMenu({ bestScore, displayName, isAdmin, onPlay, onLeaderboar
           ))}
         </div>
 
-        {/* Body */}
         <div style={{ padding: "28px 28px 20px" }}>
-
-          {/* Hero — logo pixel art eagle + titre */}
+          {/* Hero */}
           <div style={{ textAlign: "center", marginBottom: 24 }}>
             <div
               style={{
-                display: "inline-block",
-                padding: "16px 20px 12px",
+                fontSize: 34,
                 marginBottom: 12,
-                background: NW.bg,
-                borderWidth: 2,
-                borderStyle: "solid",
-                borderTopColor: NW.sh,
-                borderLeftColor: NW.sh,
-                borderBottomColor: NW.hi,
-                borderRightColor: NW.hi,
-                boxShadow: `inset 0 0 20px rgba(200,134,10,0.06)`,
+                lineHeight: 1,
               }}
             >
-              <PeagleLogo />
+              🦅
             </div>
-
+            <div
+              style={{
+                fontSize: 18,
+                fontWeight: "bold",
+                color: NW.goldLight,
+                fontFamily: "var(--pg-font)",
+                letterSpacing: "0.08em",
+                textShadow: `0 0 12px ${NW.gold}88`,
+                marginBottom: 10,
+              }}
+            >
+              PEAGLE 98
+            </div>
             <div
               style={{
                 fontSize: 8,
@@ -186,7 +157,6 @@ export function MainMenu({ bestScore, displayName, isAdmin, onPlay, onLeaderboar
             </div>
           </div>
 
-          {/* Séparateur doré */}
           <div
             style={{
               height: 1,
@@ -208,7 +178,7 @@ export function MainMenu({ bestScore, displayName, isAdmin, onPlay, onLeaderboar
                 textAlign: "center",
                 letterSpacing: "0.06em",
                 cursor: "pointer",
-                background: `linear-gradient(to bottom, ${NW.amber}, #9a4a00)`,
+                background: `linear-gradient(to bottom, ${NW.amber}, #3a7a00)`,
                 color: NW.text,
                 borderWidth: 2,
                 borderStyle: "solid",
@@ -257,11 +227,11 @@ export function MainMenu({ bestScore, displayName, isAdmin, onPlay, onLeaderboar
                   letterSpacing: "0.04em",
                   cursor: "pointer",
                   background: NW.surface2,
-                  color: "#9955cc",
+                  color: "#aa55ee",
                   borderWidth: 2,
                   borderStyle: "solid",
-                  borderTopColor: "#9955cc",
-                  borderLeftColor: "#9955cc",
+                  borderTopColor: "#aa55ee",
+                  borderLeftColor: "#aa55ee",
                   borderBottomColor: NW.sh,
                   borderRightColor: NW.sh,
                 }}
@@ -271,7 +241,6 @@ export function MainMenu({ bestScore, displayName, isAdmin, onPlay, onLeaderboar
             )}
           </div>
 
-          {/* Séparateur doré */}
           <div
             style={{
               height: 1,
@@ -280,7 +249,7 @@ export function MainMenu({ bestScore, displayName, isAdmin, onPlay, onLeaderboar
             }}
           />
 
-          {/* Tip absurde */}
+          {/* Tip */}
           <div
             style={{
               fontSize: 7,
@@ -314,10 +283,7 @@ export function MainMenu({ bestScore, displayName, isAdmin, onPlay, onLeaderboar
           >
             <span>
               {bestScore > 0 ? (
-                <>
-                  ⭐{" "}
-                  <span style={{ color: NW.gold }}>{bestScore.toLocaleString()}</span>
-                </>
+                <>⭐ <span style={{ color: NW.gold }}>{bestScore.toLocaleString()}</span></>
               ) : (
                 "-- PAS DE SCORE --"
               )}

@@ -1,18 +1,14 @@
-import type { GreenPowerupId, RelicId, ClassId, UpgradeId } from "./roguelite";
+import type { UpgradeId } from "./roguelite";
 
-export type { GreenPowerupId, RelicId, ClassId, UpgradeId };
+export type { UpgradeId };
 
-// Ordered by rendering priority (first match wins in drawPegs)
-export type PegType = "warp" | "boss" | "bomb" | "armor" | "orange" | "green" | "normal";
+// Deux types de cibles seulement dans le squelette : orange (à détruire pour
+// gagner) et normale (bonus de points). Ajoute tes propres types ici puis
+// gère-les dans getPegType / le rendu / la physique.
+export type PegType = "orange" | "normal";
 
-export function getPegType(p: { warpId?: number; boss: boolean; bomb: boolean; armorHits: number; orange: boolean; green: boolean }): PegType {
-  if (p.warpId !== undefined) return "warp";
-  if (p.boss) return "boss";
-  if (p.bomb) return "bomb";
-  if (p.armorHits > 0) return "armor";
-  if (p.orange) return "orange";
-  if (p.green) return "green";
-  return "normal";
+export function getPegType(p: { orange: boolean }): PegType {
+  return p.orange ? "orange" : "normal";
 }
 
 export interface Peg {
@@ -20,13 +16,6 @@ export interface Peg {
   y: number;
   hit: boolean;
   orange: boolean;
-  green: boolean;
-  bomb: boolean;
-  boss: boolean;
-  armorHits: number;
-  hitCooldown: number;
-  warpId?: number;
-  greenPowerup?: GreenPowerupId;
   popping: boolean;
   popAlpha: number;
   scale: number;
@@ -73,104 +62,40 @@ export interface Star {
   phase: number;
 }
 
-// ─── Décor (éléments non-poppables) ─────────────────────────────────────────
-
-export interface DecorBumper {
-  kind: "bumper";
-  x: number; y: number; r: number;
-  flashFrames: number;
-  color: string;
-}
-
-export interface DecorPlank {
-  kind: "plank";
-  x: number; y: number;
-  len: number;
-  thickness: number;
-  angle: number;
-  flashFrames: number;
-  color: string;
-  // Precomputed endpoints — set once by makeInitialState, avoids cos/sin every substep
-  ax?: number; ay?: number; ex?: number; ey?: number;
-}
-
-export interface DecorArc {
-  kind: "arc";
-  x: number; y: number; r: number;
-  startAngle: number; endAngle: number;
-  thickness: number;
-  flashFrames: number;
-  color: string;
-}
-
-export interface DecorSpike {
-  kind: "spike";
-  x: number; y: number;
-  size: number;
-  angle: number;
-  flashFrames: number;
-  color: string;
-}
-
-export type Decor = DecorBumper | DecorPlank | DecorArc | DecorSpike;
-
 export interface GameState {
   pegs: Peg[];
   ball: Ball | null;
-  extraBalls: Ball[];
   balls: number;
   score: number;
   phase: "aim" | "firing" | "lost" | "won";
   bucket: number;
   bucketDir: number;
+  bucketFlash: number;
   message: string;
   combo: number;
+  scoreMultiplier: number;
   particles: Particle[];
   floatingTexts: FloatingText[];
   feverPulse: number;
   animClock: number;
-  bucketFlash: number;
   trauma: number;
   shakeX: number;
   shakeY: number;
-  scoreMultiplier: number;
   flashWhite: number;
   slowMoFrames: number;
   zoomLevel: number;
   level: number;
   hitFreezeFrames: number;
   stars: Star[];
-  multiballReady: boolean;
-  multiballPending: boolean;
-  multiballUsed: boolean;
   turnScoreStart: number;
-  bonusBucketFlash: number[];
-  bonusBucketMults: number[];
   orangeLeft: number;
-  warpPairs: [Peg, Peg][];
 
-  runRelics: RelicId[];
+  // Run modifiers (dérivés des upgrades par makeInitialState)
   runUpgrades: UpgradeId[];
-  runClassId: ClassId;
-
   effectiveBallR: number;
-  effectiveBombR: number;
   effectiveFeverThreshold: number;
   effectiveAimSteps: number;
   effectivePegBounce: number;
-  effectiveBucketSpeed: number;
-
-  spookyActive: boolean;
-  magnetFrames: number;
-  ghostBallActive: boolean;
-  phoenixAvailable: boolean;
-  lastHitWasOrange: boolean;
-  cursedLuckHits: number;
-  ballsLostThisLevel: number;
-
-  bossKilledThisLevel: boolean;
-
-  decors: Decor[];
 }
 
 export interface UiState {
@@ -182,13 +107,6 @@ export interface UiState {
   message: string;
   combo: number;
   level: number;
-  multiballReady: boolean;
-  multiballPending: boolean;
-  multiballUsed: boolean;
-  relics: RelicId[];
-  spookyActive: boolean;
-  magnetFrames: number;
-  bossLevel: boolean;
   stars: number;
 }
 

@@ -11,19 +11,18 @@ import { GameHud } from "./components/GameHud";
 import { GameCanvas } from "./components/GameCanvas";
 import { Leaderboard } from "./components/Leaderboard";
 import { MainMenu } from "./components/MainMenu";
-import { ClassPicker } from "./components/ClassPicker";
 import { UpgradePicker } from "./components/UpgradePicker";
+import { SidePanel } from "./components/SidePanel";
+import { DevPanel } from "./components/DevPanel";
+import type { DevConfig } from "./components/DevPanel";
 import { W, H } from "./engine/constants";
 import type { UiState, LeaderboardEntry, UpgradeId } from "./engine/types";
-import type { RunState, ClassId } from "./engine/roguelite";
+import type { RunState } from "./engine/roguelite";
 import { makeInitialRunState, generateUpgradeOffer } from "./engine/roguelite";
-import { DevPanel, DEFAULT_DEV_CONFIG } from "./components/DevPanel";
-import type { DevConfig } from "./components/DevPanel";
-import { SidePanel } from "./components/SidePanel";
-import { PEAGLE_LIVE_THEME_KEY } from "./components/Showroom";
-type Screen = "menu" | "class-pick" | "game" | "leaderboard";
 
-const EMPTY_RUN: RunState = makeInitialRunState("canonnier");
+type Screen = "menu" | "game" | "leaderboard";
+
+const EMPTY_RUN: RunState = makeInitialRunState();
 
 export function PeagleApp({ windowId: _windowId }: AppProps) {
   const { user } = useAuth();
@@ -33,13 +32,12 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
   const runStateRef = useRef<RunState>(EMPTY_RUN);
   const devConfigRef = useRef<DevConfig | null>(null);
   const [devSessionActive, setDevSessionActive] = useState(false);
+  const [showDevPanelInGame, setShowDevPanelInGame] = useState(false);
 
   const [screen, setScreen] = useState<Screen>("menu");
   const [ui, setUi] = useState<UiState>({
-    balls: 10, score: 0, orangeLeft: 0, orangeTotal: 0,
-    phase: "aim", message: "", combo: 0, level: 1,
-    multiballReady: true, multiballPending: false, multiballUsed: false,
-    relics: [], spookyActive: false, magnetFrames: 0, bossLevel: false, stars: 0,
+    balls: 12, score: 0, orangeLeft: 0, orangeTotal: 0,
+    phase: "aim", message: "", combo: 0, level: 1, stars: 0,
   });
   const [bestScore, setBestScore] = useState<number>(() => {
     if (typeof window === "undefined") return 0;
@@ -50,10 +48,8 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
   const [scoreSubmitted, setScoreSubmitted] = useState(false);
   const [tip, setTip] = useState(() => pickRandom(PEAGLE_TIPS));
 
-  // Upgrade pick state
+  // Offre d'upgrade entre deux niveaux
   const [upgradeOffer, setUpgradeOffer] = useState<UpgradeId[] | null>(null);
-  const [lastBossKilled, setLastBossKilled] = useState(false);
-  const [showDevPanelInGame, setShowDevPanelInGame] = useState(false);
 
   const userId = user?.id;
   useEffect(() => {
@@ -92,14 +88,8 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     } catch { /* silent */ }
   }, [user, scoreSubmitted]);
 
-  const handleLevelWon = useCallback((bossKilled: boolean) => {
-    const offer = generateUpgradeOffer(runStateRef.current.upgrades, bossKilled);
-    setLastBossKilled(bossKilled);
-    setUpgradeOffer(offer);
-  }, []);
-
-  const handleIronWillUsed = useCallback(() => {
-    runStateRef.current = { ...runStateRef.current, ironWillUsed: true };
+  const handleLevelWon = useCallback(() => {
+    setUpgradeOffer(generateUpgradeOffer(runStateRef.current.upgrades));
   }, []);
 
   useMusic();
@@ -107,7 +97,7 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
   const handleUiSync = useCallback((uiState: UiState) => setUi(uiState), []);
   const handleOrangeTotalChange = useCallback((total: number) => setUi(u => ({ ...u, orangeTotal: total })), []);
 
-  const { handleClick, resetGame, nextLevel, activateMultiball, skipLevel } = useGameLoop({
+  const { handleClick, resetGame, nextLevel, skipLevel } = useGameLoop({
     canvasRef,
     mouseRef,
     runStateRef,
@@ -117,7 +107,6 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     onBestScore: setBestScore,
     onScoreSubmit: submitScore,
     onLevelWon: handleLevelWon,
-    onIronWillUsed: handleIronWillUsed,
   });
 
   const handleUpgradePick = useCallback((id: UpgradeId) => {
@@ -139,8 +128,10 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     };
   }, []);
 
-  const handleClassPick = useCallback((classId: ClassId) => {
-    runStateRef.current = makeInitialRunState(classId);
+  const startRun = useCallback(() => {
+    devConfigRef.current = null;
+    setDevSessionActive(false);
+    runStateRef.current = makeInitialRunState();
     resetGame(false);
     setScoreSubmitted(false);
     setUpgradeOffer(null);
@@ -149,22 +140,14 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
 
   const handleDevLaunch = useCallback((cfg: DevConfig) => {
     devConfigRef.current = cfg;
-    const base = makeInitialRunState(cfg.classId);
-    runStateRef.current = {
-      ...base,
-      relics: cfg.relics.length > 0 ? cfg.relics : base.relics,
-      upgrades: cfg.upgrades,
-    };
+    runStateRef.current = { ...makeInitialRunState(), upgrades: cfg.upgrades };
     resetGame(false, cfg.startLevel);
     setScoreSubmitted(false);
     setUpgradeOffer(null);
     setDevSessionActive(true);
+    setShowDevPanelInGame(false);
     setScreen("game");
   }, [resetGame]);
-
-  const handlePlay = useCallback(() => {
-    setScreen("class-pick");
-  }, []);
 
   const handleGoToMenu = useCallback(() => {
     setUpgradeOffer(null);
@@ -176,26 +159,8 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     fetchLeaderboard();
   }, [fetchLeaderboard]);
 
-  const handleApplyTheme = useCallback((themeId: string) => {
-    if (devConfigRef.current) {
-      devConfigRef.current = { ...devConfigRef.current, gameThemeId: themeId };
-    } else {
-      devConfigRef.current = { ...DEFAULT_DEV_CONFIG, gameThemeId: themeId };
-    }
-  }, []);
-
-  // Live theme sync — listens for broadcasts from the Showroom in another window
-  useEffect(() => {
-    function onLiveTheme(e: StorageEvent) {
-      if (e.key !== PEAGLE_LIVE_THEME_KEY || !e.newValue) return;
-      handleApplyTheme(e.newValue);
-    }
-    window.addEventListener("storage", onLiveTheme);
-    return () => window.removeEventListener("storage", onLiveTheme);
-  }, [handleApplyTheme]);
-
   const handleReplay = useCallback(() => {
-    runStateRef.current = makeInitialRunState(runStateRef.current.classId);
+    runStateRef.current = makeInitialRunState();
     resetGame(false);
     setScoreSubmitted(false);
     setUpgradeOffer(null);
@@ -213,28 +178,24 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
           bestScore={bestScore}
           displayName={displayName}
           isAdmin={isAdmin}
-          onPlay={handlePlay}
+          onPlay={startRun}
           onLeaderboard={handleGoToLeaderboard}
           onDevLaunch={handleDevLaunch}
         />
-      )}
-
-      {screen === "class-pick" && (
-        <ClassPicker onPick={handleClassPick} />
       )}
 
       {screen === "leaderboard" && (
         <Leaderboard
           entries={leaderboard}
           loading={lbLoading}
-          currentUserId={userId}
+          currentUserId={user?.id}
           onRefresh={fetchLeaderboard}
           showLoginHint={!user}
           onBack={handleGoToMenu}
         />
       )}
 
-      {/* Game screen — canvas stays mounted to keep the game loop alive */}
+      {/* Écran de jeu — le canvas reste monté pour garder la boucle vivante */}
       <div
         style={{
           display: screen === "game" ? "flex" : "none",
@@ -250,42 +211,23 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
           displayName={displayName}
           isAdmin={isAdmin}
           showDevTools={isAdmin && devSessionActive}
-          onActivateMultiball={activateMultiball}
           onSkipLevel={skipLevel}
           onOpenDevPanel={() => setShowDevPanelInGame(true)}
           onMenu={handleGoToMenu}
         />
 
-        {/* DevPanel overlay in-game */}
         {showDevPanelInGame && (
           <DevPanel
             onClose={() => setShowDevPanelInGame(false)}
-            onApplyTheme={handleApplyTheme}
-            onLaunch={(cfg) => {
-              devConfigRef.current = cfg;
-              const base = makeInitialRunState(cfg.classId);
-              runStateRef.current = {
-                ...base,
-                relics: cfg.relics.length > 0 ? cfg.relics : base.relics,
-                upgrades: cfg.upgrades,
-              };
-              resetGame(false, cfg.startLevel);
-              setScoreSubmitted(false);
-              setUpgradeOffer(null);
-              setDevSessionActive(true);
-              setShowDevPanelInGame(false);
-            }}
+            onLaunch={handleDevLaunch}
           />
         )}
 
         {/* Layout responsive : vertical (mobile) ou horizontal (16/9+) */}
         <div className="pg-game-layout peagle-root" style={{ flex: 1, overflow: "hidden", alignItems: "stretch" }}>
-          {/* Panneau gauche — stats + aigle (visible seulement en mode large) */}
           <SidePanel side="left" ui={ui} bestScore={bestScore} feverMode={ui.orangeLeft > 0 && ui.orangeLeft <= 3} />
 
-          {/* Zone canvas centrale */}
           <div className="pg-canvas-area">
-            {/* Canvas area — upgrade picker overlays here */}
             <div style={{ position: "relative", flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
               <GameCanvas
                 canvasRef={canvasRef}
@@ -300,21 +242,18 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
                 onMenu={handleGoToMenu}
               />
 
-              {/* Upgrade picker overlay — shown after each won level */}
               {upgradeOffer && (
                 <UpgradePicker
                   offers={upgradeOffer}
-                  relics={ui.relics}
                   level={ui.level}
                   score={ui.score}
-                  bossKilled={lastBossKilled}
                   onPick={handleUpgradePick}
                   onSkip={handleUpgradeSkip}
                 />
               )}
             </div>
 
-            {/* Win98 status bar */}
+            {/* Barre de statut Win98 */}
             <div
               style={{
                 display: "flex",
@@ -344,7 +283,7 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
                 }}
               >
                 {upgradeOffer
-                  ? "Choisissez une amélioration pour continuer le run..."
+                  ? "Choisissez une amélioration pour continuer..."
                   : ui.phase === "aim" ? tip : ui.phase === "firing" ? "En vol..." : " "}
               </div>
               <div
@@ -374,7 +313,6 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
             </div>
           </div>
 
-          {/* Panneau droit — record, combo, décor (visible seulement en mode large) */}
           <SidePanel side="right" ui={ui} bestScore={bestScore} feverMode={ui.orangeLeft > 0 && ui.orangeLeft <= 3} />
         </div>
       </div>

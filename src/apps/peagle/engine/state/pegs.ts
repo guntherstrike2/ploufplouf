@@ -6,6 +6,5 @@ export function updatePegAnimations(s: GameState): void {
       p.scale += (1 - p.scale) * 0.18;
       if (Math.abs(p.scale - 1) < 0.01) p.scale = 1;
     }
-    if (p.hitCooldown > 0) p.hitCooldown--;
   }
 }

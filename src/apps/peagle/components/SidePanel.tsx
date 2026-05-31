@@ -280,14 +280,6 @@ export function SidePanel({ side, ui, bestScore, feverMode = false }: SidePanelP
               <SideStat label="PROIES" value={`${ui.orangeLeft}/${ui.orangeTotal}`} accent={!inFever} urgent={inFever} />
               <WoodSep />
               <SideStat label="ŒUFS" value={ui.balls} urgent={lowBalls} accent={!lowBalls} />
-              {ui.bossLevel && (
-                <>
-                  <WoodSep />
-                  <div style={{ fontSize: 5, color: "#ff6b35", fontFamily: "var(--pg-font)", animation: "pg-record-flash 1s ease-in-out infinite", textAlign: "center", padding: "2px 4px" }}>
-                    ⚠ BOSS
-                  </div>
-                </>
-              )}
             </>
           ) : (
             <>

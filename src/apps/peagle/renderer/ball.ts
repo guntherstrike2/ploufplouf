@@ -1,8 +1,9 @@
 import { BALL_R } from "../engine/constants";
-import { FACE } from "./theme";
+import { getActiveBall } from "../engine/assets";
 import type { Ball } from "../engine/types";
 
 export function drawBall(ctx: CanvasRenderingContext2D, ball: Ball, inSlowMo: boolean): void {
+  const style = getActiveBall();
   // Trail pixel art — ring buffer: trailHead is the oldest write slot (= visual start)
   const trailLen = ball.trail.length;
   if (trailLen > 0) {
@@ -31,7 +32,7 @@ export function drawBall(ctx: CanvasRenderingContext2D, ball: Ball, inSlowMo: bo
   ctx.save();
 
   // Fake pixel glow — cheaper than shadowBlur (no GPU Gaussian pass)
-  const glowColor = inSlowMo ? "#88aaff" : (ball.tint ?? "#aaaaff");
+  const glowColor = inSlowMo ? "#88aaff" : (ball.tint ?? style.glow);
   const glowR = inSlowMo ? 8 : (ball.tint ? 6 : 4);
   const bsz = br * 2;
   const bx0 = bx - br;
@@ -50,7 +51,7 @@ export function drawBall(ctx: CanvasRenderingContext2D, ball: Ball, inSlowMo: bo
   ctx.globalAlpha = 1;
 
   // Corps principal pixel (carré arrondi — 3 rectangles superposés)
-  const fill = inSlowMo ? "#aaccff" : (ball.tint ?? "#e0e0ff");
+  const fill = inSlowMo ? "#aaccff" : (ball.tint ?? style.body);
   ctx.fillStyle = fill;
   ctx.fillRect(bx - br + 1, by - br, br * 2 - 2, br * 2);     // centre
   ctx.fillRect(bx - br, by - br + 1, br * 2, br * 2 - 2);     // côtés
@@ -69,7 +70,7 @@ export function drawBall(ctx: CanvasRenderingContext2D, ball: Ball, inSlowMo: bo
   ctx.fillRect(bx - br + 1, by - br + 1, 1, 2);
 
   // Egg speckles — small pixel dots like a speckled egg
-  ctx.fillStyle = inSlowMo ? "rgba(60,100,220,0.55)" : "rgba(80,60,40,0.45)";
+  ctx.fillStyle = inSlowMo ? "rgba(60,100,220,0.55)" : style.speckle;
   ctx.fillRect(bx - 1, by - br + 2, 2, 1);  // top speckle
   ctx.fillRect(bx + br - 3, by - 1, 1, 2);  // right speckle
   ctx.fillRect(bx - br + 2, by + 1, 1, 1);  // left speckle

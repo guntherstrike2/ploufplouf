@@ -11,7 +11,7 @@ export const neonTheme: IconTheme = {
   icons: {
     ...lucideTheme.icons,
     peagle:              { ...lucideTheme.icons.peagle!,              color: "#ff2244" },
-    "peagle-showroom":   { ...lucideTheme.icons["peagle-showroom"]!, color: "#dd44ff" },
+    "peagle-gallery":    { ...lucideTheme.icons["peagle-gallery"]!,  color: "#dd44ff" },
     "plouf-plouf":   { ...lucideTheme.icons["plouf-plouf"]!,  color: "#22aaff" },
     profile:         { ...lucideTheme.icons.profile!,         color: "#cc44ff" },
     directory:       { ...lucideTheme.icons.directory!,       color: "#00ff88" },

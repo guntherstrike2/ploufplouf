@@ -1,30 +1,19 @@
 "use client";
 
 import "../peagle.css";
-import type { UpgradeId, RelicId } from "../engine/roguelite";
-import { UPGRADES, RELICS } from "../engine/roguelite";
+import type { UpgradeId } from "../engine/roguelite";
+import { UPGRADES } from "../engine/roguelite";
 import { captionBtn, PG } from "../styles";
-import { PegIcon } from "./PegIcon";
 
 interface UpgradePickerProps {
   offers: UpgradeId[];
-  relics: RelicId[];
   level: number;
   score: number;
-  bossKilled: boolean;
   onPick: (id: UpgradeId) => void;
   onSkip: () => void;
 }
 
-const rarityConfig: Record<string, { border: string; glow: string; bg: string; label: string; badge: string }> = {
-  common: { border: PG.hi,      glow: "rgba(74,74,122,0.3)",    bg: PG.surface2,   label: "COMMUN",  badge: "#6666aa" },
-  rare:   { border: "#4488ff",  glow: "rgba(68,136,255,0.35)",  bg: "#080e20",     label: "RARE",    badge: "#4488ff" },
-  epic:   { border: PG.purple,  glow: "rgba(204,68,255,0.4)",   bg: "#0e0618",     label: "ÉPIQUE",  badge: PG.purple },
-};
-
-export function UpgradePicker({
-  offers, relics, level, score, bossKilled, onPick, onSkip,
-}: UpgradePickerProps) {
+export function UpgradePicker({ offers, level, score, onPick, onSkip }: UpgradePickerProps) {
   return (
     <div
       className="peagle-root"
@@ -38,7 +27,6 @@ export function UpgradePicker({
         zIndex: 10,
       }}
     >
-      {/* Lueur ambiante derrière le dialog */}
       <div
         style={{
           position: "absolute",
@@ -49,7 +37,6 @@ export function UpgradePicker({
         }}
       />
 
-      {/* Dialog */}
       <div
         className="pg-dialog"
         style={{
@@ -58,10 +45,9 @@ export function UpgradePicker({
           animation: "pg-slide-up 0.28s cubic-bezier(0.34,1.56,0.64,1)",
         }}
       >
-        {/* Titlebar */}
         <div className="pg-titlebar">
-          <span style={{ fontSize: 8, color: "#aaaaee", flex: 1, fontFamily: "var(--pg-font)", letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: 5 }}>
-            <PegIcon id="victory" size={10} /> NID {level} PILLÉ — L&apos;AIGLE OFFRE UN BONUS
+          <span style={{ fontSize: 8, color: "#aaaaee", flex: 1, fontFamily: "var(--pg-font)", letterSpacing: "0.05em" }}>
+            🏆 NIVEAU {level} TERMINÉ — CHOISIS UN BONUS
           </span>
           {(["─", "□", "×"] as const).map((ch) => (
             <div key={ch} style={captionBtn}>{ch}</div>
@@ -69,52 +55,17 @@ export function UpgradePicker({
         </div>
 
         <div style={{ padding: "16px 14px 14px" }}>
-          {/* Score + boss banner */}
-          <div style={{ display: "flex", gap: 8, marginBottom: 14, alignItems: "center" }}>
-            <div
-              className="pg-sunken"
-              style={{
-                flex: 1,
-                padding: "5px 10px",
-                fontSize: 8,
-                color: PG.textMuted,
-                fontFamily: "var(--pg-font)",
-              }}
-            >
-              SCORE :{" "}
-              <strong style={{ color: PG.cyan }}>{score.toLocaleString()}</strong>
-            </div>
-            {bossKilled && (
-              <div
-                style={{
-                  padding: "5px 12px",
-                  background: "#1a0e00",
-                  borderWidth: 1,
-                  borderStyle: "solid",
-                  borderColor: PG.gold,
-                  fontSize: 8,
-                  color: PG.gold,
-                  fontWeight: "bold",
-                  letterSpacing: "0.05em",
-                  fontFamily: "var(--pg-font)",
-                  textShadow: `0 0 8px ${PG.gold}88`,
-                  boxShadow: `0 0 12px ${PG.gold}33`,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                }}
-              >
-                <PegIcon id="boss" size={10} /> BOSS VAINCU · L&apos;AIGLE EST FIER (exceptionnellement)
-              </div>
-            )}
+          <div
+            className="pg-sunken"
+            style={{ padding: "5px 10px", fontSize: 8, color: PG.textMuted, fontFamily: "var(--pg-font)", marginBottom: 14 }}
+          >
+            SCORE : <strong style={{ color: PG.cyan }}>{score.toLocaleString()}</strong>
           </div>
 
-          {/* Upgrade cards */}
           <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
             {offers.map((id, i) => {
               const u = UPGRADES[id];
               if (!u) return null;
-              const rc = rarityConfig[u.rarity] ?? rarityConfig.common!;
               return (
                 <button
                   key={id}
@@ -125,21 +76,20 @@ export function UpgradePicker({
                     fontFamily: "var(--pg-font)",
                     fontSize: 7,
                     cursor: "pointer",
-                    background: rc.bg,
+                    background: PG.surface2,
                     color: PG.text,
                     borderWidth: 2,
                     borderStyle: "solid",
-                    borderColor: rc.border,
+                    borderColor: PG.hi,
                     textAlign: "left",
                     display: "flex",
                     flexDirection: "column",
                     gap: 8,
-                    position: "relative",
                     animation: `pg-card-in 0.3s ease-out ${i * 0.08}s both`,
                     transition: "box-shadow 0.15s, filter 0.15s",
                   }}
                   onMouseEnter={e => {
-                    e.currentTarget.style.boxShadow = `0 0 20px ${rc.glow}, inset 0 0 8px rgba(255,255,255,0.03)`;
+                    e.currentTarget.style.boxShadow = `0 0 20px ${PG.cyan}33`;
                     e.currentTarget.style.filter = "brightness(1.15)";
                   }}
                   onMouseLeave={e => {
@@ -147,40 +97,17 @@ export function UpgradePicker({
                     e.currentTarget.style.filter = "";
                   }}
                 >
-                  {/* Rarity badge */}
                   <div
                     style={{
-                      position: "absolute",
-                      top: 6,
-                      right: 7,
-                      fontSize: 6,
-                      color: rc.badge,
-                      letterSpacing: "0.1em",
+                      fontSize: 9,
                       fontWeight: "bold",
-                      textShadow: `0 0 6px ${rc.badge}88`,
+                      color: PG.cyan,
+                      lineHeight: 1.3,
+                      textShadow: `0 0 8px ${PG.cyan}66`,
                     }}
                   >
-                    {rc.label}
+                    {u.name.toUpperCase()}
                   </div>
-
-                  {/* Icon + name */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <PegIcon id={id} size={22} />
-                    <div
-                      style={{
-                        fontSize: 9,
-                        fontWeight: "bold",
-                        color: rc.border,
-                        lineHeight: 1.3,
-                        paddingRight: 40,
-                        textShadow: `0 0 8px ${rc.border}66`,
-                      }}
-                    >
-                      {u.name.toUpperCase()}
-                    </div>
-                  </div>
-
-                  {/* Description */}
                   <div
                     style={{
                       fontSize: 7,
@@ -198,81 +125,19 @@ export function UpgradePicker({
                   >
                     {u.desc}
                   </div>
-
-                  {/* Category chip */}
-                  <div
-                    style={{
-                      fontSize: 6,
-                      color: PG.textMuted,
-                      letterSpacing: "0.08em",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 4,
-                    }}
-                  >
-                    <PegIcon id={u.category === "ball" ? "ball_cat" : u.category === "score" ? "score_cat" : "utility_cat"} size={8} />
-                    {u.category === "ball" ? "PLUMAGE" : u.category === "score" ? "CHASSE" : "NIDIFICATION"}
-                  </div>
                 </button>
               );
             })}
           </div>
 
-          {/* Active relics */}
-          {relics.length > 0 && (
-            <div style={{ marginBottom: 12 }}>
-              <div
-                style={{
-                  fontSize: 6,
-                  color: PG.textMuted,
-                  letterSpacing: "0.1em",
-                  marginBottom: 6,
-                  fontFamily: "var(--pg-font)",
-                }}
-              >
-                TRÉSORS DU NIDIFUGE
-              </div>
-              <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                {relics.map(rid => {
-                  const r = RELICS[rid];
-                  if (!r) return null;
-                  return (
-                    <span
-                      key={rid}
-                      title={`${r.name}: ${r.desc}`}
-                      style={{
-                        fontSize: 7,
-                        padding: "3px 8px",
-                        background: r.color + "18",
-                        color: r.color,
-                        borderWidth: 1,
-                        borderStyle: "solid",
-                        borderColor: r.color + "55",
-                        cursor: "help",
-                        fontFamily: "var(--pg-font)",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 4,
-                      }}
-                    >
-                      <PegIcon id={rid} size={10} /> {r.name.toUpperCase()}
-                    </span>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Separator */}
           <div className="pg-sep" style={{ marginBottom: 10 }} />
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div style={{ fontSize: 7, color: PG.textMuted, fontFamily: "var(--pg-font)" }}>
-              CHOISISSEZ UNE AMÉLIORATION · L&apos;AIGLE A VOTÉ MAIS SON VOTE NE COMPTE PAS
+              CHOISIS UNE AMÉLIORATION
             </div>
             <button
               onClick={onSkip}
-              title="L'aigle désapprouve. Mais il respecte votre droit à vous sabrer."
               style={{
                 padding: "5px 12px",
                 fontFamily: "var(--pg-font)",
@@ -292,7 +157,7 @@ export function UpgradePicker({
               onMouseEnter={e => e.currentTarget.style.color = PG.orange}
               onMouseLeave={e => e.currentTarget.style.color = PG.textMuted}
             >
-              PASSER (mauvaise idée) →
+              PASSER →
             </button>
           </div>
         </div>

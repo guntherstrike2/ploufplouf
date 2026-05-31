@@ -6,7 +6,6 @@ import type { UiState } from "../engine/types";
 import { W, H } from "../engine/constants";
 import { captionBtn, btnRaised, PG } from "../styles";
 import "../peagle.css";
-import { PegIcon } from "./PegIcon";
 
 const WIN_QUIPS = [
   "L'aigle est satisfait. C'est rare. Profitez-en.",
@@ -153,7 +152,7 @@ export function GameCanvas({
             {/* Titlebar */}
             <div className="pg-titlebar">
               <span style={{ fontSize: 8, color: "#aaaaee", flex: 1, letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: 5 }}>
-                <PegIcon id="gamepad" size={10} /> PEAGLE 98
+                🦅 PEAGLE 98
               </span>
               {(["─", "□", "×"] as const).map((ch) => (
                 <div key={ch} style={captionBtn}>{ch}</div>
@@ -166,15 +165,15 @@ export function GameCanvas({
               <div style={{ textAlign: "center", marginBottom: 16 }}>
                 <div
                   style={{
-                    display: "flex",
-                    justifyContent: "center",
+                    fontSize: 48,
+                    lineHeight: 1,
                     marginBottom: 12,
                     animation: isWon
                       ? "pg-pulse-orange 1.5s ease-in-out infinite"
                       : "pg-shake 0.5s ease-in-out 0.3s 2",
                   }}
                 >
-                  <PegIcon id={isWon ? "victory" : "skull"} size={48} />
+                  {isWon ? "🏆" : "💀"}
                 </div>
 
                 <div
