@@ -373,6 +373,35 @@ export function useGunthrankData() {
     });
   }, [devMode]);
 
+  const swapGame = useCallback(async (rankingIdA: number, rankingIdB: number) => {
+    setRankings((prev) => {
+      const entryA = prev.find((r) => r.id === rankingIdA);
+      const entryB = prev.find((r) => r.id === rankingIdB);
+      if (!entryA || !entryB || entryA.tier !== entryB.tier) return prev;
+
+      const next = prev.map((r) => {
+        if (r.id === rankingIdA) return { ...r, sortOrder: entryB.sortOrder };
+        if (r.id === rankingIdB) return { ...r, sortOrder: entryA.sortOrder };
+        return r;
+      });
+
+      if (devMode) {
+        saveDevRankings(next);
+      } else {
+        const updates = [
+          { id: rankingIdA, tier: entryA.tier, sortOrder: entryB.sortOrder },
+          { id: rankingIdB, tier: entryB.tier, sortOrder: entryA.sortOrder },
+        ];
+        fetch("/api/gunthrank/rankings/batch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ updates }),
+        }).catch(() => {});
+      }
+      return next;
+    });
+  }, [devMode]);
+
   const updateNote = useCallback(async (rankingId: number, objectiveNote: number | null, noteText: string | null, playedOn?: string | null) => {
     setRankings((prev) => {
       const next = prev.map((r) =>
@@ -452,6 +481,6 @@ export function useGunthrankData() {
     filters, setFilters,
     allPlatforms, allGenres, allYears,
     fetchGames, searchIgdb,
-    addGame, addFromCatalog, removeRanking, moveGame, reorderGame, updateNote,
+    addGame, addFromCatalog, removeRanking, moveGame, reorderGame, swapGame, updateNote,
   };
 }

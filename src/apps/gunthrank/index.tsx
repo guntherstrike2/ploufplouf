@@ -123,7 +123,7 @@ function GunthrankAppInner({ windowId }: { windowId: string }) {
     selectUser, goToMyRankings,
     filters, setFilters,
     allPlatforms, allGenres, allYears,
-    addGame, addFromCatalog, removeRanking, moveGame, reorderGame, updateNote,
+    addGame, addFromCatalog, removeRanking, moveGame, reorderGame, swapGame, updateNote,
   } = useGunthrankData();
 
   const [showStats, setShowStats] = useState(false);
@@ -239,6 +239,11 @@ function GunthrankAppInner({ windowId }: { windowId: string }) {
   const handleReorder = (rankingId: number, toIndex: number) => {
     reorderGame(rankingId, toIndex);
     playClick();
+  };
+
+  const handleSwap = (rankingId: number, targetRankingId: number) => {
+    swapGame(rankingId, targetRankingId);
+    playPop();
   };
 
   const handleExport = async () => {
@@ -670,6 +675,7 @@ function GunthrankAppInner({ windowId }: { windowId: string }) {
                   onUpdateNote={updateNote}
                   onMove={handleMoveToTier}
                   onReorder={handleReorder}
+                  onSwap={handleSwap}
                   onDetailClick={setDetailRanking}
                   globalRankOffset={isNumbered ? acc.offset : undefined}
                 />

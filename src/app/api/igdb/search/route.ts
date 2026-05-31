@@ -5,6 +5,19 @@ import { NextRequest, NextResponse } from "next/server";
 const CLIENT_ID = "064v7k0pvgi3glsje5mkm3b8x5qeu7";
 const CLIENT_SECRET = "qwza7uzglo1zmsvxcz032e5x6xcjjr";
 
+// Filter name → real IGDB platform names (IGDB doesn't support ~ contains for strings)
+const PLATFORM_EXPAND: Record<string, string[]> = {
+  "Quest": ["Oculus Quest", "Meta Quest 2", "Meta Quest 3"],
+};
+
+function platformClause(platform: string): string {
+  const expanded = PLATFORM_EXPAND[platform];
+  if (expanded) {
+    return `platforms.name = ("${expanded.join('", "')}")`;
+  }
+  return `platforms.name = "${platform}"`;
+}
+
 let cachedToken: string | null = null;
 let cachedExpiresAt = 0;
 
@@ -177,7 +190,7 @@ export async function POST(req: NextRequest) {
         // Fetch full game data for the matched IDs
         const wheresForIds: string[] = [];
         if (genre) wheresForIds.push(`genres.name = "${genre}"`);
-        if (platform) wheresForIds.push(`platforms.name = "${platform}"`);
+        if (platform) wheresForIds.push(platformClause(platform));
 
         let queryByIds = `where id = (${gameIds.join(",")}); sort total_rating_count desc; fields ${FIELDS}; limit ${limit};`;
         if (wheresForIds.length > 0) {
@@ -203,7 +216,7 @@ export async function POST(req: NextRequest) {
       // Genre/platform filters only (no text query)
       const wheres: string[] = [];
       if (genre) wheres.push(`genres.name = "${genre}"`);
-      if (platform) wheres.push(`platforms.name = "${platform}"`);
+      if (platform) wheres.push(platformClause(platform));
       wheres.push("total_rating_count > 5");
 
       const bodyStr = `where ${wheres.join(" & ")}; sort total_rating_count desc; fields ${FIELDS}; limit ${limit};`;

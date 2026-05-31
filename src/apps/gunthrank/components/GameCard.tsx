@@ -11,10 +11,12 @@ interface GameCardProps {
   onRemove?: (gameId: number) => void;
   onUpdateNote?: (rankingId: number, objectiveNote: number | null, noteText: string | null, playedOn?: string | null) => void;
   onDetailClick?: (ranking: RankingEntry) => void;
+  onDragStartCard?: (ranking: RankingEntry, x: number, y: number) => void;
 }
 
-export function GameCard({ ranking, readOnly, isNew, onRemove, onUpdateNote, onDetailClick }: GameCardProps) {
+export function GameCard({ ranking, readOnly, isNew, onRemove, onUpdateNote, onDetailClick, onDragStartCard }: GameCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [noteValue, setNoteValue] = useState(ranking.objectiveNote ?? 5);
   const [noteText, setNoteText] = useState(ranking.noteText ?? "");
 
@@ -38,6 +40,17 @@ export function GameCard({ ranking, readOnly, isNew, onRemove, onUpdateNote, onD
     if (readOnly) return;
     e.dataTransfer.setData("text/plain", String(ranking.id));
     e.dataTransfer.effectAllowed = "move";
+    // Hide browser's semi-transparent ghost — we render our own opaque floating card
+    const emptyImg = document.createElement("canvas");
+    emptyImg.width = 1;
+    emptyImg.height = 1;
+    e.dataTransfer.setDragImage(emptyImg, 0, 0);
+    setIsDragging(true);
+    onDragStartCard?.(ranking, e.clientX, e.clientY);
+  };
+
+  const handleDragEnd = () => {
+    setIsDragging(false);
   };
 
   const handleSaveNote = () => {
@@ -49,14 +62,17 @@ export function GameCard({ ranking, readOnly, isNew, onRemove, onUpdateNote, onD
     <div
       draggable={!readOnly}
       onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
       className={`flex-shrink-0 rounded cursor-grab active:cursor-grabbing select-none overflow-hidden${isNew ? " animate-[pop_0.3s_ease-out]" : ""}`}
       style={{
         width: 140,
         background: cardBg,
-        borderTop: cardBorderTop,
-        borderLeft: cardBorderLeft,
-        borderBottom: "2px solid var(--t-border-dark)",
-        borderRight: "2px solid var(--t-border-dark)",
+        borderTop: isDragging ? "2px dashed var(--t-accent)" : cardBorderTop,
+        borderLeft: isDragging ? "2px dashed var(--t-accent)" : cardBorderLeft,
+        borderBottom: isDragging ? "2px dashed var(--t-accent)" : "2px solid var(--t-border-dark)",
+        borderRight: isDragging ? "2px dashed var(--t-accent)" : "2px solid var(--t-border-dark)",
+        opacity: isDragging ? 0.25 : 1,
+        transition: "opacity 0.12s",
       }}
     >
       {/* Cover image + name overlay */}

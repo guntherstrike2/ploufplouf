@@ -32,6 +32,12 @@ export const PLATFORM_COLORS: Record<string, string> = {
   "Mac": "#999999",
   "Linux": "#f5c842",
   "Stadia": "#ff4c3a",
+  "Oculus Quest": "#8b5cf6",
+  "Meta Quest 2": "#7c3aed",
+  "Meta Quest 3": "#a78bfa",
+  "PlayStation VR": "#1a6fb5",
+  "PlayStation VR2": "#2098d4",
+  "SteamVR": "#1a9ed4",
 };
 
 export function getPlatformColor(platform: string | null | undefined): string | null {

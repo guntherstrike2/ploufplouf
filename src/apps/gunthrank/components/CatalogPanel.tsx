@@ -10,7 +10,7 @@ interface CatalogPanelProps {
 }
 
 const POPULAR_GENRES = ["Adventure", "RPG", "Shooter", "Platform", "Strategy", "Racing", "Fighting", "Sport", "Puzzle", "Indie", "Simulator", "Arcade"];
-const POPULAR_PLATFORMS = ["PC", "PlayStation 5", "Xbox Series X|S", "Nintendo Switch", "PlayStation 4", "Xbox One", "Nintendo 64", "PlayStation 2", "Super Nintendo", "Game Boy Advance", "Nintendo GameCube", "Wii"];
+const POPULAR_PLATFORMS = ["PC", "PlayStation 5", "Xbox Series X|S", "Nintendo Switch", "PlayStation 4", "Xbox One", "Xbox 360", "Nintendo 64", "PlayStation 2", "Super Nintendo", "Game Boy Advance", "Nintendo GameCube", "Wii", "Wii U", "Quest"];
 
 export function CatalogPanel({ onClose, onAddFromCatalog, onAddFromIgdb }: CatalogPanelProps) {
   const [allDbGames, setAllDbGames] = useState<GameCatalogEntry[]>([]);
@@ -85,7 +85,7 @@ export function CatalogPanel({ onClose, onAddFromCatalog, onAddFromIgdb }: Catal
       if (platformFilter && g.platforms) {
         try {
           const platforms: string[] = JSON.parse(g.platforms);
-          if (!platforms.includes(platformFilter)) return false;
+          if (!platforms.some((p) => p.toLowerCase().includes(platformFilter.toLowerCase()))) return false;
         } catch { return false; }
       }
       return true;
