@@ -386,7 +386,7 @@ function GunthrankAppInner({ windowId }: { windowId: string }) {
             )}
           </div>
 
-          {/* ── RECHERCHER — hero action ── */}
+          {/* ── AJOUTER UN JEU — hero button, impossible à rater ── */}
           {!readOnly && (
             <button
               onClick={() => {
@@ -395,24 +395,55 @@ function GunthrankAppInner({ windowId }: { windowId: string }) {
                 setShowCatalog(willOpen);
                 if (willOpen) setSidebarCollapsed(true);
               }}
-              className="flex-shrink-0 flex items-center gap-1.5 px-2 py-2 w-full font-bold"
+              className="flex-shrink-0 w-full font-bold"
               style={{
                 fontSize: sidebarCollapsed ? "var(--t-text-md)" : "var(--t-text-sm)",
-                background: "var(--t-accent)",
+                padding: sidebarCollapsed ? "8px 4px" : "8px 6px",
+                background: showCatalog
+                  ? "var(--t-accent)"
+                  : "linear-gradient(135deg, var(--t-accent) 0%, color-mix(in srgb, var(--t-accent) 80%, #fff) 100%)",
                 color: "#fff",
-                borderTop: "2px solid var(--t-border-light)",
-                borderLeft: "2px solid var(--t-border-light)",
-                borderBottom: "2px solid var(--t-border-dark)",
-                borderRight: "2px solid var(--t-border-dark)",
+                border: "none",
                 cursor: "pointer",
                 justifyContent: sidebarCollapsed ? "center" : "flex-start",
+                display: "flex",
+                alignItems: "center",
+                gap: sidebarCollapsed ? 0 : 8,
                 borderRadius: 3,
-                textShadow: "0 1px 2px rgba(0,0,0,0.3)",
+                boxShadow: showCatalog
+                  ? "inset 0 2px 4px rgba(0,0,0,0.3)"
+                  : "0 2px 0 rgba(0,0,0,0.3), 0 4px 12px rgba(0,0,0,0.25), 0 0 20px rgba(255,255,255,0.05)",
+                textShadow: "0 1px 3px rgba(0,0,0,0.4)",
+                transition: "all 0.15s ease",
+                position: "relative",
+                overflow: "hidden",
               }}
-              title="Rechercher un jeu à classer"
+              title="Ajouter un jeu à classer"
             >
-              <span style={{ fontSize: sidebarCollapsed ? "var(--t-text-md)" : "var(--t-text-lg)" }}>🔍</span>
-              {!sidebarCollapsed && "Rechercher un jeu"}
+              {/* Subtle shimmer overlay */}
+              {!showCatalog && (
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.08) 50%, transparent 100%)",
+                    animation: "shimmer 2.5s ease-in-out infinite",
+                    pointerEvents: "none",
+                  }}
+                />
+              )}
+              <span style={{
+                fontSize: sidebarCollapsed ? "var(--t-text-md)" : "var(--t-text-lg)",
+                filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.3))",
+                position: "relative",
+              }}>
+                {sidebarCollapsed ? "🎮" : "🎮"}
+              </span>
+              {!sidebarCollapsed && (
+                <span style={{ position: "relative" }}>
+                  + Ajouter un jeu
+                </span>
+              )}
             </button>
           )}
 
