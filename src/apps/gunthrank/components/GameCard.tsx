@@ -19,6 +19,7 @@ export function GameCard({ ranking, readOnly, isNew, onRemove, onUpdateNote, onD
   const [isDragging, setIsDragging] = useState(false);
   const [noteValue, setNoteValue] = useState(ranking.objectiveNote ?? 5);
   const [noteText, setNoteText] = useState(ranking.noteText ?? "");
+  const [playedOn, setPlayedOn] = useState(ranking.playedOn ?? "");
 
   const { theme } = useKiffTheme();
   const coverUrl = ranking.game?.coverUrl;
@@ -35,6 +36,11 @@ export function GameCard({ ranking, readOnly, isNew, onRemove, onUpdateNote, onD
   const cardBg = theme.cardPlatform === "fill" && platformColor
     ? platformColor
     : "var(--t-card-bg)";
+
+  let platforms: string[] = [];
+  try {
+    if (typeof ranking.game?.platforms === "string") platforms = JSON.parse(ranking.game.platforms);
+  } catch { /* ignore malformed JSON */ }
 
   const handleDragStart = (e: React.DragEvent) => {
     if (readOnly) return;
@@ -54,7 +60,14 @@ export function GameCard({ ranking, readOnly, isNew, onRemove, onUpdateNote, onD
   };
 
   const handleSaveNote = () => {
-    onUpdateNote?.(ranking.id, noteValue, noteText || null);
+    onUpdateNote?.(ranking.id, noteValue, noteText || null, playedOn || null);
+    setExpanded(false);
+  };
+
+  const handleCancel = () => {
+    setNoteValue(ranking.objectiveNote ?? 5);
+    setNoteText(ranking.noteText ?? "");
+    setPlayedOn(ranking.playedOn ?? "");
     setExpanded(false);
   };
 
@@ -98,28 +111,73 @@ export function GameCard({ ranking, readOnly, isNew, onRemove, onUpdateNote, onD
           </div>
         )}
 
-        {/* Name overlay at bottom */}
+        {/* Balatro-style bottom banner */}
         <div
-          className="absolute bottom-0 left-0 right-0 px-1.5 py-1"
+          className="absolute bottom-0 left-0 right-0 flex flex-col justify-end"
           style={{
-            background: "linear-gradient(transparent, rgba(0,0,0,0.85))",
+            height: "36%",
+            background: `
+              linear-gradient(180deg,
+                transparent 0%,
+                rgba(0,0,0,0.3) 15%,
+                rgba(10,10,26,0.88) 40%,
+                rgba(10,10,26,0.96) 100%
+              ),
+              repeating-linear-gradient(
+                -35deg,
+                transparent,
+                transparent 3px,
+                rgba(255,255,255,0.015) 3px,
+                rgba(255,255,255,0.015) 6px
+              )
+            `,
+            borderTop: "1.5px solid rgba(255,255,255,0.25)",
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
+            padding: "6px 6px 5px 6px",
           }}
         >
+          {/* Decorative accent line */}
           <div
-            className="text-center leading-tight"
+            className="w-full flex-shrink-0"
             style={{
-              fontSize: "calc(var(--t-text-xs) * 0.82)",
+              height: 2,
+              background: "var(--t-accent)",
+              opacity: 0.7,
+              borderRadius: 1,
+              marginBottom: 3,
+            }}
+          />
+
+          {/* Game name */}
+          <div
+            className="text-center leading-tight flex-shrink-0"
+            style={{
+              fontSize: "calc(var(--t-text-xs) * 0.88)",
               color: "#fff",
+              fontWeight: 700,
               display: "-webkit-box",
               WebkitLineClamp: 2,
               WebkitBoxOrient: "vertical",
               overflow: "hidden",
-              textShadow: "0 1px 2px rgba(0,0,0,0.8)",
+              textShadow: "0 1px 3px rgba(0,0,0,0.9)",
+              letterSpacing: "0.01em",
             }}
             title={gameName}
           >
             {gameName}
           </div>
+
+          {/* Click hint — subtle pulsing dots */}
+          {!readOnly && (
+            <div
+              className="flex items-center justify-center gap-1 flex-shrink-0"
+              style={{ marginTop: 2, opacity: 0.6 }}
+            >
+              <span style={{ fontSize: "6px", color: "var(--t-accent)", lineHeight: 1 }}>◆</span>
+              <span style={{ fontSize: "6px", color: "var(--t-accent)", lineHeight: 1, opacity: 0.5 }}>◆</span>
+              <span style={{ fontSize: "6px", color: "var(--t-accent)", lineHeight: 1, opacity: 0.25 }}>◆</span>
+            </div>
+          )}
         </div>
 
         {/* Note badge + edit button */}
@@ -153,28 +211,61 @@ export function GameCard({ ranking, readOnly, isNew, onRemove, onUpdateNote, onD
         </button>
       </div>
 
-      {/* Expanded: note inputs */}
+      {/* Expanded: note inputs + platform */}
       {expanded && !readOnly && (
         <div
-          className="p-2 border-t"
+          className="p-2 border-t flex flex-col gap-1.5"
           style={{ borderColor: "var(--t-border-dark)", background: "var(--t-bg)" }}
           onClick={(e) => e.stopPropagation()}
         >
-          <label style={{ fontSize: "var(--t-text-xs)", color: "var(--t-text-muted)" }}>
-            Note objective : {noteValue}/10
-          </label>
-          <input
-            type="range"
-            min={0} max={10} step={1}
-            value={noteValue}
-            onChange={(e) => setNoteValue(parseInt(e.target.value, 10))}
-            className="w-full"
-          />
+          {/* Platform selector */}
+          {platforms.length > 0 && (
+            <div>
+              <label style={{ fontSize: "calc(var(--t-text-xs) * 0.82)", color: "var(--t-text-muted)", display: "block", marginBottom: 1 }}>
+                Plateforme :
+              </label>
+              <select
+                value={playedOn}
+                onChange={(e) => setPlayedOn(e.target.value)}
+                className="px-1 py-0.5 w-full"
+                style={{
+                  fontSize: "calc(var(--t-text-xs) * 0.82)",
+                  background: "var(--t-app-bg)",
+                  color: "var(--t-text)",
+                  borderTop: "2px solid var(--t-border-dark)",
+                  borderLeft: "2px solid var(--t-border-dark)",
+                  borderBottom: "2px solid var(--t-border-light)",
+                  borderRight: "2px solid var(--t-border-light)",
+                }}
+              >
+                <option value="">Non précisé</option>
+                {platforms.map((p) => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Note slider */}
+          <div>
+            <label style={{ fontSize: "calc(var(--t-text-xs) * 0.82)", color: "var(--t-text-muted)" }}>
+              Note : <strong>{noteValue}/10</strong>
+            </label>
+            <input
+              type="range"
+              min={0} max={10} step={1}
+              value={noteValue}
+              onChange={(e) => setNoteValue(parseInt(e.target.value, 10))}
+              className="w-full"
+            />
+          </div>
+
+          {/* Personal note */}
           <textarea
             value={noteText}
             onChange={(e) => setNoteText(e.target.value)}
             placeholder="Note perso..."
-            className="w-full mt-1 p-1"
+            className="w-full p-1"
             style={{
               fontSize: "var(--t-text-xs)",
               background: "var(--t-bg)",
@@ -184,37 +275,54 @@ export function GameCard({ ranking, readOnly, isNew, onRemove, onUpdateNote, onD
               borderBottom: "2px solid var(--t-border-light)",
               borderRight: "2px solid var(--t-border-light)",
               resize: "none",
-              height: 56,
+              height: 48,
             }}
-            rows={3}
+            rows={2}
           />
-          <div className="flex justify-between mt-1">
+
+          {/* Action buttons — Sauver full-width, then Annuler + Retirer */}
+          <button
+            onClick={handleSaveNote}
+            className="px-2 py-1 font-bold w-full"
+            style={{
+              fontSize: "var(--t-text-xs)",
+              background: "var(--t-accent)",
+              color: "#fff",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            Sauver
+          </button>
+          <div className="flex gap-1">
             <button
-              onClick={handleSaveNote}
-              className="px-2 py-0.5"
+              onClick={handleCancel}
+              className="px-2 py-0.5 flex-1"
               style={{
-                fontSize: "var(--t-text-xs)",
-                background: "var(--t-accent)",
-                color: "#fff",
+                fontSize: "calc(var(--t-text-xs) * 0.9)",
+                background: "var(--t-bg-dark)",
+                color: "var(--t-text)",
                 border: "none",
                 cursor: "pointer",
               }}
             >
-              OK
+              Annuler
             </button>
-            <button
-              onClick={() => onRemove?.(ranking.gameId)}
-              className="px-2 py-0.5"
-              style={{
-                fontSize: "var(--t-text-xs)",
-                background: "var(--t-error)",
-                color: "#fff",
-                border: "none",
-                cursor: "pointer",
-              }}
-            >
-              Retirer
-            </button>
+            {onRemove && (
+              <button
+                onClick={() => onRemove?.(ranking.gameId)}
+                className="px-2 py-0.5 flex-1"
+                style={{
+                  fontSize: "calc(var(--t-text-xs) * 0.9)",
+                  background: "var(--t-error)",
+                  color: "#fff",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Retirer
+              </button>
+            )}
           </div>
         </div>
       )}

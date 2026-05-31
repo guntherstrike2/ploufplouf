@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useKiffTheme } from "../kiff-theme-context";
-import { TIERS, getPlatformColor, type RankingEntry, type TierId } from "../constants";
+import { getPlatformColor, type RankingEntry } from "../constants";
 
 interface GameRowProps {
   ranking: RankingEntry;
@@ -10,16 +10,16 @@ interface GameRowProps {
   isNew?: boolean;
   onRemove?: (gameId: number) => void;
   onUpdateNote?: (rankingId: number, objectiveNote: number | null, noteText: string | null, playedOn?: string | null) => void;
-  onMove?: (rankingId: number, toTier: TierId) => void;
   onDetailClick?: (ranking: RankingEntry) => void;
   rankNumber?: number | null;
+  onDragStartCard?: (ranking: RankingEntry, x: number, y: number) => void;
 }
 
-export function GameRow({ ranking, readOnly, isNew, onRemove, onUpdateNote, onMove, onDetailClick, rankNumber }: GameRowProps) {
+export function GameRow({ ranking, readOnly, isNew, onRemove, onUpdateNote, onDetailClick, rankNumber, onDragStartCard }: GameRowProps) {
   const [expanded, setExpanded] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [noteValue, setNoteValue] = useState(ranking.objectiveNote ?? 5);
   const [noteText, setNoteText] = useState(ranking.noteText ?? "");
-  const [moveTier, setMoveTier] = useState<TierId | null>(null);
   const [playedOn, setPlayedOn] = useState(ranking.playedOn ?? "");
   const { theme } = useKiffTheme();
 
@@ -46,6 +46,17 @@ export function GameRow({ ranking, readOnly, isNew, onRemove, onUpdateNote, onMo
     if (readOnly) return;
     e.dataTransfer.setData("text/plain", String(ranking.id));
     e.dataTransfer.effectAllowed = "move";
+    // Hide browser's semi-transparent ghost — we render our own opaque floating card
+    const emptyImg = document.createElement("canvas");
+    emptyImg.width = 1;
+    emptyImg.height = 1;
+    e.dataTransfer.setDragImage(emptyImg, 0, 0);
+    setIsDragging(true);
+    onDragStartCard?.(ranking, e.clientX, e.clientY);
+  };
+
+  const handleDragEnd = () => {
+    setIsDragging(false);
   };
 
   const handleSave = () => {
@@ -57,16 +68,7 @@ export function GameRow({ ranking, readOnly, isNew, onRemove, onUpdateNote, onMo
     setNoteValue(ranking.objectiveNote ?? 5);
     setNoteText(ranking.noteText ?? "");
     setPlayedOn(ranking.playedOn ?? "");
-    setMoveTier(null);
     setExpanded(false);
-  };
-
-  const handleMove = () => {
-    if (moveTier) {
-      onMove?.(ranking.id, moveTier);
-      setMoveTier(null);
-      setExpanded(false);
-    }
   };
 
   const notePct = Math.round(((ranking.objectiveNote ?? 0) / 10) * 100);
@@ -75,13 +77,16 @@ export function GameRow({ ranking, readOnly, isNew, onRemove, onUpdateNote, onMo
     <div
       draggable={!readOnly}
       onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
       className={`flex-shrink-0 cursor-grab active:cursor-grabbing select-none${isNew ? " animate-[pop_0.3s_ease-out]" : ""}`}
       style={{
         background: "var(--t-card-bg)",
-        borderTop: "2px solid var(--t-border-light)",
-        borderLeft: "2px solid var(--t-border-light)",
-        borderBottom: "2px solid var(--t-border-dark)",
-        borderRight: "2px solid var(--t-border-dark)",
+        borderTop: isDragging ? "2px dashed var(--t-accent)" : "2px solid var(--t-border-light)",
+        borderLeft: isDragging ? "2px dashed var(--t-accent)" : "2px solid var(--t-border-light)",
+        borderBottom: isDragging ? "2px dashed var(--t-accent)" : "2px solid var(--t-border-dark)",
+        borderRight: isDragging ? "2px dashed var(--t-accent)" : "2px solid var(--t-border-dark)",
+        opacity: isDragging ? 0.3 : 1,
+        transition: "opacity 0.12s",
       }}
     >
       {/* Main row */}
@@ -229,49 +234,6 @@ export function GameRow({ ranking, readOnly, isNew, onRemove, onUpdateNote, onMo
               </div>
             </div>
 
-            {/* Tier move */}
-            {onMove && (
-              <div style={{ flex: "0 0 180px" }}>
-                <label style={{ fontSize: "var(--t-text-xs)", color: "var(--t-text-muted)", display: "block", marginBottom: 2 }}>
-                  Déplacer vers :
-                </label>
-                <select
-                  value={moveTier ?? ""}
-                  onChange={(e) => setMoveTier(e.target.value as TierId)}
-                  className="px-1 py-0.5"
-                  style={{
-                    fontSize: "var(--t-text-xs)",
-                    background: "var(--t-app-bg)",
-                    color: "var(--t-text)",
-                    borderTop: "2px solid var(--t-border-dark)",
-                    borderLeft: "2px solid var(--t-border-dark)",
-                    borderBottom: "2px solid var(--t-border-light)",
-                    borderRight: "2px solid var(--t-border-light)",
-                    width: "100%",
-                  }}
-                >
-                  <option value="">Choisir un tier...</option>
-                  {TIERS.filter((t) => t.id !== ranking.tier).map((t) => (
-                    <option key={t.id} value={t.id}>{t.emoji} {t.label}</option>
-                  ))}
-                </select>
-                {moveTier && (
-                  <button
-                    onClick={handleMove}
-                    className="mt-1 px-2 py-0.5"
-                    style={{
-                      fontSize: "var(--t-text-xs)",
-                      background: "var(--t-accent)",
-                      color: "#fff",
-                      border: "none",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Déplacer
-                  </button>
-                )}
-              </div>
-            )}
           </div>
 
           {/* Personal note */}

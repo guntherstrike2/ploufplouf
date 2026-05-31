@@ -28,7 +28,6 @@ interface TierRowProps {
 export function TierRow({ tier, games, readOnly, viewLayout, recentlyMovedIds, onDrop, onAddFromCatalog, onAddFromIgdb, onRemove, onUpdateNote, onMove, onReorder, onSwap, onDetailClick, globalRankOffset }: TierRowProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [dragOver, setDragOver] = useState(false);
-  const [dropIndex, setDropIndex] = useState<{ idx: number; before: boolean } | null>(null);
   const [swapTargetId, setSwapTargetId] = useState<number | null>(null);
   const [insertTarget, setInsertTarget] = useState<{ rankingId: number; before: boolean } | null>(null);
   const [dragState, setDragState] = useState<{ ranking: RankingEntry; x: number; y: number } | null>(null);
@@ -47,7 +46,64 @@ export function TierRow({ tier, games, readOnly, viewLayout, recentlyMovedIds, o
   const handleDragOver = (e: React.DragEvent) => {
     if (readOnly) return;
     e.preventDefault();
-    setDragOver(true);
+
+    // Only highlight the tier background when the dragged item comes from
+    // another tier (or from outside — catalog / IGDB).
+    // We use dragState (set in handleCardDragStart) because getData()
+    // is blocked by browsers during dragover events.
+    const isIntraTier = dragState?.ranking.tier === tier.id;
+    if (!isIntraTier) setDragOver(true);
+
+    // ── Smart gap detection: find nearest card when cursor is between cards ──
+    // This handler only fires when NOT over a specific card (cards stopPropagation).
+    // We scan all card wrappers to find the closest insertion point.
+    const container = e.currentTarget;
+    const items = container.querySelectorAll<HTMLElement>('[data-ranking-id]');
+    if (items.length === 0) return;
+
+    const { clientX, clientY } = e;
+    let bestTarget: { rankingId: number; before: boolean } | null = null;
+    let bestDist = Infinity;
+
+    items.forEach((item) => {
+      const rect = item.getBoundingClientRect();
+      const rid = parseInt(item.getAttribute("data-ranking-id")!, 10);
+      if (isNaN(rid)) return;
+
+      if (viewLayout === "grid") {
+        // ── Grid: horizontal flow in flex-wrap rows ──
+        const centerX = rect.left + rect.width / 2;
+        const vertOverlap = clientY >= rect.top && clientY <= rect.bottom;
+        const distX = clientX - centerX;
+        // Prefer cards in the same row; penalize different rows heavily
+        const dist = vertOverlap
+          ? Math.abs(distX)
+          : Math.abs(distX) + Math.abs(clientY - (rect.top + rect.height / 2)) * 3;
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestTarget = { rankingId: rid, before: distX < 0 };
+        }
+      } else {
+        // ── List: vertical flow ──
+        const centerY = rect.top + rect.height / 2;
+        const distY = clientY - centerY;
+        const absDistY = Math.abs(distY);
+        // Also consider horizontal distance (for multi-column grid layouts)
+        const horizOverlap = clientX >= rect.left && clientX <= rect.right;
+        const dist = horizOverlap
+          ? absDistY
+          : absDistY + Math.abs(clientX - (rect.left + rect.width / 2)) * 2;
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestTarget = { rankingId: rid, before: distY < 0 };
+        }
+      }
+    });
+
+    if (bestTarget) {
+      setSwapTargetId(null);
+      setInsertTarget(bestTarget);
+    }
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
@@ -84,59 +140,105 @@ export function TierRow({ tier, games, readOnly, viewLayout, recentlyMovedIds, o
     }
   };
 
-  const handleItemDragOver = useCallback((e: React.DragEvent, index: number) => {
+  // ── List mode: 3-zone handlers (insert before / swap / insert after) ──
+  //
+  // Each row is split vertically into 3 zones:
+  //   ┌──────────────────────────────┐
+  //   │ ▲ insert before    (top 25%) │
+  //   │                              │
+  //   │ ↕ swap             (mid 50%) │
+  //   │                              │
+  //   │ ▼ insert after  (bottom 25%) │
+  //   └──────────────────────────────┘
+  //
+  const handleListItemDragOver = useCallback((e: React.DragEvent, rankingId: number) => {
     if (readOnly) return;
     e.preventDefault();
     e.stopPropagation();
+    setDragOver(false);
+
     const rect = e.currentTarget.getBoundingClientRect();
-    const midY = rect.top + rect.height / 2;
-    const before = e.clientY < midY;
-    setDropIndex({ idx: index, before });
+    const relY = e.clientY - rect.top;
+    const ratio = relY / rect.height;
+
+    if (ratio < 0.25) {
+      // Top — insert before this row
+      setSwapTargetId(null);
+      setInsertTarget({ rankingId, before: true });
+    } else if (ratio > 0.75) {
+      // Bottom — insert after this row
+      setSwapTargetId(null);
+      setInsertTarget({ rankingId, before: false });
+    } else {
+      // Center — swap with this row
+      setInsertTarget(null);
+      setSwapTargetId((prev) => (prev === rankingId ? prev : rankingId));
+    }
   }, [readOnly]);
 
-  const handleItemDrop = useCallback((e: React.DragEvent, index: number) => {
+  const handleListItemDrop = useCallback((e: React.DragEvent, targetRankingId: number, targetIndex: number) => {
     if (readOnly) return;
     e.preventDefault();
     e.stopPropagation();
-    setDropIndex(null);
-    const raw = e.dataTransfer.getData("text/plain");
-    const rect = e.currentTarget.getBoundingClientRect();
-    const midY = rect.top + rect.height / 2;
-    const before = e.clientY < midY;
-    const toIndex = before ? index : index + 1;
 
-    // Catalog / IGDB drops at a specific position
+    const rect = e.currentTarget.getBoundingClientRect();
+    const relY = e.clientY - rect.top;
+    const ratio = relY / rect.height;
+    const inTopZone = ratio < 0.25;
+    const inBottomZone = ratio > 0.75;
+
+    setSwapTargetId(null);
+    setInsertTarget(null);
+    setDragState(null);
+
+    const raw = e.dataTransfer.getData("text/plain");
+
+    // Determine the effective insert index based on zone
+    const effectiveIndex = inTopZone ? targetIndex : inBottomZone ? targetIndex + 1 : targetIndex;
+
+    // Catalog / IGDB drops — always insert, never swap
     if (raw.startsWith("igdb:")) {
       try {
         const game = JSON.parse(raw.slice(5));
-        onAddFromIgdb?.(game, tier.id, toIndex);
+        onAddFromIgdb?.(game, tier.id, effectiveIndex);
       } catch { /* ignore malformed drop */ }
       return;
     }
     if (raw.startsWith("catalog:") || raw.startsWith("new:")) {
       const gameId = parseInt(raw.includes("catalog:") ? raw.slice(8) : raw.slice(4), 10);
-      if (!isNaN(gameId)) onAddFromCatalog?.(gameId, tier.id, toIndex);
+      if (!isNaN(gameId)) onAddFromCatalog?.(gameId, tier.id, effectiveIndex);
       return;
     }
 
-    // Existing ranking reorder
+    // Existing ranking
     const rankingId = parseInt(raw, 10);
     if (isNaN(rankingId)) return;
+
     const entry = games.find((g) => g.id === rankingId);
-    if (!entry) return;
-    if (entry.tier !== tier.id) {
-      onDrop(rankingId, tier.id, toIndex);
+    if (!entry) {
+      // From another tier — insert at target position
+      onDrop(rankingId, tier.id, effectiveIndex);
       return;
     }
-    if (!onReorder) return;
-    onReorder(rankingId, toIndex);
-  }, [readOnly, games, tier.id, onDrop, onReorder, onAddFromCatalog, onAddFromIgdb]);
 
-  const handleItemDragLeave = useCallback((e: React.DragEvent) => {
+    // Same tier
+    if (rankingId === targetRankingId) return; // dropped on itself
+
+    if (inTopZone || inBottomZone) {
+      // Edge zone — insert at position
+      onReorder?.(rankingId, effectiveIndex);
+    } else {
+      // Center zone — swap
+      onSwap?.(rankingId, targetRankingId);
+    }
+  }, [readOnly, games, tier.id, onDrop, onReorder, onSwap, onAddFromCatalog, onAddFromIgdb]);
+
+  const handleListItemDragLeave = useCallback((e: React.DragEvent) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const { clientX, clientY } = e;
     if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) {
-      setDropIndex(null);
+      setSwapTargetId(null);
+      setInsertTarget(null);
     }
   }, []);
 
@@ -298,6 +400,7 @@ export function TierRow({ tier, games, readOnly, viewLayout, recentlyMovedIds, o
               return (
                 <div
                   key={r.id}
+                  data-ranking-id={r.id}
                   onDragOver={(e) => handleGridItemDragOver(e, r.id)}
                   onDragLeave={handleGridItemDragLeave}
                   onDrop={(e) => handleGridItemDrop(e, r.id, index)}
@@ -353,9 +456,16 @@ export function TierRow({ tier, games, readOnly, viewLayout, recentlyMovedIds, o
             {games.length === 0 && (
               <div
                 className="flex items-center justify-center w-full flex-1"
-                style={{ color: "var(--t-text-muted)", fontSize: "var(--t-text-xs)", minHeight: 80 }}
+                style={{
+                  color: dragOver ? "var(--t-accent)" : "var(--t-text-muted)",
+                  fontSize: dragOver ? "var(--t-text-base)" : "var(--t-text-xs)",
+                  minHeight: 80,
+                  transition: "color 0.12s, font-size 0.12s",
+                  textShadow: dragOver ? "0 0 10px var(--t-accent)" : "none",
+                  fontWeight: dragOver ? "bold" : "normal",
+                }}
               >
-                {readOnly ? "Aucun jeu" : "Glisse un jeu ici"}
+                {readOnly ? "Aucun jeu" : dragOver ? "▼ Lâche ici pour ajouter" : "Glisse un jeu ici"}
               </div>
             )}
           </div>
@@ -367,31 +477,89 @@ export function TierRow({ tier, games, readOnly, viewLayout, recentlyMovedIds, o
               gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))",
               alignContent: "start",
             }}
+            onDragOverCapture={(e) => {
+              // Capture phase: track mouse for floating preview, fires even if children stopPropagation
+              setDragState((prev) => prev ? { ...prev, x: e.clientX, y: e.clientY } : null);
+            }}
+            onDragEndCapture={() => setDragState(null)}
           >
             {sorted.map((r, index) => {
               const rankNum = showRankNumbers ? (globalRankOffset ?? 0) + index + 1 : null;
-              const isDropBefore = dropIndex?.idx === index && dropIndex?.before;
-              const isDropAfter = dropIndex?.idx === index && !dropIndex?.before;
+              const isSwapTarget = swapTargetId === r.id;
+              const isInsertBefore = insertTarget?.rankingId === r.id && insertTarget?.before;
+              const isInsertAfter = insertTarget?.rankingId === r.id && !insertTarget?.before;
               return (
                 <div
                   key={r.id}
-                  onDragOver={(e) => handleItemDragOver(e, index)}
-                  onDragLeave={handleItemDragLeave}
-                  onDrop={(e) => handleItemDrop(e, index)}
+                  data-ranking-id={r.id}
+                  onDragOver={(e) => handleListItemDragOver(e, r.id)}
+                  onDragLeave={handleListItemDragLeave}
+                  onDrop={(e) => handleListItemDrop(e, r.id, index)}
+                  className="rounded"
                   style={{
-                    borderTop: isDropBefore ? "2px solid var(--t-accent)" : "2px solid transparent",
-                    borderBottom: isDropAfter ? "2px solid var(--t-accent)" : "2px solid transparent",
+                    // ── Swap glow ──
+                    outline: isSwapTarget ? "3px solid var(--t-accent)" : "3px solid transparent",
+                    outlineOffset: 3,
+                    boxShadow: isSwapTarget ? "0 0 16px 4px var(--t-accent)" : "none",
+                    filter: isSwapTarget ? "brightness(1.08)" : "none",
+                    transform: isSwapTarget ? "scale(1.03)" : "scale(1)",
+                    // ── Insert bars ──
+                    borderTop: isInsertBefore ? "4px solid var(--t-accent)" : "4px solid transparent",
+                    borderBottom: isInsertAfter ? "4px solid var(--t-accent)" : "4px solid transparent",
+                    // ── Shared ──
+                    transition: "outline 0.12s, box-shadow 0.12s, filter 0.12s, transform 0.12s, border 0.08s",
+                    zIndex: isSwapTarget ? 2 : isInsertBefore || isInsertAfter ? 1 : 0,
+                    position: "relative",
                   }}
                 >
+                  {/* Insert arrow indicator */}
+                  {isInsertBefore && (
+                    <div
+                      className="absolute flex items-center justify-center"
+                      style={{
+                        left: 0,
+                        right: 0,
+                        top: -14,
+                        height: 20,
+                        color: "var(--t-accent)",
+                        fontSize: "var(--t-text-lg)",
+                        fontWeight: "bold",
+                        zIndex: 5,
+                        pointerEvents: "none",
+                        textShadow: "0 0 8px var(--t-accent)",
+                      }}
+                    >
+                      ▲
+                    </div>
+                  )}
+                  {isInsertAfter && (
+                    <div
+                      className="absolute flex items-center justify-center"
+                      style={{
+                        left: 0,
+                        right: 0,
+                        bottom: -14,
+                        height: 20,
+                        color: "var(--t-accent)",
+                        fontSize: "var(--t-text-lg)",
+                        fontWeight: "bold",
+                        zIndex: 5,
+                        pointerEvents: "none",
+                        textShadow: "0 0 8px var(--t-accent)",
+                      }}
+                    >
+                      ▼
+                    </div>
+                  )}
                   <GameRow
                     ranking={r}
                     readOnly={readOnly}
                     isNew={recentlyMovedIds?.has(r.id)}
                     onRemove={onRemove}
                     onUpdateNote={onUpdateNote}
-                    onMove={onMove}
                     onDetailClick={onDetailClick}
                     rankNumber={rankNum}
+                    onDragStartCard={handleCardDragStart}
                   />
                 </div>
               );
@@ -399,9 +567,16 @@ export function TierRow({ tier, games, readOnly, viewLayout, recentlyMovedIds, o
             {games.length === 0 && (
               <div
                 className="flex items-center justify-center"
-                style={{ color: "var(--t-text-muted)", fontSize: "var(--t-text-xs)", minHeight: 64 }}
+                style={{
+                  color: dragOver ? "var(--t-accent)" : "var(--t-text-muted)",
+                  fontSize: dragOver ? "var(--t-text-base)" : "var(--t-text-xs)",
+                  minHeight: 64,
+                  transition: "color 0.12s, font-size 0.12s",
+                  textShadow: dragOver ? "0 0 10px var(--t-accent)" : "none",
+                  fontWeight: dragOver ? "bold" : "normal",
+                }}
               >
-                {readOnly ? "Aucun jeu" : "Glisse un jeu ici"}
+                {readOnly ? "Aucun jeu" : dragOver ? "▼ Lâche ici pour ajouter" : "Glisse un jeu ici"}
               </div>
             )}
           </div>
