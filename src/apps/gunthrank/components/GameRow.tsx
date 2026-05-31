@@ -89,9 +89,9 @@ export function GameRow({ ranking, readOnly, isNew, onRemove, onUpdateNote, onDe
         transition: "opacity 0.12s",
       }}
     >
-      {/* Main row */}
+      {/* Main row — click opens edit panel */}
       <div
-        className="flex items-center gap-2 px-2 py-1.5 min-w-0"
+        className="flex items-center gap-2 px-2 py-1.5 min-w-0 cursor-pointer"
         onClick={() => { if (readOnly) { onDetailClick?.(ranking); } else { setExpanded(!expanded); } }}
       >
         {/* Rank number */}
@@ -150,7 +150,7 @@ export function GameRow({ ranking, readOnly, isNew, onRemove, onUpdateNote, onDe
         {/* Right: note + edit button */}
         <div className="flex-shrink-0 flex items-center gap-2" style={{ minWidth: 100 }}>
           <button
-            className="px-1 py-0.5 opacity-50 hover:opacity-100"
+            className="w-7 h-7 flex items-center justify-center opacity-50 hover:opacity-100"
             style={{
               fontSize: "var(--t-text-sm)",
               background: "none",

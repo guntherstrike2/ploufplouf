@@ -148,6 +148,19 @@ export interface JournalistEntry {
  * @param kiffRankSource La source pour le calcul du "vrai classement du kiff" (tiebreaker).
  *                        Si omis, utilise displayRankings.
  */
+export function blendColors(c1: string, c2: string, ratio: number = 0.82): string {
+  const r1 = parseInt(c1.slice(1, 3), 16);
+  const g1 = parseInt(c1.slice(3, 5), 16);
+  const b1 = parseInt(c1.slice(5, 7), 16);
+  const r2 = parseInt(c2.slice(1, 3), 16);
+  const g2 = parseInt(c2.slice(3, 5), 16);
+  const b2 = parseInt(c2.slice(5, 7), 16);
+  const r = Math.round(r1 * ratio + r2 * (1 - ratio));
+  const g = Math.round(g1 * ratio + g2 * (1 - ratio));
+  const b = Math.round(b1 * ratio + b2 * (1 - ratio));
+  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+}
+
 export function computeJournalistList(
   displayRankings: RankingEntry[],
   kiffRankSource?: RankingEntry[],

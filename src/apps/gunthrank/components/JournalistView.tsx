@@ -160,17 +160,30 @@ function JournalistRow({
 
       {/* Info */}
       <div className="flex-1 min-w-0 flex flex-col justify-center px-3 py-2">
-        {/* Category label */}
+        {/* Category label — solid fill badge */}
         <div
           style={{
-            fontSize: "calc(var(--t-text-xs) * 0.72)",
-            color: category.color,
+            fontSize: "var(--t-text-xs)",
+            color: "#fff",
             fontWeight: 700,
             letterSpacing: "0.05em",
             textTransform: "uppercase",
+            background: "var(--t-accent)",
+            borderRadius: "4px",
+            textShadow: "0 1px 3px rgba(0,0,0,0.45)",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.2)",
+            padding: "3px 10px",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "0.4em",
+            alignSelf: "center",
           }}
         >
-          {category.emoji} {category.label}
+          <span style={{ filter: "drop-shadow(0 1px 1px rgba(0,0,0,0.3))" }}>{category.emoji}</span>
+          <span style={{ fontSize: "calc(var(--t-text-xs) * 0.85)", opacity: 0.8 }}>◆</span>
+          <span>{category.label}</span>
+          <span style={{ fontSize: "calc(var(--t-text-xs) * 0.85)", opacity: 0.8 }}>◆</span>
+          <span style={{ filter: "drop-shadow(0 1px 1px rgba(0,0,0,0.3))" }}>{category.emoji}</span>
         </div>
 
         {/* Game name */}

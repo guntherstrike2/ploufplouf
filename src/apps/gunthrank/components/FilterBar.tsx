@@ -100,13 +100,19 @@ export function FilterBar({ filters, setFilters, allPlatforms, allGenres, allYea
                 : [...filters.tiers, tier];
               set({ tiers: next });
             }}
-            className="px-1.5 py-0.5"
+            className="px-2 py-1 font-bold"
             style={{
               fontSize: "var(--t-text-xs)",
               background: filters.tiers.includes(tier) ? "var(--t-accent)" : "var(--t-bg-dark)",
               color: filters.tiers.includes(tier) ? "#fff" : "var(--t-text-muted)",
-              border: "none",
+              borderRadius: "4px",
+              border: "1px solid var(--t-border-dark)",
+              boxShadow: filters.tiers.includes(tier)
+                ? "0 2px 6px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.2)"
+                : "0 1px 3px rgba(0,0,0,0.15)",
+              textShadow: filters.tiers.includes(tier) ? "0 1px 2px rgba(0,0,0,0.4)" : "none",
               cursor: "pointer",
+              transition: "all 0.15s",
             }}
           >
             {tierEmojis[tier]}

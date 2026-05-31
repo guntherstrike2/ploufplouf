@@ -282,12 +282,15 @@ export function GameDetailModal({ ranking, readOnly, onClose, onRemove }: GameDe
             return (
               <span
                 key={p}
-                className="px-2 py-0.5"
+                className="px-2 py-0.5 font-bold"
                 style={{
                   fontSize: "var(--t-text-xs)",
-                  background: color ? `${color}44` : "var(--t-bg-dark)",
-                  color: color ?? "var(--t-text)",
-                  border: `1px solid ${color ?? "var(--t-border-dark)"}`,
+                  background: "var(--t-accent)",
+                  color: "#fff",
+                  textTransform: "uppercase",
+                  borderRadius: "4px",
+                  textShadow: "0 1px 2px rgba(0,0,0,0.45)",
+                  boxShadow: "0 2px 6px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.2)",
                 }}
               >
                 {p}
