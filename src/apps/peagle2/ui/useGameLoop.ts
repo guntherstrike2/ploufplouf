@@ -108,7 +108,7 @@ export function useGameLoop({
       lastTimeRef.current = time;
       const dt = Math.min(2, ((time - prev) / 1000) * 60);
 
-      const { onLevelWon: won, onGameOver: over, onSnapshot: snap, sfx: snd, theme: th, active: on } =
+      const { onLevelWon: won, onGameOver: over, onSnapshot: snap, sfx: snd, active: on } =
         cbRef.current;
 
       if (on) {

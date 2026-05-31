@@ -26,7 +26,7 @@ function runTurn(s: GameState, angle: number): { state: GameState; events: GameE
 }
 
 function main() {
-  let game = createGame({ ...BASE_CONFIG }, 1);
+  const game = createGame({ ...BASE_CONFIG }, 1);
   console.log(`level ${game.level} — pegs: ${game.pegs.length}, orange: ${game.orangeLeft}, balls: ${game.ballsLeft}`);
 
   let turns = 0;
