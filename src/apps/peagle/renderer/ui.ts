@@ -1,6 +1,6 @@
 import { W, H, BUCKET_W, BUCKET_H, LAUNCHER_X, LAUNCHER_Y } from "../engine/constants";
 import { computeAimLine } from "../engine/physics";
-import { getActiveBird, getActiveBucket } from "../engine/assets";
+import { getActiveBird, getActiveBucket, getActiveAssetId } from "../engine/assets";
 import type { BirdSprite, BucketStyle } from "../engine/assets";
 import type { GameState } from "../engine/types";
 
@@ -68,20 +68,64 @@ export function drawAimLine(ctx: CanvasRenderingContext2D, s: GameState, aimAngl
   ctx.restore();
 }
 
+// Une patte d'aigle (tibia orange + 3 doigts en éventail), dessinée pointant
+// vers +y. `dir` = -1 (gauche) / +1 (droite) ; `ang` = ouverture vers l'extérieur.
+function drawTalonLeg(ctx: CanvasRenderingContext2D, dir: number, hipX: number, hipY: number, ang: number, len: number): void {
+  const ORANGE = "#f0a81e", DARK = "#b97812", OUT = "#1a120a";
+  ctx.save();
+  ctx.translate(dir * hipX, hipY);
+  ctx.rotate(-dir * ang); // ouverture vers l'extérieur (axe y vers le bas)
+  // tibia
+  ctx.fillStyle = OUT; ctx.fillRect(-2, -1, 4, len + 2);
+  ctx.fillStyle = ORANGE; ctx.fillRect(-1.5, 0, 3, len);
+  ctx.fillStyle = DARK; ctx.fillRect(0.3, 1, 1, len - 1);
+  // pied : 3 doigts en éventail
+  for (const toe of [-0.5, 0, 0.5]) {
+    ctx.save();
+    ctx.translate(0, len);
+    ctx.rotate(toe);
+    ctx.fillStyle = OUT; ctx.fillRect(-1.5, 0, 3, 7);
+    ctx.fillStyle = ORANGE; ctx.fillRect(-1, 0, 2, 6);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+// Pattes de l'aigle, dessinées à part pour pouvoir s'écarter à la ponte.
+function drawEagleLegs(ctx: CanvasRenderingContext2D, ponte: number): void {
+  const ang = 0.12 + ponte * 0.8; // 0.12 rad au repos → grand écart à la ponte
+  drawTalonLeg(ctx, -1, 3.5, 12, ang, 13);
+  drawTalonLeg(ctx, +1, 3.5, 12, ang, 13);
+}
+
 export function drawLauncher(ctx: CanvasRenderingContext2D, s: GameState, aimAngle: number): void {
   ctx.save();
   ctx.translate(LAUNCHER_X, LAUNCHER_Y);
 
   const skin = getActiveBird();
+  // cellPx dérivé d'une empreinte cible (~48px) → taille constante quelle que
+  // soit la résolution de la grille (9×9, 16×16, 48×48…).
+  const cols = skin.grid[0]?.length ?? 9;
+  const cellPx = Math.max(1, Math.round(48 / cols));
 
-  if (s.phase === "aim" || s.phase === "firing") {
-    ctx.save();
-    ctx.rotate(aimAngle + Math.PI / 2);
-    drawBirdSkin(ctx, skin, 0, 0, 3);
-    ctx.restore();
-  } else {
-    drawBirdSkin(ctx, skin, 0, 0, 3);
+  // L'œuf est pondu par les fesses : l'oiseau pointe son arrière dans la
+  // direction de tir (rotation de aimAngle − π/2, soit 180° par rapport à
+  // « tête en avant »).
+  ctx.rotate(aimAngle - Math.PI / 2);
+
+  // Intensité de ponte : ~1 quand l'œuf vient d'être pondu (proche du launcher),
+  // décroît à mesure qu'il s'éloigne. Pilote l'écartement des pattes. lol
+  let ponte = 0;
+  if (s.ball) {
+    const dx = s.ball.x - LAUNCHER_X, dy = s.ball.y - LAUNCHER_Y;
+    ponte = Math.max(0, 1 - Math.hypot(dx, dy) / 70);
   }
+
+  // Pattes derrière le corps (côté fesses, donc face à la cible) : elles
+  // dépassent sous l'aigle et s'écartent au moment de la ponte.
+  if (getActiveAssetId("bird") === "aigle") drawEagleLegs(ctx, ponte);
+
+  drawBirdSkin(ctx, skin, 0, 0, cellPx);
 
   ctx.restore();
 }
