@@ -72,8 +72,20 @@ async function searchEndpoint(token: string, searchTerm: string, limit: number):
     console.error("IGDB search endpoint error", res.status);
     return { ids: [], rateLimited: false };
   }
-  const data = await res.json() as Array<{ game: number }>;
-  return { ids: data.map((d) => d.game), rateLimited: false };
+  const data = (await res.json()) as Array<{ game?: number | null }>;
+  const ids = data
+    .map((d) => d.game)
+    .filter((id): id is number => typeof id === "number" && !isNaN(id));
+  console.log(
+    "IGDB search: raw results",
+    data.length,
+    "→ filtered IDs",
+    ids.length,
+    "(dropped",
+    data.length - ids.length,
+    "non-game results)",
+  );
+  return { ids, rateLimited: false };
 }
 
 async function queryIgdb(token: string, bodyStr: string) {
@@ -175,6 +187,17 @@ export async function POST(req: NextRequest) {
         const byIds = await queryIgdb(token, queryByIds);
         if (byIds.rateLimited) return NextResponse.json({ results: [], rateLimited: true, error: "Limite IGDB atteinte — réessaie dans quelques secondes." });
         results = byIds.data ?? [];
+      }
+
+      // Fallback: if search+fetch returned nothing, try a direct search on the games endpoint
+      if (results.length === 0 && !genre && !platform) {
+        console.log("IGDB fallback: direct game search for", query!.trim());
+        const fallbackQuery = `search "${query!.trim()}"; fields ${FIELDS}; limit ${limit};`;
+        const fallback = await queryIgdb(token, fallbackQuery);
+        if (!fallback.rateLimited && fallback.data) {
+          results = fallback.data;
+          console.log("IGDB fallback: returned", results.length, "results");
+        }
       }
     } else if (genre || platform) {
       // Genre/platform filters only (no text query)
