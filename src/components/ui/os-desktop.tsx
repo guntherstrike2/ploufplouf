@@ -163,9 +163,9 @@ export function OsDesktop() {
     {
       id: "gunthrank-gunthos",
       emoji: <OsIcon slug="gunthrank" size={46} />,
-      label: "Kiffothèque",
+      label: "Classement du Kiff",
       hot: true,
-      onOpen: () => openNamedWindow("gunthrank", "Kiffothèque", "🏆"),
+      onOpen: () => openNamedWindow("gunthrank", "Classement du Kiff", "🏆"),
     },
   ];
 

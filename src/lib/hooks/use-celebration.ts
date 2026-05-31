@@ -21,6 +21,10 @@ interface Particle {
   targetY?: number;
   speed?: number;
   char?: string;
+  /** How much life decreases per frame (0 = no fade) */
+  lifeDecay?: number;
+  /** Multiplier for movement speed (1 = normal) */
+  speedMultiplier?: number;
 }
 
 function rand(min: number, max: number) {
@@ -92,8 +96,10 @@ function makeParticles(type: CelebType, o: CelebrationOptions): Particle[] {
   const c = getColor(o);
   const W = window.innerWidth;
   const H = window.innerHeight;
+  const speedMult = o.speedMultiplier ?? 1;
+  const decay = o.lifeDecay ?? 0;
 
-  switch (type) {
+  const raw: Particle[] = (() => { switch (type) {
     case "confetti":
       return [
         {
@@ -351,6 +357,10 @@ function makeParticles(type: CelebType, o: CelebrationOptions): Particle[] {
       const trophies = ["🏆", "🥇", "👑", "🏆", "🥇", "👑", "🌟", "💛", "⭐"];
       return [makeTrophyParticle(W, H, c, trophies)];
     }
+    case "trophy-diamond": {
+      const trophies = ["💎", "💎", "💎", "💠", "💍", "✨", "💎", "💎", "💎"];
+      return [makeTrophyParticle(W, H, c, trophies)];
+    }
     case "trophy-silver": {
       const trophies = ["🥈", "🎖️", "🥈", "🎖️", "🤍", "🪩", "💿", "🕶️", "🔩"];
       return [makeTrophyParticle(W, H, c, trophies)];
@@ -359,7 +369,16 @@ function makeParticles(type: CelebType, o: CelebrationOptions): Particle[] {
       const trophies = ["🥉", "🏅", "🥉", "🏅", "🤎", "🍂", "🔔", "🪙", "🧡"];
       return [makeTrophyParticle(W, H, c, trophies)];
     }
-  }
+  }})(); // end IIFE
+
+  return raw.map(p => ({
+    ...p,
+    vx: p.vx * speedMult,
+    vy: p.vy * speedMult,
+    vrot: p.vrot * speedMult,
+    speedMultiplier: speedMult,
+    lifeDecay: decay,
+  }));
 }
 
 // Pre-render text/emoji to offscreen canvases so the hot loop uses drawImage
@@ -496,23 +515,27 @@ function drawSparkle(
 }
 
 function updateParticle(p: Particle): boolean {
+  const sm = p.speedMultiplier ?? 1;
   if (p.shape === "orb" && p.targetX !== undefined && p.targetY !== undefined) {
-    const speed = p.speed ?? 0.04;
+    const speed = (p.speed ?? 0.04) * sm;
     p.vx += (p.targetX - p.x) * speed;
     p.vy += (p.targetY - p.y) * speed;
     p.vx *= 0.9;
     p.vy *= 0.9;
     if (Math.hypot(p.targetX - p.x, p.targetY - p.y) < 20) p.life -= 0.05;
   } else {
-    p.vy += p.gravity;
+    p.vy += p.gravity * sm;
     if (p.wobbleSpeed > 0) {
-      p.wobble += p.wobbleSpeed;
-      p.x += Math.sin(p.wobble) * 0.5;
+      p.wobble += p.wobbleSpeed * sm;
+      p.x += Math.sin(p.wobble) * 0.5 * sm;
     }
   }
   p.x += p.vx;
   p.y += p.vy;
   p.rot += p.vrot;
+
+  // Fade-out: life decays every frame
+  p.life -= p.lifeDecay ?? 0;
 
   const H = window.innerHeight;
   const W = window.innerWidth;
@@ -527,9 +550,26 @@ export function useCelebration() {
   const rafRef = useRef<number | null>(null);
   const activeRef = useRef(false);
   const spawnAccRef = useRef(0);
+  const spawningRef = useRef(true);
   const [active, setActive] = useState(false);
 
+  /** Hard stop — instant clear (used when a new celebration replaces the current one). */
   const stop = useCallback(() => {
+    activeRef.current = false;
+    setActive(false);
+    spawningRef.current = false;
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = null;
+    particlesRef.current = [];
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext("2d");
+      ctx?.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }, []);
+
+  /** Clean-up after the last particle naturally fades out. */
+  const finish = useCallback(() => {
     activeRef.current = false;
     setActive(false);
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -559,17 +599,21 @@ export function useCelebration() {
 
       activeRef.current = true;
       setActive(true);
+      spawningRef.current = true;
       particlesRef.current = [];
       spawnAccRef.current = 0;
 
       const loop = () => {
         if (!activeRef.current) return;
 
-        spawnAccRef.current += options.density / 60;
-        while (spawnAccRef.current >= 1) {
-          spawnAccRef.current -= 1;
-          const batch = makeParticles(options.type, options);
-          particlesRef.current.push(...batch);
+        // Spawn phase — keep emitting particles until the timer fires
+        if (spawningRef.current) {
+          spawnAccRef.current += options.density / 60;
+          while (spawnAccRef.current >= 1) {
+            spawnAccRef.current -= 1;
+            const batch = makeParticles(options.type, options);
+            particlesRef.current.push(...batch);
+          }
         }
 
         if (options.type === "matrix" && !options.forceTransparent) {
@@ -589,13 +633,32 @@ export function useCelebration() {
           particlesRef.current.splice(0, particlesRef.current.length - 2000);
         }
 
+        // After spawning stopped, when all particles are gone → clean exit
+        if (!spawningRef.current && particlesRef.current.length === 0) {
+          finish();
+          return;
+        }
+
         rafRef.current = requestAnimationFrame(loop);
       };
 
       rafRef.current = requestAnimationFrame(loop);
-      setTimeout(stop, options.duration * 1000);
+
+      // When the celebration duration ends:
+      // - fadeOut ON  → stop spawning, boost fade so remaining particles dissolve gracefully
+      // - fadeOut OFF → instant clear (old behavior)
+      setTimeout(() => {
+        if (options.fadeOut === false) {
+          stop();
+        } else {
+          spawningRef.current = false;
+          for (const p of particlesRef.current) {
+            p.lifeDecay = Math.max(p.lifeDecay ?? 0.005, 0.025);
+          }
+        }
+      }, options.duration * 1000);
     },
-    [stop]
+    [stop, finish]
   );
 
   return { canvasRef, active, start, stop };

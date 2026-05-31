@@ -134,6 +134,19 @@ function GunthrankAppInner({ windowId }: { windowId: string }) {
   const [viewLayout, setViewLayout] = useState<"list" | "grid">(() => {
     try { return (localStorage.getItem("gunthrank-view-layout") as "list" | "grid") ?? "list"; } catch { return "list"; }
   });
+  const [effectsOn, setEffectsOn] = useState(() => {
+    try { return localStorage.getItem("gunthrank-effects") !== "false"; } catch { return true; }
+  });
+  const effectsRef = useRef(effectsOn);
+  effectsRef.current = effectsOn;
+
+  const toggleEffects = () => {
+    const next = !effectsOn;
+    setEffectsOn(next);
+    effectsRef.current = next;
+    try { localStorage.setItem("gunthrank-effects", String(next)); } catch { /* noop */ }
+    playClick();
+  };
 
   const toggleViewLayout = () => {
     const next = viewLayout === "list" ? "grid" : "list";
@@ -148,13 +161,23 @@ function GunthrankAppInner({ windowId }: { windowId: string }) {
   };
 
   const celebrateTier = useCallback((tier: TierId) => {
-    const configs: Record<TierId, { type: CelebrationOptions["type"]; density: number; duration: number; color1: string; color2: string; color3: string; flash: boolean }> = {
-      diamond: { type: "trophy-gold", density: 250, duration: 3, color1: "#FFD700", color2: "#FFA500", color3: "#FFFFFF", flash: true },
-      gold:     { type: "confetti", density: 180, duration: 2.5, color1: "#FFD700", color2: "#FFC107", color3: "#FFE082", flash: false },
-      silver:   { type: "confetti", density: 120, duration: 2, color1: "#C0C0C0", color2: "#E0E0E0", color3: "#FFFFFF", flash: false },
-      bronze:   { type: "confetti", density: 90, duration: 2, color1: "#CD7F32", color2: "#D2A679", color3: "#F5DEB3", flash: false },
-      banger:   { type: "rain", density: 50, duration: 1.5, color1: "#9B8EA8", color2: "#B8ACCC", color3: "#D4CCE0", flash: false },
-      caca:     { type: "poop", density: 120, duration: 2, color1: "#8B7355", color2: "#6B4226", color3: "#4A3728", flash: false },
+    if (!effectsRef.current) return;
+    const configs: Record<TierId, {
+      type: CelebrationOptions["type"];
+      density: number;
+      duration: number;
+      color1: string;
+      color2: string;
+      color3: string;
+      flash: boolean;
+      speedMultiplier: number;
+    }> = {
+      diamond: { type: "trophy-diamond",density: 220, duration: 3.5, color1: "#B9F2FF", color2: "#E0F7FF", color3: "#FFFFFF", flash: true,  speedMultiplier: 0.7 },
+      gold:    { type: "trophy-gold",   density: 120, duration: 4,   color1: "#FFD700", color2: "#FFC107", color3: "#FFE082", flash: false, speedMultiplier: 0.5 },
+      silver:  { type: "trophy-silver", density: 90,  duration: 3.5, color1: "#C0C0C0", color2: "#E0E0E0", color3: "#FFFFFF", flash: false, speedMultiplier: 0.55 },
+      bronze:  { type: "trophy-bronze", density: 70,  duration: 3.5, color1: "#CD7F32", color2: "#D2A679", color3: "#F5DEB3", flash: false, speedMultiplier: 0.6 },
+      banger:  { type: "rain",          density: 50,  duration: 2,   color1: "#9B8EA8", color2: "#B8ACCC", color3: "#D4CCE0", flash: false, speedMultiplier: 1 },
+      caca:    { type: "poop",          density: 120, duration: 2.5, color1: "#8B7355", color2: "#6B4226", color3: "#4A3728", flash: false, speedMultiplier: 1 },
     };
     const c = configs[tier];
     startCelebration({
@@ -178,6 +201,7 @@ function GunthrankAppInner({ windowId }: { windowId: string }) {
       forceTransparent: false,
       winnerColor: "#fff",
       winnerSubColor: "#ccc",
+      speedMultiplier: c.speedMultiplier,
     });
   }, [startCelebration]);
 
@@ -224,7 +248,7 @@ function GunthrankAppInner({ windowId }: { windowId: string }) {
       const dataUrl = await toPng(tierListRef.current, { pixelRatio: 2 });
       const a = document.createElement("a");
       a.href = dataUrl;
-      a.download = "kiffotheque.png";
+      a.download = "classement-du-kiff.png";
       a.click();
       playVictory();
       notify({ type: "success", title: "Image exportée !" });
@@ -242,6 +266,8 @@ function GunthrankAppInner({ windowId }: { windowId: string }) {
   const handleAddFromCatalog = async (gameId: number, toTier: TierId, toIndex?: number) => {
     playPop();
     await addFromCatalog(gameId, toTier, toIndex);
+    tierSounds[toTier]();
+    celebrateTier(toTier);
     notify({ type: "success", title: "Ajouté au classement !" });
   };
 
@@ -280,6 +306,8 @@ function GunthrankAppInner({ windowId }: { windowId: string }) {
       const { game } = await gameRes.json() as { game: { id: number } };
       await addFromCatalog(game.id, toTier, toIndex);
     }
+    tierSounds[toTier]();
+    celebrateTier(toTier);
     notify({ type: "success", title: `${igdbGame.name} ajouté !` });
   };
 
@@ -317,7 +345,7 @@ function GunthrankAppInner({ windowId }: { windowId: string }) {
               cursor: "pointer",
             }}
           >
-            Mon classement
+            Mon Classement du Kiff
           </button>
           <select
             value={viewMode === "other" && viewedUser ? viewedUser.id : ""}
@@ -364,6 +392,25 @@ function GunthrankAppInner({ windowId }: { windowId: string }) {
         </button>
 
         <ThemeDropdown />
+
+        <button
+          onClick={toggleEffects}
+          className="px-1.5 py-1 leading-none"
+          style={{
+            fontSize: "var(--t-text-xs)",
+            background: effectsOn ? "var(--t-bg)" : "var(--t-bg-dark)",
+            color: effectsOn ? "var(--t-text)" : "var(--t-text-muted)",
+            borderTop: effectsOn ? "2px solid var(--t-border-dark)" : "2px solid var(--t-border-light)",
+            borderLeft: effectsOn ? "2px solid var(--t-border-dark)" : "2px solid var(--t-border-light)",
+            borderBottom: effectsOn ? "2px solid var(--t-border-light)" : "2px solid var(--t-border-dark)",
+            borderRight: effectsOn ? "2px solid var(--t-border-light)" : "2px solid var(--t-border-dark)",
+            cursor: "pointer",
+            opacity: effectsOn ? 1 : 0.55,
+          }}
+          title={effectsOn ? "Effets visuels activés" : "Effets visuels désactivés — son uniquement"}
+        >
+          ✨
+        </button>
 
         <button
           onClick={() => { playClick(); toggleViewLayout(); }}
@@ -440,34 +487,7 @@ function GunthrankAppInner({ windowId }: { windowId: string }) {
           {allYears.map((y) => (<option key={y} value={y}>{y}</option>))}
         </select>
 
-        <div className="flex items-center gap-0.5">
-          {(["diamond", "gold", "silver", "bronze", "banger", "caca"] as TierId[]).map((tier) => {
-            const tierEmojis: Record<string, string> = { diamond: "💎", gold: "🥇", silver: "🥈", bronze: "🥉", banger: "🌫️", caca: "💩" };
-            const active = filters.tiers.includes(tier);
-            return (
-              <button
-                key={tier}
-                onClick={() => {
-                  playClick();
-                  const next = active ? filters.tiers.filter((t) => t !== tier) : [...filters.tiers, tier];
-                  setFilters({ ...filters, tiers: next });
-                }}
-                className="px-1 py-0.5"
-                style={{
-                  fontSize: "var(--t-text-xs)",
-                  background: active ? "var(--t-accent)" : "var(--t-bg-dark)",
-                  color: active ? "#fff" : "var(--t-text-muted)",
-                  border: "none",
-                  cursor: "pointer",
-                }}
-              >
-                {tierEmojis[tier]}
-              </button>
-            );
-          })}
-        </div>
-
-        {(filters.platform || filters.genre || filters.year || filters.tiers.length > 0) && (
+        {(filters.platform || filters.genre || filters.year) && (
           <button
             onClick={() => { playClick(); setFilters({ platform: null, genre: null, year: null, tiers: [] }); }}
             className="px-1.5 py-0.5"

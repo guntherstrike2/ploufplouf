@@ -16,7 +16,8 @@ export type CelebType =
   | "trophy"
   | "trophy-gold"
   | "trophy-silver"
-  | "trophy-bronze";
+  | "trophy-bronze"
+  | "trophy-diamond";
 
 export interface CelebrationOptions {
   preset: string;
@@ -39,6 +40,12 @@ export interface CelebrationOptions {
   forceTransparent: boolean;
   winnerColor: string;
   winnerSubColor: string;
+  /** Multiplier for particle velocities (1 = normal, 0.5 = half speed) */
+  speedMultiplier?: number;
+  /** How much life decreases per frame (0 = no fade, 0.005 ≈ 3.3s fade) */
+  lifeDecay?: number;
+  /** When true (default), particles fade out gracefully after duration. When false, instant stop. */
+  fadeOut?: boolean;
 }
 
 export const DEFAULT_OPTIONS: CelebrationOptions = {
@@ -62,6 +69,8 @@ export const DEFAULT_OPTIONS: CelebrationOptions = {
   forceTransparent: false,
   winnerColor: "#ffff00",
   winnerSubColor: "#ffffff",
+  speedMultiplier: 1,
+  lifeDecay: 0,
 };
 
 export type PresetName =
@@ -120,6 +129,7 @@ export const TYPE_DEFAULTS: Record<
   "trophy-gold":   { text: "Kiff d'Or !",  color1: "#ffd700", color2: "#ffaa00", color3: "#ffec00", rainbow: false, winnerColor: "#ffd700", winnerSubColor: "#ffaa00" },
   "trophy-silver": { text: "Kiff d'Argent !", color1: "#c0c0c0", color2: "#e8e8e8", color3: "#a0a0a0", rainbow: false, winnerColor: "#e8e8e8", winnerSubColor: "#c0c0c0" },
   "trophy-bronze": { text: "Kiff de Bronze !", color1: "#cd7f32", color2: "#e8a860", color3: "#8b5a2b", rainbow: false, winnerColor: "#e8a860", winnerSubColor: "#cd7f32" },
+  "trophy-diamond": { text: "Kiff de Diamant !", color1: "#b9f2ff", color2: "#ffffff", color3: "#e0f7ff", rainbow: false, winnerColor: "#b9f2ff", winnerSubColor: "#ffffff" },
 };
 
 export const PRESETS: Record<PresetName, CelebrationOptions> = {

@@ -7,8 +7,8 @@ const GunthrankApp = lazy(
 
 export const manifest: AppManifest = {
   slug: "gunthrank",
-  name: "Kiffothèque",
-  description: "Classe tes jeux du Kiff de Diamant au Caca d'Or !",
+  name: "Classement du Kiff",
+  description: "Ton classement perso du Kiff de Diamant au Caca d'Or !",
   emoji: "🏆",
   version: "1.0.0",
   defaultSize: { w: 950, h: 750 },
