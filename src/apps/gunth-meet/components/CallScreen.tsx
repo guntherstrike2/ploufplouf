@@ -290,7 +290,6 @@ export function CallScreen({
         )}
         {ambianceOpen && (
           <AmbiancePanel
-            roomId={roomId}
             onBroadcast={broadcastAmbiance}
             onAmbianceSync={onAmbianceSync}
             onClose={() => setAmbianceOpen(false)}

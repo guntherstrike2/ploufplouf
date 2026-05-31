@@ -79,12 +79,15 @@ export function useMeet(
 
   const toggleMute = useCallback(() => {
     media.toggleMute();
-    broadcastParticipantUpdate({ isMuted: !media.isMuted });
+    // Read the actual track state post-toggle instead of the stale React state
+    const newMuted = !(media.localStreamRef.current?.getAudioTracks()[0]?.enabled ?? true);
+    broadcastParticipantUpdate({ isMuted: newMuted });
   }, [media, broadcastParticipantUpdate]);
 
   const toggleCam = useCallback(() => {
     media.toggleCam();
-    broadcastParticipantUpdate({ isCamOff: !media.isCamOff });
+    const newCamOff = !(media.localStreamRef.current?.getVideoTracks()[0]?.enabled ?? true);
+    broadcastParticipantUpdate({ isCamOff: newCamOff });
   }, [media, broadcastParticipantUpdate]);
 
   const stopScreenShare = useCallback(async () => {

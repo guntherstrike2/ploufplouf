@@ -143,7 +143,7 @@ export function VideoTile({
         </span>
         {isMuted && "🔇"}
         {!isMuted && isSpeaking && <span style={{ color: "#4caf50", fontSize: 10 }}>●</span>}
-        {isCamOff && !isMuted && "📷"}
+        {isCamOff && "📷"}
       </div>
 
       {/* Overlay actions (top-right) */}
