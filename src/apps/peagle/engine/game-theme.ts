@@ -75,7 +75,7 @@ export const DEFAULT_THEME = THEME_FORET;
 
 // Compose le thème courant à partir de la sélection active de la Galerie
 // (palette de pegs + arrière-plan choisis par l'utilisateur).
-export function resolveTheme(): GameTheme {
+function buildTheme(): GameTheme {
   const bgv = getActiveBackground();
   // L'id reflète l'arrière-plan choisi : sert de clé au cache du décor statique
   // (renderer/background.ts) et active ses calques spéciaux (abîme/enfer/glace).
@@ -87,4 +87,19 @@ export function resolveTheme(): GameTheme {
     bg: bgv.bg,
     flash: bgv.flash,
   };
+}
+
+// Mémoïsé au niveau module : resolveTheme() est appelé à chaque frame par la
+// boucle rAF, or le thème ne change qu'au choix d'un asset dans la Galerie.
+// Sans ce cache on allouait un GameTheme (+ deux list.find) à 60 fps pour rien.
+// invalidateTheme() est appelé sur ASSETS_CHANGED_EVENT (cf. refreshAssetCache).
+let _theme: GameTheme | null = null;
+
+export function resolveTheme(): GameTheme {
+  return (_theme ??= buildTheme());
+}
+
+/** Force la recomposition du thème (sélection d'asset changée). */
+export function invalidateTheme(): void {
+  _theme = null;
 }

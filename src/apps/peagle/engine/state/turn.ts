@@ -33,11 +33,9 @@ export function endOfTurn(s: GameState, events: GameEvent[]): void {
       s.floatingTexts.push({ x: W / 2, y: H / 2, text: `+${ballBonus.toLocaleString()} BONUS ŒUFS!`, life: 1, maxLife: 3, color: "#00ffcc", combo: true, fontSize: 16 });
     }
 
-    const saved = parseInt(localStorage.getItem("peagle98_best") ?? "0", 10);
-    if (s.score > saved) {
-      localStorage.setItem("peagle98_best", String(s.score));
-      events.push({ kind: "best-score", score: s.score });
-    }
+    // Score candidat en fin de niveau : le moteur reste une sim pure, c'est la
+    // couche React (hôte) qui compare au record et persiste dans localStorage.
+    events.push({ kind: "best-score", score: s.score });
 
     s.phase = "won";
     s.message = `NIVEAU ${s.level} TERMINÉ !`;
@@ -46,11 +44,7 @@ export function endOfTurn(s: GameState, events: GameEvent[]): void {
 
   } else if (s.balls <= 0) {
     // Plus d'œufs : game over
-    const saved = parseInt(localStorage.getItem("peagle98_best") ?? "0", 10);
-    if (s.score > saved) {
-      localStorage.setItem("peagle98_best", String(s.score));
-      events.push({ kind: "best-score", score: s.score });
-    }
+    events.push({ kind: "best-score", score: s.score });
     s.phase = "lost";
     s.message = "GAME OVER";
     events.push({ kind: "sound", id: "delete" });

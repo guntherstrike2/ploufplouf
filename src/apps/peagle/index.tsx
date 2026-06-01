@@ -92,6 +92,16 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     setUpgradeOffer(generateUpgradeOffer(runStateRef.current.upgrades));
   }, []);
 
+  // Record : le moteur émet un score candidat en fin de niveau ; on compare au
+  // meilleur connu et on persiste ici (la sim ne touche pas à localStorage).
+  const recordBestScore = useCallback((score: number) => {
+    setBestScore(prev => {
+      if (score <= prev) return prev;
+      try { localStorage.setItem("peagle98_best", String(score)); } catch { /* quota / private mode */ }
+      return score;
+    });
+  }, []);
+
   const { musicMuted, toggleMusic } = useMusic();
 
   const handleUiSync = useCallback((uiState: UiState) => setUi(uiState), []);
@@ -106,7 +116,7 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     pausedRef,
     onUiSync: handleUiSync,
     onOrangeTotalChange: handleOrangeTotalChange,
-    onBestScore: setBestScore,
+    onBestScore: recordBestScore,
     onScoreSubmit: submitScore,
     onLevelWon: handleLevelWon,
     onRequestPause: () => setPaused(true),

@@ -5,7 +5,7 @@ import type { RefObject } from "react";
 import { useSoundContext } from "@/lib/contexts/sound-context";
 import { drawFrame } from "../renderer";
 import { PAUSE_HIT } from "../renderer/hud";
-import { resolveTheme } from "../engine/game-theme";
+import { resolveTheme, invalidateTheme } from "../engine/game-theme";
 import { tick } from "../engine/state/tick";
 import { makeInitialState } from "../engine/state/init";
 import { refreshAssetCache, ASSETS_CHANGED_EVENT } from "../engine/assets";
@@ -274,11 +274,14 @@ export function useGameLoop({
     syncUI();
   }, [syncUI, onOrangeTotalChange]);
 
-  // Sync des assets : recharge le choix de la Galerie (autre fenêtre) en live
+  // Sync des assets : recharge le choix de la Galerie (autre fenêtre) en live.
+  // On recharge le cache d'assets ET on invalide le thème mémoïsé (dérivé de ces
+  // assets) pour que le prochain resolveTheme() le recompose.
   useEffect(() => {
-    refreshAssetCache();
-    window.addEventListener(ASSETS_CHANGED_EVENT, refreshAssetCache);
-    return () => window.removeEventListener(ASSETS_CHANGED_EVENT, refreshAssetCache);
+    const onAssetsChanged = () => { refreshAssetCache(); invalidateTheme(); };
+    onAssetsChanged();
+    window.addEventListener(ASSETS_CHANGED_EVENT, onAssetsChanged);
+    return () => window.removeEventListener(ASSETS_CHANGED_EVENT, onAssetsChanged);
   }, []);
 
   // Boucle rAF

@@ -4,6 +4,18 @@ import type { GameTheme, BgTheme } from "../engine/game-theme";
 
 type Ctx2D = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
+// Canvas hors-écran pour les caches de décor. OffscreenCanvas n'est pas dispo
+// partout (Safari < 16.4) → fallback sur un <canvas> détaché, que drawImage
+// accepte aussi bien comme source. Évite un crash au boot sur ces navigateurs.
+type OffCanvas = OffscreenCanvas | HTMLCanvasElement;
+
+function makeOffscreen(w: number, h: number): OffCanvas {
+  if (typeof OffscreenCanvas !== "undefined") return new OffscreenCanvas(w, h);
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  return c;
+}
+
 const BG_PAD  = MAX_SHAKE + 2;
 const GROUND_Y = H - 80;
 
@@ -824,13 +836,13 @@ function drawFireflies(ctx: CanvasRenderingContext2D, s: GameState, feverMode: b
 // ─── Cache de fond statique (OffscreenCanvas) ────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════
 
-let _staticBgCache: OffscreenCanvas | null = null;
+let _staticBgCache: OffCanvas | null = null;
 let _staticBgKey: string | null = null;
 
-function buildStaticBg(feverMode: boolean, bg: BgTheme, themeId: string): OffscreenCanvas {
+function buildStaticBg(feverMode: boolean, bg: BgTheme, themeId: string): OffCanvas {
   const CW = W + BG_PAD * 2;
   const CH = H + BG_PAD * 2;
-  const canvas = new OffscreenCanvas(CW, CH);
+  const canvas = makeOffscreen(CW, CH);
   const ctx = canvas.getContext("2d")!;
   ctx.translate(BG_PAD, BG_PAD);
 
@@ -905,7 +917,7 @@ function buildStaticBg(feverMode: boolean, bg: BgTheme, themeId: string): Offscr
   return canvas;
 }
 
-function getStaticBg(feverMode: boolean, theme: GameTheme): OffscreenCanvas {
+function getStaticBg(feverMode: boolean, theme: GameTheme): OffCanvas {
   const key = `${feverMode ? 1 : 0}:${theme.id}`;
   if (_staticBgCache === null || _staticBgKey !== key) {
     _staticBgCache = buildStaticBg(feverMode, theme.bg, theme.id);
@@ -937,7 +949,7 @@ const RX1             = W + LAYER_MARGIN;       // x du bord droit visible
 const PARALLAX_CLAMP  = 150;                    // amplitude max du décalage lanceur
 
 interface ForetLayer {
-  canvas:   OffscreenCanvas;
+  canvas:   OffCanvas;
   parallax: number;   // 0 = fixe, 1 = suit le lanceur à fond
   shakeF:   number;   // 0 = immobile au shake, 1 = shake plein
   drift:    number;   // px/s de dérive continue (couche tilée)
@@ -972,8 +984,8 @@ function foretPalette(feverMode: boolean, bg: BgTheme): ForetPalette {
 }
 
 // Crée un canvas de couche dont (0,0) local = coin haut-gauche visible.
-function makeLayerCanvas(): { canvas: OffscreenCanvas; ctx: Ctx2D } {
-  const canvas = new OffscreenCanvas(CW_L, CH_L);
+function makeLayerCanvas(): { canvas: OffCanvas; ctx: Ctx2D } {
+  const canvas = makeOffscreen(CW_L, CH_L);
   const ctx = canvas.getContext("2d")!;
   ctx.translate(LAYER_MARGIN, VPAD);
   return { canvas, ctx };
@@ -981,7 +993,7 @@ function makeLayerCanvas(): { canvas: OffscreenCanvas; ctx: Ctx2D } {
 
 // ─── Générateurs de couches (déterministes via PRNG) ─────────────────────────
 
-function buildForetSky(pal: ForetPalette): OffscreenCanvas {
+function buildForetSky(pal: ForetPalette): OffCanvas {
   const { canvas, ctx } = makeLayerCanvas();
   const rows = 16;
   const rowH = Math.ceil(H / rows);
@@ -998,7 +1010,7 @@ function buildForetSky(pal: ForetPalette): OffscreenCanvas {
   return canvas;
 }
 
-function buildForetClouds(pal: ForetPalette): OffscreenCanvas {
+function buildForetClouds(pal: ForetPalette): OffCanvas {
   const { canvas, ctx } = makeLayerCanvas();
   const rnd = makePrng(0x5eed1234);
   const count = 6;
@@ -1033,14 +1045,14 @@ function fillHills(
   }
 }
 
-function buildForetHills(pal: ForetPalette): OffscreenCanvas {
+function buildForetHills(pal: ForetPalette): OffCanvas {
   const { canvas, ctx } = makeLayerCanvas();
   fillHills(ctx, GROUND_Y - 72, 18, 0.012, 1.3, pal.hillFar);
   fillHills(ctx, GROUND_Y - 42, 14, 0.018, 4.1, pal.hillNear);
   return canvas;
 }
 
-function buildForetFarTrees(pal: ForetPalette): OffscreenCanvas {
+function buildForetFarTrees(pal: ForetPalette): OffCanvas {
   const { canvas, ctx } = makeLayerCanvas();
   const rnd = makePrng(0xa17e3f01);
   for (let x = LX0; x < RX1; x += 9 + Math.floor(rnd() * 8)) {
@@ -1061,7 +1073,7 @@ function buildForetFarTrees(pal: ForetPalette): OffscreenCanvas {
   return canvas;
 }
 
-function buildForetMidTrees(feverMode: boolean): OffscreenCanvas {
+function buildForetMidTrees(feverMode: boolean): OffCanvas {
   const { canvas, ctx } = makeLayerCanvas();
   const rnd = makePrng(0xbada55e1);
   const greens = ["#36c46a", "#2fb088", "#46cc54", "#22b89a"] as const;
@@ -1079,7 +1091,7 @@ function buildForetMidTrees(feverMode: boolean): OffscreenCanvas {
   return canvas;
 }
 
-function buildForetGround(feverMode: boolean, bg: BgTheme): OffscreenCanvas {
+function buildForetGround(feverMode: boolean, bg: BgTheme): OffCanvas {
   const { canvas, ctx } = makeLayerCanvas();
   ctx.fillStyle = feverMode ? bg.groundColorFever : bg.groundColor;
   ctx.fillRect(LX0, GROUND_Y, CW_L, CH_L);
@@ -1119,7 +1131,7 @@ function drawFernBush(
   }
 }
 
-function buildForetForeground(feverMode: boolean): OffscreenCanvas {
+function buildForetForeground(feverMode: boolean): OffCanvas {
   const { canvas, ctx } = makeLayerCanvas();
   const dark   = feverMode ? "#04040c" : "#0e3a2c";
   const darkHi = feverMode ? "#0a0a1e" : "#1c6048";
@@ -1162,11 +1174,11 @@ function getForetLayers(feverMode: boolean, bg: BgTheme): { layers: ForetLayer[]
   return _foretCache;
 }
 
-let _scanlines: OffscreenCanvas | null = null;
+let _scanlines: OffCanvas | null = null;
 
-function getScanlines(): OffscreenCanvas {
+function getScanlines(): OffCanvas {
   if (_scanlines === null) {
-    _scanlines = new OffscreenCanvas(CW_L, CH_L);
+    _scanlines = makeOffscreen(CW_L, CH_L);
     const c = _scanlines.getContext("2d")!;
     c.fillStyle = "rgba(0,0,0,0.04)";
     for (let y = 0; y < CH_L; y += 2) c.fillRect(0, y, CW_L, 1);
