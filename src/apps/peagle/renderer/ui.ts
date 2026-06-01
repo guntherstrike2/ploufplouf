@@ -3,6 +3,7 @@ import { computeAimLine } from "../engine/physics";
 import { getActiveBird, getActiveBucket, getActiveAssetId, EAGLE_BODY, EAGLE_WING, EAGLE_WING_PIVOT, EAGLE_WING_ANCHOR } from "../engine/assets";
 import type { BirdSprite, BucketStyle } from "../engine/assets";
 import type { GameState } from "../engine/types";
+import { eagleFace, getFaceMood } from "./face";
 
 function drawBirdSkin(ctx: CanvasRenderingContext2D, skin: BirdSprite, cx: number, cy: number, cellPx: number) {
   const rows = skin.grid.length;
@@ -272,6 +273,8 @@ export function drawLauncher(ctx: CanvasRenderingContext2D, s: GameState, aimAng
     drawEagleWings(ctx, flap);               // ailes derrière le corps
     drawEagleLegs(ctx, ponte, legSwing);     // pattes (écart ponte + balancier)
     drawBirdSkin(ctx, EAGLE_BODY, 0, 0, 1);  // corps par-dessus
+    // Tête Doom réactive par-dessus le sprite — même expressions que le HUD
+    eagleFace(ctx, 0, -13, getFaceMood(s));
   } else {
     // Autres oiseaux : grille unique, taille cible ~48px.
     const skin = getActiveBird();

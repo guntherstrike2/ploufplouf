@@ -3,6 +3,7 @@ import { getActiveBall } from "../engine/assets";
 import type { BallStyle } from "../engine/assets";
 import type { GameState } from "../engine/types";
 import type { GameTheme, PegTheme } from "../engine/game-theme";
+import { eagleFace, getFaceMood } from "./face";
 
 // ─── HUD in-canvas — épuré ───────────────────────────────────────────────────
 //
@@ -22,16 +23,6 @@ export const PAUSE_HIT = { x: HX + HW - 34, y: 10, w: 28, h: 24 } as const;
 const INK = {
   cream: "#f5ecca", label: "#cfe2a6", green: "#a6ec56",
   orange: "#ff9a4c", warn: "#ffc24a",
-} as const;
-
-const FACE = {
-  head: "#f0e8d0", headHi: "#ffffff", headLo: "#cdbf9a", headLo2: "#a89c76",
-  brow: "#8f7d52",
-  beak: "#ffcc33", beakHi: "#ffe488", beakLo: "#d99a12", beakTip: "#a6760a",
-  mouth: "#3a1d0a", tongue: "#d2563a",
-  iris: "#f6d77a", irisRed: "#ff4433", pupil: "#141414", pupilRed: "#7a0d06",
-  nape: "#6e4420", napeLo: "#452910",
-  drop: "#9fd4ff",
 } as const;
 
 // ── Sprites réutilisés (mêmes recettes que ball.ts / pegs.ts) ────────────────
@@ -98,106 +89,6 @@ function label(ctx: CanvasRenderingContext2D, text: string, x: number, y: number
   ctx.fillText(text, x, y);
 }
 
-// ── Mascotte façon DOOM : grosse tête d'aigle de face, réactive ──────────────
-// Une seule tête, dessinée en gros et de face, qui change d'expression selon
-// l'action : neutre (cligne, regarde autour), impact (yeux écarquillés, bec
-// entrouvert), éclatement de cible (bec grand ouvert, cri), fever (yeux rouges,
-// sourcils féroces), peu d'œufs (sourcils inquiets + goutte). Palette FACE.
-interface FaceMood {
-  blink: boolean;
-  open: number;                       // 0..1 ouverture du bec
-  brow: "flat" | "angry" | "up";      // sourcils : neutre / féroce / inquiet
-  eyeRed: boolean;                    // yeux rouges (fever)
-  wide: boolean;                      // yeux écarquillés (impact / surprise)
-  look: number;                       // -1..1 décalage pupille (regard idle)
-  pop: number;                        // 0..1 pulse d'échelle à l'impact
-}
-
-// Tête centrée sur (cx, cy). Boîte de dessin ≈ 30×32 px, repère centré (0,0).
-function eagleFace(ctx: CanvasRenderingContext2D, cx: number, cy: number, m: FaceMood): void {
-  ctx.save();
-  ctx.translate(Math.round(cx), Math.round(cy));
-  const scale = 1 + 0.14 * m.pop;
-  if (scale !== 1) ctx.scale(scale, scale);
-
-  const px = (x: number, y: number, w: number, h: number, c: string) => {
-    ctx.fillStyle = c; ctx.fillRect(x, y, w, h);
-  };
-
-  // épaules brunes derrière la tête (bas-coins) → la tête blanche ressort
-  px(-14, 7, 6, 9, FACE.nape);  px(-14, 7, 6, 1, "#8a5a2c");
-  px(8, 7, 6, 9, FACE.nape);    px(8, 7, 6, 1, "#8a5a2c");
-  px(-14, 14, 6, 2, FACE.napeLo); px(8, 14, 6, 2, FACE.napeLo);
-
-  // dôme de la tête (blanc cassé), silhouette arrondie par paliers
-  px(-6, -16, 12, 3, FACE.head);
-  px(-9, -13, 18, 3, FACE.head);
-  px(-12, -10, 24, 18, FACE.head);
-  px(-10, 8, 20, 4, FACE.head);
-  px(-7, 12, 14, 2, FACE.head);
-  // lumière (haut-gauche) + ombre (bas-droite)
-  px(-6, -16, 12, 1, FACE.headHi);
-  px(-12, -10, 1, 18, FACE.headHi);
-  px(11, -10, 1, 18, FACE.headLo);
-  px(-9, 11, 17, 1, FACE.headLo);
-  px(-6, 13, 12, 1, FACE.headLo2);
-
-  // sourcils / arcades — donnent l'expression
-  if (m.brow === "angry") {
-    px(-11, -9, 4, 2, FACE.brow); px(-8, -7, 4, 2, FACE.brow);   // gauche : descend vers le centre
-    px(7, -9, 4, 2, FACE.brow);   px(4, -7, 4, 2, FACE.brow);    // droite (miroir)
-  } else if (m.brow === "up") {
-    px(-11, -7, 4, 2, FACE.brow); px(-8, -9, 4, 2, FACE.brow);   // inquiet : remonte vers le centre
-    px(7, -7, 4, 2, FACE.brow);   px(4, -9, 4, 2, FACE.brow);
-  } else {
-    px(-11, -8, 5, 2, FACE.brow); px(6, -8, 5, 2, FACE.brow);    // neutre : plat
-  }
-
-  // yeux (iris pâle + pupille), centrés à x = ±7, y ≈ -3
-  for (const sgn of [-1, 1]) {
-    const ex = sgn * 7;
-    if (m.blink) {
-      px(ex - 3, -3, 6, 1, FACE.headLo2);                        // paupière fermée
-      continue;
-    }
-    const irisH = m.wide ? 7 : 5;
-    const irisY = m.wide ? -5 : -4;
-    px(ex - 3, irisY, 6, irisH, m.eyeRed ? FACE.irisRed : FACE.iris);
-    px(ex - 3, irisY, 6, 1, "rgba(0,0,0,0.35)");                 // contour haut
-    const lk = Math.round(m.look);
-    px(ex - 1 + lk, irisY + 1, 2, 3, m.eyeRed ? FACE.pupilRed : FACE.pupil);
-    px(ex - 1 + lk, irisY + 1, 1, 1, FACE.headHi);               // reflet
-  }
-
-  // bec jaune crochu, centré, pointant vers le bas
-  px(-4, -1, 8, 2, FACE.beak);
-  px(-3, 1, 6, 2, FACE.beak);
-  px(-2, 3, 4, 1, FACE.beak);
-  px(-4, -1, 1, 4, FACE.beakHi);                                 // arête claire (gauche)
-  px(3, -1, 1, 4, FACE.beakLo);                                  // ombre (droite)
-  px(-2, 0, 1, 1, FACE.beakTip);                                 // narine
-
-  // mandibule inférieure : tombe quand le bec s'ouvre
-  const d = Math.round(m.open * 5);
-  const ly = 4 + d;
-  if (d > 0) {
-    px(-3, 4, 6, d, FACE.mouth);                                 // gueule sombre
-    px(-1, 4, 2, d, FACE.tongue);                                // langue
-  }
-  px(-2, ly, 4, 2, FACE.beakLo);
-  px(-2, ly, 4, 1, FACE.beak);
-  px(-1, ly + 2, 2, 1, FACE.beakTip);                            // pointe crochue
-
-  // goutte d'inquiétude (peu d'œufs)
-  if (m.brow === "up") {
-    px(10, -11, 2, 3, FACE.drop);
-    px(10, -8, 1, 1, FACE.drop);
-    px(10, -11, 1, 1, FACE.headHi);
-  }
-
-  ctx.restore();
-}
-
 function fmt(n: number): string {
   return n >= 100000 ? `${Math.floor(n / 1000)}k` : n.toLocaleString();
 }
@@ -213,22 +104,7 @@ export function drawHud(
   const lowBalls = s.balls > 0 && s.balls <= 2;
   const pulse = 0.5 + 0.5 * Math.sin(s.animClock * 6);
   const egg = getActiveBall();
-
-  // ── Expression de la tête, dérivée de l'état courant ──
-  // hitFreezeFrames est posé à chaque collision (≈4 rebond, ≈9 cible éclatée,
-  // ≈14 gros coup) puis décroît → flinch « Doom » d'une poignée de frames.
-  const hitMag = s.hitFreezeFrames;
-  const justHit = hitMag > 0;
-  const burst = hitMag >= 8;          // cible orange éclatée / gros coup
-  const face: FaceMood = {
-    blink: !justHit && !inFever && (s.animClock % 3.2) < 0.12,
-    open: inFever ? 0.45 + 0.4 * pulse : justHit ? (burst ? 1 : 0.55) : 0,
-    brow: inFever ? "angry" : burst ? "angry" : lowBalls ? "up" : "flat",
-    eyeRed: inFever,
-    wide: justHit,
-    look: justHit || inFever ? 0 : Math.sin(s.animClock * 0.6) * 1.2,
-    pop: Math.min(1, hitMag / 9),
-  };
+  const face = getFaceMood(s);
 
   ctx.save();
   ctx.imageSmoothingEnabled = false;

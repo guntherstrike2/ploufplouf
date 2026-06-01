@@ -9,6 +9,7 @@ import {
   getActiveBall,
 } from "../engine/assets";
 import { BALL_R } from "../engine/constants";
+import { eagleFace } from "../renderer/face";
 
 // ─── Écran-titre animé (canvas) ──────────────────────────────────────────────
 // Intro "juicy" : l'aigle débarque en vol (ailes qui battent), puis le titre
@@ -762,6 +763,16 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact }: Title
 
       // Corps
       ctx!.drawImage(body, -bodyCols / 2, -bodyRows / 2);
+      // Tête Doom — même mascotte que le HUD et le lanceur en jeu
+      eagleFace(ctx!, 0, -13, {
+        blink: recoil < 0.1 && ponte < 0.1 && (elapsed % 3.8) < 0.12,
+        open: ponte > 0.2 ? ponte : 0,
+        brow: "flat",
+        eyeRed: false,
+        wide: recoil > 3,
+        look: Math.sin(elapsed * 0.7) * 1.2,
+        pop: Math.min(1, recoil / 7),
+      });
       ctx!.restore();
     }
 
