@@ -30,13 +30,21 @@ interface GameCanvasProps {
   ui: UiState;
   bestScore: number;
   user: { name?: string | null; email?: string | null; id?: string } | null;
+  isAdmin?: boolean;
+  showDevTools?: boolean;
   upgradeOfferPending: boolean;
+  paused: boolean;
+  musicMuted: boolean;
+  onResume: () => void;
+  onToggleMusic: () => void;
   onPointerDown: (e: PointerEvent<HTMLCanvasElement>) => void;
   onPointerMove: (e: PointerEvent<HTMLCanvasElement>) => void;
   onPointerUp: (e: PointerEvent<HTMLCanvasElement>) => void;
   onReplay: () => void;
   onLeaderboard: () => void;
   onMenu: () => void;
+  onSkipLevel?: () => void;
+  onOpenDevPanel?: () => void;
 }
 
 export function GameCanvas({
@@ -44,13 +52,21 @@ export function GameCanvas({
   ui,
   bestScore,
   user,
+  isAdmin,
+  showDevTools,
   upgradeOfferPending,
+  paused,
+  musicMuted,
+  onResume,
+  onToggleMusic,
   onPointerDown,
   onPointerMove,
   onPointerUp,
   onReplay,
   onLeaderboard,
   onMenu,
+  onSkipLevel,
+  onOpenDevPanel,
 }: GameCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [cssSize, setCssSize] = useState({ w: W, h: H });
@@ -99,6 +115,8 @@ export function GameCanvas({
       className="peagle-root relative flex-1 flex items-center justify-center overflow-hidden"
       style={{ background: "transparent" }}
     >
+      {/* Wrapper exactement à la taille du canvas → overlays alignés sur le jeu */}
+      <div style={{ position: "relative", width: cssSize.w, height: cssSize.h }}>
       <canvas
         ref={canvasRef}
         width={W}
@@ -117,6 +135,89 @@ export function GameCanvas({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
       />
+
+      {/* Le bouton pause est taillé dans l'enseigne HUD (dessiné dans le canvas,
+          hit-testé dans useGameLoop) — pas de bouton HTML flottant ici. */}
+
+      {/* ── Menu de pause façon mobile ── */}
+      {paused && !isGameOver && (
+        <div
+          className="absolute inset-0 flex items-center justify-center"
+          style={{ background: "rgba(4,8,3,0.82)", zIndex: 6, fontFamily: "var(--pg-font)" }}
+        >
+          <div
+            className="pg-dialog"
+            style={{ minWidth: 260, maxWidth: 320, animation: "pg-slide-up 0.25s cubic-bezier(0.34,1.56,0.64,1)" }}
+          >
+            <div className="pg-titlebar">
+              <span style={{ fontSize: 8, color: "#aaaaee", flex: 1, letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: 5 }}>
+                ❚❚ PAUSE
+              </span>
+              {(["─", "□", "×"] as const).map(ch => (
+                <div key={ch} style={captionBtn}>{ch}</div>
+              ))}
+            </div>
+
+            <div style={{ padding: "22px 22px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ textAlign: "center", fontSize: 30, lineHeight: 1, marginBottom: 4 }}>🦅</div>
+
+              <button
+                onClick={onResume}
+                style={{
+                  ...btnRaised,
+                  fontSize: 9,
+                  padding: "11px 16px",
+                  background: `linear-gradient(to bottom, ${PG.orange}, #cc4400)`,
+                  color: "#fff",
+                  borderTopColor: PG.orangeGlow,
+                  borderLeftColor: PG.orangeGlow,
+                  borderBottomColor: "#882200",
+                  borderRightColor: "#882200",
+                  textShadow: "0 1px 0 rgba(0,0,0,0.5)",
+                }}
+              >
+                ▶ REPRENDRE
+              </button>
+
+              <button onClick={onReplay} style={{ ...btnRaised, fontSize: 8, padding: "10px 16px", color: PG.text }}>
+                ↻ RECOMMENCER
+              </button>
+
+              <button
+                onClick={onToggleMusic}
+                style={{ ...btnRaised, fontSize: 8, padding: "10px 16px", color: musicMuted ? PG.textMuted : PG.cyan, display: "flex", justifyContent: "space-between", alignItems: "center" }}
+              >
+                <span>{musicMuted ? "♪̸ MUSIQUE" : "♪ MUSIQUE"}</span>
+                <span style={{ color: musicMuted ? PG.red : PG.green }}>{musicMuted ? "OFF" : "ON"}</span>
+              </button>
+
+              <button onClick={onMenu} style={{ ...btnRaised, fontSize: 8, padding: "10px 16px", color: PG.textMuted }}>
+                ≡ MENU PRINCIPAL
+              </button>
+
+              {isAdmin && (
+                <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 8, borderTop: `1px solid ${PG.sh}`, paddingTop: 12 }}>
+                  <div style={{ fontSize: 6, color: PG.purple, letterSpacing: "0.1em", textAlign: "center" }}>— DEV —</div>
+                  {showDevTools && (
+                    <button
+                      onClick={() => { onResume(); onSkipLevel?.(); }}
+                      style={{ ...btnRaised, fontSize: 8, padding: "9px 16px", color: "#cc88ff", background: "rgba(20,10,30,0.6)", borderTopColor: "#7a4aaa", borderLeftColor: "#7a4aaa" }}
+                    >
+                      ⏭ NIVEAU SUIVANT
+                    </button>
+                  )}
+                  <button
+                    onClick={() => { onResume(); onOpenDevPanel?.(); }}
+                    style={{ ...btnRaised, fontSize: 8, padding: "9px 16px", color: "#cc88ff", background: "rgba(20,10,30,0.6)", borderTopColor: "#7a4aaa", borderLeftColor: "#7a4aaa" }}
+                  >
+                    ⚙ DEV TOOLS
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {isGameOver && !upgradeOfferPending && (
         <div
@@ -302,6 +403,8 @@ export function GameCanvas({
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
+

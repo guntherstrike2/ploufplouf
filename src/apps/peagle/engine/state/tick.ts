@@ -1,4 +1,4 @@
-import { TRAUMA_DECAY, MAX_SHAKE, ZOOM_SCALE } from "../constants";
+import { TRAUMA_DECAY, MAX_SHAKE, H, BUCKET_H } from "../constants";
 import type { GameState } from "../types";
 import type { GameEvent } from "../events";
 import { updateBucket } from "./bucket";
@@ -36,13 +36,32 @@ export function tick(s: GameState): TickResult {
     return { events, syncUI: false, orangeLeft: s.orangeLeft };
   }
 
-  const inSlowMo = s.slowMoFrames > 0;
-  const timeScale = inSlowMo ? 0.25 : 1;
+  // Burst de ralenti au moment où la dernière proie casse (déclenché ailleurs),
+  // puis revient vers la normale tout seul.
+  const burstSlow = s.slowMoFrames > 0;
   if (s.slowMoFrames > 0) s.slowMoFrames--;
 
-  const targetZoom = s.slowMoFrames > 0 && s.ball?.active ? ZOOM_SCALE : 1.0;
-  s.zoomLevel += (targetZoom - s.zoomLevel) * 0.1;
-  if (Math.abs(s.zoomLevel - 1) < 0.004) s.zoomLevel = 1;
+  // Cible de vitesse du temps.
+  let targetScale = burstSlow ? 0.22 : 1;
+
+  // Finale : la descente reste quasi normale au milieu, puis le temps se fige
+  // SURTOUT à l'approche du panier → le rattrapage / jackpot tombe pile au plus
+  // lent. On prend le plus lent entre le burst de cassure et la proximité.
+  if (s.orangeLeft === 0 && s.ball?.active) {
+    const bucketTop = H - BUCKET_H - 4;
+    const start = H * 0.5;
+    const approach = Math.max(0, Math.min(1, (s.ball.y - start) / (bucketTop - start)));
+    const eased = approach * approach * approach; // ne mord vraiment que tout près du panier
+    const proximityScale = 1 - eased * 0.94;       // 1 loin → 0.06 au ras du panier
+    targetScale = Math.min(targetScale, proximityScale);
+  }
+
+  // Ease in/out du ralenti : entrée franche mais pas brutale, retour bien doux.
+  // → la bascule de vitesse devient soyeuse au lieu de claquer d'un coup.
+  const ramp = targetScale < s.timeWarp ? 0.4 : 0.1;
+  s.timeWarp += (targetScale - s.timeWarp) * ramp;
+  if (Math.abs(s.timeWarp - targetScale) < 0.004) s.timeWarp = targetScale;
+  const timeScale = s.timeWarp;
 
   updateBucket(s, timeScale);
 

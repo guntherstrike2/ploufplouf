@@ -3,11 +3,8 @@
 import { useRef, useCallback, useState, useEffect } from "react";
 import type { AppProps } from "@/types";
 import { useAuth } from "@/lib/contexts/auth-context";
-import { PEAGLE_TIPS } from "@/lib/gunth-jokes";
-import { pickRandom } from "@/lib/utils/random";
 import { useMusic } from "./hooks/useMusic";
 import { useGameLoop } from "./hooks/useGameLoop";
-import { GameHud } from "./components/GameHud";
 import { GameCanvas } from "./components/GameCanvas";
 import { Leaderboard } from "./components/Leaderboard";
 import { MainMenu } from "./components/MainMenu";
@@ -35,6 +32,8 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
   const [showDevPanelInGame, setShowDevPanelInGame] = useState(false);
 
   const [screen, setScreen] = useState<Screen>("menu");
+  const [paused, setPaused] = useState(false);
+  const pausedRef = useRef(paused);
   const [ui, setUi] = useState<UiState>({
     balls: 12, score: 0, orangeLeft: 0, orangeTotal: 0,
     phase: "aim", message: "", combo: 0, level: 1, stars: 0,
@@ -43,10 +42,11 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     if (typeof window === "undefined") return 0;
     return parseInt(localStorage.getItem("peagle98_best") ?? "0", 10);
   });
+  // Refs synchronisés pour que la boucle rAF lise record/pause sans re-souscrire
+  const bestScoreRef = useRef(bestScore);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [lbLoading, setLbLoading] = useState(false);
   const [scoreSubmitted, setScoreSubmitted] = useState(false);
-  const [tip, setTip] = useState(() => pickRandom(PEAGLE_TIPS));
 
   // Offre d'upgrade entre deux niveaux
   const [upgradeOffer, setUpgradeOffer] = useState<UpgradeId[] | null>(null);
@@ -62,9 +62,9 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
   }, [userId]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (ui.phase === "aim") setTip(pickRandom(PEAGLE_TIPS));
-  }, [ui.phase]);
+    pausedRef.current = paused;
+    bestScoreRef.current = bestScore;
+  }, [paused, bestScore]);
 
   const fetchLeaderboard = useCallback(async () => {
     setLbLoading(true);
@@ -92,7 +92,7 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     setUpgradeOffer(generateUpgradeOffer(runStateRef.current.upgrades));
   }, []);
 
-  useMusic();
+  const { musicMuted, toggleMusic } = useMusic();
 
   const handleUiSync = useCallback((uiState: UiState) => setUi(uiState), []);
   const handleOrangeTotalChange = useCallback((total: number) => setUi(u => ({ ...u, orangeTotal: total })), []);
@@ -102,11 +102,14 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     mouseRef,
     runStateRef,
     devConfigRef,
+    bestScoreRef,
+    pausedRef,
     onUiSync: handleUiSync,
     onOrangeTotalChange: handleOrangeTotalChange,
     onBestScore: setBestScore,
     onScoreSubmit: submitScore,
     onLevelWon: handleLevelWon,
+    onRequestPause: () => setPaused(true),
   });
 
   const handleUpgradePick = useCallback((id: UpgradeId) => {
@@ -127,6 +130,7 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     resetGame(false);
     setScoreSubmitted(false);
     setUpgradeOffer(null);
+    setPaused(false);
     setScreen("game");
   }, [resetGame]);
 
@@ -138,15 +142,18 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     setUpgradeOffer(null);
     setDevSessionActive(true);
     setShowDevPanelInGame(false);
+    setPaused(false);
     setScreen("game");
   }, [resetGame]);
 
   const handleGoToMenu = useCallback(() => {
     setUpgradeOffer(null);
+    setPaused(false);
     setScreen("menu");
   }, []);
 
   const handleGoToLeaderboard = useCallback(() => {
+    setPaused(false);
     setScreen("leaderboard");
     fetchLeaderboard();
   }, [fetchLeaderboard]);
@@ -156,9 +163,8 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     resetGame(false);
     setScoreSubmitted(false);
     setUpgradeOffer(null);
+    setPaused(false);
   }, [resetGame]);
-
-  const displayName = user ? (user.name || user.email || "Joueur") : null;
 
   return (
     <div
@@ -195,17 +201,6 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
           background: "linear-gradient(to bottom, #122010 0%, #0a1806 50%, #060e04 100%)",
         }}
       >
-        <GameHud
-          ui={ui}
-          bestScore={bestScore}
-          displayName={displayName}
-          isAdmin={isAdmin}
-          showDevTools={isAdmin && devSessionActive}
-          onSkipLevel={skipLevel}
-          onOpenDevPanel={() => setShowDevPanelInGame(true)}
-          onMenu={handleGoToMenu}
-        />
-
         {showDevPanelInGame && (
           <DevPanel
             onClose={() => setShowDevPanelInGame(false)}
@@ -215,7 +210,7 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
 
         {/* Layout responsive : vertical (mobile) ou horizontal (16/9+) */}
         <div className="pg-game-layout peagle-root" style={{ flex: 1, overflow: "hidden", alignItems: "stretch" }}>
-          <SidePanel side="left" ui={ui} bestScore={bestScore} feverMode={ui.orangeLeft > 0 && ui.orangeLeft <= 3} />
+          <SidePanel side="left" feverMode={ui.orangeLeft > 0 && ui.orangeLeft <= 3} />
 
           <div className="pg-canvas-area">
             <div style={{ position: "relative", flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -224,13 +219,21 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
                 ui={ui}
                 bestScore={bestScore}
                 user={user}
+                isAdmin={isAdmin}
+                showDevTools={isAdmin && devSessionActive}
                 upgradeOfferPending={!!upgradeOffer}
+                paused={paused}
+                musicMuted={musicMuted}
+                onResume={() => setPaused(false)}
+                onToggleMusic={toggleMusic}
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
                 onReplay={handleReplay}
                 onLeaderboard={handleGoToLeaderboard}
                 onMenu={handleGoToMenu}
+                onSkipLevel={skipLevel}
+                onOpenDevPanel={() => setShowDevPanelInGame(true)}
               />
 
               {upgradeOffer && (
@@ -243,68 +246,9 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
                 />
               )}
             </div>
-
-            {/* Barre de statut Win98 */}
-            <div
-              style={{
-                display: "flex",
-                gap: 3,
-                padding: "2px 4px",
-                borderTop: "2px solid var(--t-border-dark)",
-                background: "var(--t-bg)",
-                alignItems: "center",
-                flexShrink: 0,
-              }}
-            >
-              <div
-                style={{
-                  flex: 1,
-                  padding: "1px 8px",
-                  fontSize: "var(--t-text-xs)",
-                  color: "var(--t-text-muted)",
-                  borderWidth: 1,
-                  borderStyle: "solid",
-                  borderTopColor: "var(--t-border-dark)",
-                  borderLeftColor: "var(--t-border-dark)",
-                  borderBottomColor: "var(--t-border-light)",
-                  borderRightColor: "var(--t-border-light)",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {upgradeOffer
-                  ? "Choisissez une amélioration pour continuer..."
-                  : ui.phase === "aim" ? tip : ui.phase === "firing" ? "En vol..." : " "}
-              </div>
-              <div
-                style={{
-                  padding: "1px 8px",
-                  fontSize: "var(--t-text-xs)",
-                  color: "var(--t-text-muted)",
-                  borderWidth: 1,
-                  borderStyle: "solid",
-                  borderTopColor: "var(--t-border-dark)",
-                  borderLeftColor: "var(--t-border-dark)",
-                  borderBottomColor: "var(--t-border-light)",
-                  borderRightColor: "var(--t-border-light)",
-                  whiteSpace: "nowrap",
-                  minWidth: 72,
-                  textAlign: "center",
-                }}
-              >
-                {upgradeOffer
-                  ? "Upgrade !"
-                  : ui.phase === "aim" ? "En attente"
-                  : ui.phase === "firing" ? "En vol"
-                  : ui.phase === "won" ? "Victoire !"
-                  : ui.phase === "lost" ? "Game Over"
-                  : " "}
-              </div>
-            </div>
           </div>
 
-          <SidePanel side="right" ui={ui} bestScore={bestScore} feverMode={ui.orangeLeft > 0 && ui.orangeLeft <= 3} />
+          <SidePanel side="right" feverMode={ui.orangeLeft > 0 && ui.orangeLeft <= 3} />
         </div>
       </div>
     </div>

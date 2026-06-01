@@ -8,12 +8,18 @@ export const BALANCE = {
   },
   peg: {
     popStartAlpha: 0.25,
-    popStartScale: 1.7,
+    popStartScale: 2.1,   // burst de pop plus généreux → plus juicy
+  },
+  impact: {
+    maxRings: 24,         // plafond d'ondes de choc simultanées
   },
   score: {
     orangeBase: 100,
     normalBase: 10,
     ballBonus: 1000,    // points par œuf restant en fin de niveau
+    // JACKPOT : l'œuf retombe dans le panier juste après la dernière proie.
+    jackpotBase: 5000,  // bonus de score = jackpotBase × niveau
+    jackpotBalls: 3,    // œufs bonus offerts par un jackpot
   },
   trauma: {
     normalPeg: 0.08,
@@ -21,7 +27,10 @@ export const BALANCE = {
     bucketCatch: 0.15,
   },
   flash: {
-    orangePeg: 0.5,
+    // Plus de flash plein écran à chaque cible : le feedback passe par le bloom
+    // localisé + les particules. Le flash écran reste réservé au moment fort
+    // (dernière cible → slow-mo) déclenché directement dans state/ball.ts.
+    orangePeg: 0,
   },
   particles: {
     maxCount: 200,

@@ -58,10 +58,10 @@ export const THEME_FORET: GameTheme = {
     },
   },
   bg: {
-    skyTop:      [58, 110, 140], skyBot:      [106, 170, 68],
+    skyTop:      [70, 200, 235], skyBot:      [255, 222, 170],
     skyTopFever: [8,  4,   28],  skyBotFever: [18,  10,  52],
-    groundColor:        "#3a8c28", groundColorFever:      "#0a0a28",
-    subGroundColor:     "#1e6016", subGroundColorFever:   "#050514",
+    groundColor:        "#5fc23a", groundColorFever:      "#0a0a28",
+    subGroundColor:     "#3aa028", subGroundColorFever:   "#050514",
     mistColor:         "rgba(180,240,160,0.07)",
     mistColorFever:    "rgba(100,80,200,0.06)",
     mistFarColor:      "rgba(180,240,160,0.04)",

@@ -13,4 +13,9 @@ export function updateParticles(s: GameState, timeScale: number): void {
     t.life -= 0.02 / t.maxLife;
     return t.life > 0;
   });
+
+  s.impactRings = s.impactRings.filter(r => {
+    r.life -= timeScale / r.maxLife;
+    return r.life > 0;
+  });
 }

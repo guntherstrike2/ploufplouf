@@ -23,27 +23,27 @@ function makePrng(seed: number): () => number {
 // ═══════════════════════════════════════════════════════════════════════════
 
 const TREE_LAYERS = [
-  { x: 0,   tw: 6,  th: 8,  cw: 22, ch: 32, cl: "#2a7a28", ct: "#5a3a1a", layer: 0 },
-  { x: 48,  tw: 5,  th: 6,  cw: 18, ch: 26, cl: "#287826", ct: "#5a3a1a", layer: 0 },
-  { x: 110, tw: 6,  th: 9,  cw: 24, ch: 36, cl: "#2c7e2a", ct: "#4a3012", layer: 0 },
-  { x: 175, tw: 5,  th: 7,  cw: 20, ch: 28, cl: "#267024", ct: "#5a3a1a", layer: 0 },
-  { x: 240, tw: 6,  th: 8,  cw: 22, ch: 34, cl: "#2a7a28", ct: "#4a3012", layer: 0 },
-  { x: 310, tw: 5,  th: 6,  cw: 18, ch: 26, cl: "#287826", ct: "#5a3a1a", layer: 0 },
-  { x: 370, tw: 6,  th: 9,  cw: 24, ch: 32, cl: "#2c7e2a", ct: "#4a3012", layer: 0 },
-  { x: 430, tw: 5,  th: 7,  cw: 20, ch: 28, cl: "#267024", ct: "#5a3a1a", layer: 0 },
-  { x: 18,  tw: 8,  th: 12, cw: 30, ch: 44, cl: "#38a832", ct: "#3a2208", layer: 1 },
-  { x: 80,  tw: 7,  th: 10, cw: 26, ch: 38, cl: "#3aaa34", ct: "#3a2208", layer: 1 },
-  { x: 148, tw: 8,  th: 12, cw: 32, ch: 48, cl: "#36a430", ct: "#3a2208", layer: 1 },
-  { x: 215, tw: 7,  th: 11, cw: 28, ch: 42, cl: "#38a832", ct: "#3a2208", layer: 1 },
-  { x: 282, tw: 8,  th: 13, cw: 30, ch: 46, cl: "#3aaa34", ct: "#3a2208", layer: 1 },
-  { x: 348, tw: 7,  th: 10, cw: 26, ch: 38, cl: "#36a430", ct: "#3a2208", layer: 1 },
-  { x: 410, tw: 8,  th: 12, cw: 30, ch: 44, cl: "#38a832", ct: "#3a2208", layer: 1 },
-  { x: 8,   tw: 10, th: 16, cw: 36, ch: 56, cl: "#1e8c1c", ct: "#2a1808", layer: 2 },
-  { x: 88,  tw: 9,  th: 14, cw: 32, ch: 50, cl: "#208e1e", ct: "#2a1808", layer: 2 },
-  { x: 170, tw: 10, th: 16, cw: 38, ch: 58, cl: "#1c8a1a", ct: "#2a1808", layer: 2 },
-  { x: 255, tw: 9,  th: 14, cw: 34, ch: 52, cl: "#1e8c1c", ct: "#2a1808", layer: 2 },
-  { x: 335, tw: 10, th: 16, cw: 36, ch: 56, cl: "#208e1e", ct: "#2a1808", layer: 2 },
-  { x: 420, tw: 9,  th: 14, cw: 32, ch: 50, cl: "#1c8a1a", ct: "#2a1808", layer: 2 },
+  { x: 0,   tw: 6,  th: 8,  cw: 22, ch: 32, cl: "#3aba34", ct: "#5a3a1a", layer: 0 },
+  { x: 48,  tw: 5,  th: 6,  cw: 18, ch: 26, cl: "#38b832", ct: "#5a3a1a", layer: 0 },
+  { x: 110, tw: 6,  th: 9,  cw: 24, ch: 36, cl: "#3ec03a", ct: "#4a3012", layer: 0 },
+  { x: 175, tw: 5,  th: 7,  cw: 20, ch: 28, cl: "#34b02e", ct: "#5a3a1a", layer: 0 },
+  { x: 240, tw: 6,  th: 8,  cw: 22, ch: 34, cl: "#3aba34", ct: "#4a3012", layer: 0 },
+  { x: 310, tw: 5,  th: 6,  cw: 18, ch: 26, cl: "#38b832", ct: "#5a3a1a", layer: 0 },
+  { x: 370, tw: 6,  th: 9,  cw: 24, ch: 32, cl: "#3ec03a", ct: "#4a3012", layer: 0 },
+  { x: 430, tw: 5,  th: 7,  cw: 20, ch: 28, cl: "#34b02e", ct: "#5a3a1a", layer: 0 },
+  { x: 18,  tw: 8,  th: 12, cw: 30, ch: 44, cl: "#4ad844", ct: "#3a2208", layer: 1 },
+  { x: 80,  tw: 7,  th: 10, cw: 26, ch: 38, cl: "#4cda46", ct: "#3a2208", layer: 1 },
+  { x: 148, tw: 8,  th: 12, cw: 32, ch: 48, cl: "#46d440", ct: "#3a2208", layer: 1 },
+  { x: 215, tw: 7,  th: 11, cw: 28, ch: 42, cl: "#4ad844", ct: "#3a2208", layer: 1 },
+  { x: 282, tw: 8,  th: 13, cw: 30, ch: 46, cl: "#4cda46", ct: "#3a2208", layer: 1 },
+  { x: 348, tw: 7,  th: 10, cw: 26, ch: 38, cl: "#46d440", ct: "#3a2208", layer: 1 },
+  { x: 410, tw: 8,  th: 12, cw: 30, ch: 44, cl: "#4ad844", ct: "#3a2208", layer: 1 },
+  { x: 8,   tw: 10, th: 16, cw: 36, ch: 56, cl: "#28b820", ct: "#2a1808", layer: 2 },
+  { x: 88,  tw: 9,  th: 14, cw: 32, ch: 50, cl: "#2aba22", ct: "#2a1808", layer: 2 },
+  { x: 170, tw: 10, th: 16, cw: 38, ch: 58, cl: "#26b61e", ct: "#2a1808", layer: 2 },
+  { x: 255, tw: 9,  th: 14, cw: 34, ch: 52, cl: "#28b820", ct: "#2a1808", layer: 2 },
+  { x: 335, tw: 10, th: 16, cw: 36, ch: 56, cl: "#2aba22", ct: "#2a1808", layer: 2 },
+  { x: 420, tw: 9,  th: 14, cw: 32, ch: 50, cl: "#26b61e", ct: "#2a1808", layer: 2 },
 ] as const;
 
 const FIREFLY_POS = [
@@ -663,7 +663,9 @@ function drawForetBirds(ctx: CanvasRenderingContext2D, s: GameState, feverMode: 
 // ─── Corps céleste (soleil / lune) ───────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════
 
-function drawCelestialBody(ctx: CanvasRenderingContext2D, s: GameState, feverMode: boolean): void {
+function drawCelestialBody(
+  ctx: CanvasRenderingContext2D, s: GameState, feverMode: boolean, themeId?: string,
+): void {
   if (feverMode) {
     const pulse = 0.88 + 0.12 * Math.sin(s.animClock * 1.2);
     ctx.fillStyle = `rgba(180,150,255,${0.12 * pulse})`;
@@ -678,7 +680,10 @@ function drawCelestialBody(ctx: CanvasRenderingContext2D, s: GameState, feverMod
     ctx.fillStyle = "rgba(180,160,100,0.4)";
     ctx.fillRect(W - 46, 26, 3, 3);
     ctx.fillRect(W - 40, 30, 2, 2);
+  } else if (themeId === "foret") {
+    drawJuicySun(ctx, s);
   } else {
+    // Soleil simple (autres thèmes en mode jour)
     const pulse = 0.9 + 0.1 * Math.sin(s.animClock * 0.5);
     ctx.fillStyle = `rgba(255,230,100,${0.9 * pulse})`;
     ctx.fillRect(W - 50, 20, 16, 16);
@@ -690,6 +695,66 @@ function drawCelestialBody(ctx: CanvasRenderingContext2D, s: GameState, feverMod
     ctx.fillRect(W - 58, 27, 6, 2);
     ctx.fillRect(W - 28, 27, 6, 2);
   }
+}
+
+// Disque plein dessiné en bandes horizontales (pixel art rond).
+function fillDisc(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, color: string): void {
+  ctx.fillStyle = color;
+  for (let dy = -r; dy <= r; dy++) {
+    const hw = Math.round(Math.sqrt(Math.max(0, r * r - dy * dy)));
+    if (hw <= 0) continue;
+    ctx.fillRect(Math.round(cx - hw), Math.round(cy + dy), hw * 2, 1);
+  }
+}
+
+// Soleil "juicy" (forêt) : disque rond dégradé + halo rond additif + rayons
+// triangulaires qui tournent doucement, avec un léger rebond vertical.
+function drawJuicySun(ctx: CanvasRenderingContext2D, s: GameState): void {
+  const cx     = SUN_X;
+  const cy     = SUN_Y + Math.round(sunBob(s.animClock));
+  const breath = 0.5 + 0.5 * Math.sin(s.animClock * 1.0);
+  const pulse  = 0.85 + 0.15 * Math.sin(s.animClock * 0.9);
+  const R      = 13;
+
+  // Halo rond pulsant (disques concentriques en blend additif)
+  ctx.globalCompositeOperation = "lighter";
+  for (let k = 0; k < 5; k++) {
+    const r = R + 4 + k * 5 + breath * 3;
+    ctx.globalAlpha = (0.10 - k * 0.017) * pulse;
+    fillDisc(ctx, cx, cy, r, "#ffd24a");
+  }
+
+  // Rayons triangulaires qui tournent lentement (additifs → glow doux)
+  const rays = 12;
+  for (let i = 0; i < rays; i++) {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate((i / rays) * Math.PI * 2 + s.animClock * 0.2);
+    const len = 9 + breath * 4 + (i % 2 === 0 ? 2 : 0);
+    ctx.globalAlpha = 0.5 * pulse;
+    ctx.fillStyle = "#ffdd66";
+    for (let d = 0; d < len; d++) {
+      const w = Math.max(1, Math.round((1 - d / len) * 4));
+      ctx.fillRect(-w, R + 2 + d, w * 2, 1);
+    }
+    ctx.restore();
+  }
+  ctx.globalCompositeOperation = "source-over";
+  ctx.globalAlpha = 1;
+
+  // Cœur : disque avec dégradé vertical (clair en haut, chaud en bas)
+  for (let dy = -R; dy <= R; dy++) {
+    const hw = Math.round(Math.sqrt(Math.max(0, R * R - dy * dy)));
+    if (hw <= 0) continue;
+    const t = (dy + R) / (R * 2);
+    ctx.fillStyle = t < 0.4 ? "#ffe98a" : t < 0.75 ? "#ffd24a" : "#ffb22e";
+    ctx.fillRect(Math.round(cx - hw), Math.round(cy + dy), hw * 2, 1);
+  }
+
+  // Reflet doux en haut à gauche
+  fillDisc(ctx, cx - 4, cy - 5, 3, "rgba(255,253,228,0.85)");
+  ctx.fillStyle = "rgba(255,255,245,0.9)";
+  ctx.fillRect(cx - 5, cy - 6, 3, 2);
 }
 
 // ─── Étoiles de fièvre ───────────────────────────────────────────────────────
@@ -728,12 +793,16 @@ function drawFireflies(ctx: CanvasRenderingContext2D, s: GameState, feverMode: b
       ctx.fillStyle = "#aa44ff";
       ctx.fillRect(Math.round(wobbleX - 3), Math.round(wobbleY - 3), 9, 9);
     } else {
-      ctx.globalAlpha = twinkle * 0.55;
-      ctx.fillStyle = "#ccff44";
-      ctx.fillRect(Math.round(ff.x), Math.round(ff.y), 2, 2);
-      ctx.globalAlpha = twinkle * 0.15;
-      ctx.fillStyle = "#aaffaa";
-      ctx.fillRect(Math.round(ff.x - 2), Math.round(ff.y - 2), 6, 6);
+      // Mode jour : pollen doré qui flotte doucement dans la lumière
+      const fx = ff.x + Math.round(Math.sin(s.animClock * 0.6 + i * 1.3) * 9);
+      const fy = ff.y + Math.round(Math.cos(s.animClock * 0.45 + i * 0.9) * 7
+                                   - (s.animClock * 5 + i * 40) % 60 * 0.18);
+      ctx.globalAlpha = twinkle * 0.7;
+      ctx.fillStyle = "#fff2b0";
+      ctx.fillRect(Math.round(fx), Math.round(fy), 2, 2);
+      ctx.globalAlpha = twinkle * 0.18;
+      ctx.fillStyle = "#ffe888";
+      ctx.fillRect(Math.round(fx - 2), Math.round(fy - 2), 6, 6);
     }
   }
   ctx.globalAlpha = 1;
@@ -834,6 +903,301 @@ function getStaticBg(feverMode: boolean, theme: GameTheme): OffscreenCanvas {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// ─── FORÊT — décor multi-couches avec parallaxe ──────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Chaque couche est un OffscreenCanvas indépendant, blitté avec son propre
+// décalage horizontal :
+//   • parallaxe piloté par le lanceur (s.launcherX) → profondeur interactive,
+//   • dérive ambiante continue via s.animClock        → nuages toujours vivants,
+//   • shake atténué selon la profondeur               → les couches lointaines
+//     tremblent moins (contre-translation, car la frame est déjà shakée).
+//
+// Les couches débordent de LAYER_MARGIN de chaque côté pour qu'aucun bord
+// n'apparaisse lors du parallaxe ou du shake.
+
+const VPAD            = BG_PAD;
+const LAYER_MARGIN    = 130;
+const CW_L            = W + LAYER_MARGIN * 2;   // largeur d'une couche
+const CH_L            = H + VPAD * 2;           // hauteur d'une couche
+const LX0             = -LAYER_MARGIN;          // x du bord gauche d'une couche
+const RX1             = W + LAYER_MARGIN;       // x du bord droit visible
+const PARALLAX_CLAMP  = 150;                    // amplitude max du décalage lanceur
+
+interface ForetLayer {
+  canvas:   OffscreenCanvas;
+  parallax: number;   // 0 = fixe, 1 = suit le lanceur à fond
+  shakeF:   number;   // 0 = immobile au shake, 1 = shake plein
+  drift:    number;   // px/s de dérive continue (couche tilée)
+  tiled:    boolean;  // true → blit répété horizontalement (nuages)
+}
+
+interface ForetPalette {
+  sky:         { top: readonly [number, number, number]; bot: readonly [number, number, number] };
+  cloud:       string; cloudHi:     string;
+  hillFar:     string; hillNear:    string;
+  forestSil:   string; forestSilHi: string;
+  ray:         string;
+}
+
+function foretPalette(feverMode: boolean, bg: BgTheme): ForetPalette {
+  if (feverMode) {
+    return {
+      sky:       { top: bg.skyTopFever, bot: bg.skyBotFever },
+      cloud:     "rgba(40,30,80,0.45)",   cloudHi:     "rgba(80,60,140,0.4)",
+      hillFar:   "#14123a",               hillNear:    "#0d0b2a",
+      forestSil: "#0a0820",               forestSilHi: "#181048",
+      ray:       "rgba(150,110,255,0.05)",
+    };
+  }
+  return {
+    sky:       { top: bg.skyTop, bot: bg.skyBot },
+    cloud:     "rgba(255,252,250,0.72)", cloudHi:     "rgba(255,255,255,1)",
+    hillFar:   "#62e0a0",                hillNear:    "#2fd178",
+    forestSil: "#1ec85e",                forestSilHi: "#5cf59a",
+    ray:       "rgba(255,240,130,0.12)",
+  };
+}
+
+// Crée un canvas de couche dont (0,0) local = coin haut-gauche visible.
+function makeLayerCanvas(): { canvas: OffscreenCanvas; ctx: Ctx2D } {
+  const canvas = new OffscreenCanvas(CW_L, CH_L);
+  const ctx = canvas.getContext("2d")!;
+  ctx.translate(LAYER_MARGIN, VPAD);
+  return { canvas, ctx };
+}
+
+// ─── Générateurs de couches (déterministes via PRNG) ─────────────────────────
+
+function buildForetSky(pal: ForetPalette): OffscreenCanvas {
+  const { canvas, ctx } = makeLayerCanvas();
+  const rows = 16;
+  const rowH = Math.ceil(H / rows);
+  for (let r = 0; r < rows; r++) {
+    const t = r / rows;
+    const cr = Math.round(pal.sky.top[0] + (pal.sky.bot[0] - pal.sky.top[0]) * t);
+    const cg = Math.round(pal.sky.top[1] + (pal.sky.bot[1] - pal.sky.top[1]) * t);
+    const cb = Math.round(pal.sky.top[2] + (pal.sky.bot[2] - pal.sky.top[2]) * t);
+    ctx.fillStyle = `rgb(${cr},${cg},${cb})`;
+    const y = r === 0 ? -VPAD : r * rowH;
+    const h = r === 0 ? rowH + VPAD + 1 : rowH + 1;
+    ctx.fillRect(LX0, y, CW_L, h);
+  }
+  return canvas;
+}
+
+function buildForetClouds(pal: ForetPalette): OffscreenCanvas {
+  const { canvas, ctx } = makeLayerCanvas();
+  const rnd = makePrng(0x5eed1234);
+  const count = 6;
+  for (let i = 0; i < count; i++) {
+    const cx     = LX0 + 24 + (i / count) * (CW_L - 48) + (rnd() - 0.5) * 26;
+    const cy     = 22 + rnd() * 120;
+    const puffs  = 4 + Math.floor(rnd() * 3);
+    const baseW  = 24 + rnd() * 24;
+    for (let p = 0; p < puffs; p++) {
+      const pw = Math.round(baseW * (0.6 + rnd() * 0.6));
+      const ph = Math.max(4, Math.round(pw * 0.48));
+      const ox = Math.round((p - puffs / 2) * baseW * 0.5 + (rnd() - 0.5) * 8);
+      const oy = Math.round((rnd() - 0.5) * 8);
+      ctx.fillStyle = pal.cloud;
+      ctx.fillRect(Math.round(cx + ox - pw / 2), Math.round(cy + oy - ph / 2), pw, ph);
+    }
+    ctx.fillStyle = pal.cloudHi;
+    ctx.fillRect(Math.round(cx - baseW * 0.7), Math.round(cy - 6), Math.round(baseW * 1.3), 2);
+  }
+  return canvas;
+}
+
+function fillHills(
+  ctx: Ctx2D, baseY: number, amp: number, freq: number, phase: number, color: string,
+): void {
+  ctx.fillStyle = color;
+  for (let x = LX0; x < RX1; x++) {
+    const y = Math.round(
+      baseY + Math.sin(x * freq + phase) * amp + Math.sin(x * freq * 2.3 + phase) * amp * 0.3,
+    );
+    ctx.fillRect(x, y, 1, H + VPAD - y);
+  }
+}
+
+function buildForetHills(pal: ForetPalette): OffscreenCanvas {
+  const { canvas, ctx } = makeLayerCanvas();
+  fillHills(ctx, GROUND_Y - 72, 18, 0.012, 1.3, pal.hillFar);
+  fillHills(ctx, GROUND_Y - 42, 14, 0.018, 4.1, pal.hillNear);
+  return canvas;
+}
+
+function buildForetFarTrees(pal: ForetPalette): OffscreenCanvas {
+  const { canvas, ctx } = makeLayerCanvas();
+  const rnd = makePrng(0xa17e3f01);
+  for (let x = LX0; x < RX1; x += 9 + Math.floor(rnd() * 8)) {
+    const h = 38 + Math.floor(rnd() * 46);
+    const w = 13 + Math.floor(rnd() * 14);
+    for (let dy = 0; dy < h; dy++) {
+      const t  = dy / h;
+      const hw = Math.max(1, Math.round((w / 2) * Math.sin((1 - t) * Math.PI * 0.5)));
+      ctx.fillStyle = pal.forestSil;
+      ctx.fillRect(x - hw, GROUND_Y - h + dy, hw * 2, 1);
+    }
+    ctx.fillStyle = pal.forestSilHi;
+    ctx.fillRect(x - 1, GROUND_Y - h, 2, 3);
+  }
+  // Bande de base pour souder la ligne d'arbres
+  ctx.fillStyle = pal.forestSil;
+  ctx.fillRect(LX0, GROUND_Y - 14, CW_L, 20);
+  return canvas;
+}
+
+function buildForetMidTrees(feverMode: boolean): OffscreenCanvas {
+  const { canvas, ctx } = makeLayerCanvas();
+  const rnd = makePrng(0xbada55e1);
+  const greens = ["#36c46a", "#2fb088", "#46cc54", "#22b89a"] as const;
+  let x = LX0 + 10;
+  while (x < RX1) {
+    const tw   = 6 + Math.floor(rnd() * 4);
+    const th   = 8 + Math.floor(rnd() * 6);
+    const cw   = 22 + Math.floor(rnd() * 14);
+    const ch   = 32 + Math.floor(rnd() * 20);
+    const leaf = feverMode ? "#0c0c30" : greens[Math.floor(rnd() * greens.length)]!;
+    const trunk = feverMode ? "#050510" : "#4a3012";
+    drawPixelTree(ctx, x, GROUND_Y, tw, th, cw, ch, leaf, trunk);
+    x += 40 + Math.floor(rnd() * 36);
+  }
+  return canvas;
+}
+
+function buildForetGround(feverMode: boolean, bg: BgTheme): OffscreenCanvas {
+  const { canvas, ctx } = makeLayerCanvas();
+  ctx.fillStyle = feverMode ? bg.groundColorFever : bg.groundColor;
+  ctx.fillRect(LX0, GROUND_Y, CW_L, CH_L);
+  // Herbe
+  ctx.fillStyle = feverMode ? bg.subGroundColorFever : bg.subGroundColor;
+  for (let gx = LX0; gx < RX1; gx += 4) {
+    const h = 2 + (Math.round(gx * 7 + gx * 3) % 5);
+    ctx.fillRect(gx, GROUND_Y - h, 2, h);
+  }
+  ctx.fillRect(LX0, GROUND_Y + 10, CW_L, CH_L);
+  // Brume au sol (deux profondeurs)
+  ctx.fillStyle = feverMode ? bg.mistColorFever : bg.mistColor;
+  ctx.fillRect(LX0, GROUND_Y - 8, CW_L, 16);
+  ctx.fillStyle = feverMode ? bg.mistFarColorFever : bg.mistFarColor;
+  ctx.fillRect(LX0, GROUND_Y - 16, CW_L, 12);
+  return canvas;
+}
+
+function drawFernBush(
+  ctx: Ctx2D, cx: number, baseY: number, size: number, color: string, hi: string,
+): void {
+  const rnd = makePrng(Math.round(cx * 131 + 7) >>> 0);
+  const blades = 7;
+  for (let i = 0; i < blades; i++) {
+    const ang  = -Math.PI / 2 + (i - blades / 2) * 0.28 + (rnd() - 0.5) * 0.1;
+    const len  = size * (0.6 + rnd() * 0.5);
+    const steps = Math.max(2, Math.round(len / 3));
+    let px = cx, py = baseY;
+    for (let s = 0; s < steps; s++) {
+      const t = s / steps;
+      const w = Math.max(1, Math.round((1 - t) * size * 0.08));
+      px += Math.cos(ang) * 3 + Math.sin(t * 3) * 0.6;
+      py += Math.sin(ang) * 3;
+      ctx.fillStyle = s < 2 ? hi : color;
+      ctx.fillRect(Math.round(px - w), Math.round(py), w * 2, 3);
+    }
+  }
+}
+
+function buildForetForeground(feverMode: boolean): OffscreenCanvas {
+  const { canvas, ctx } = makeLayerCanvas();
+  const dark   = feverMode ? "#04040c" : "#0e3a2c";
+  const darkHi = feverMode ? "#0a0a1e" : "#1c6048";
+  drawFernBush(ctx, LX0 + 34,  GROUND_Y + 6,  72, dark, darkHi);
+  drawFernBush(ctx, W * 0.5,   GROUND_Y + 14, 50, dark, darkHi);
+  drawFernBush(ctx, RX1 - 40,  GROUND_Y + 6,  80, dark, darkHi);
+  return canvas;
+}
+
+// Position du soleil — doit coïncider avec drawCelestialBody (mode jour).
+// Descendu sous l'enseigne HUD (cf. LAUNCHER_Y / HUD_H) pour rester visible.
+const SUN_X = W - 42;
+const SUN_Y = 74;
+
+// Petit rebond vertical du soleil (partagé avec drawCelestialBody pour que les
+// rayons restent accrochés au soleil).
+function sunBob(animClock: number): number {
+  return Math.sin(animClock * 1.1) * 1.5;
+}
+
+// ─── Cache des couches + scanlines ───────────────────────────────────────────
+
+let _foretCache: { key: string; layers: ForetLayer[]; pal: ForetPalette } | null = null;
+
+function getForetLayers(feverMode: boolean, bg: BgTheme): { layers: ForetLayer[]; pal: ForetPalette } {
+  const key = feverMode ? "1" : "0";
+  if (_foretCache === null || _foretCache.key !== key) {
+    const pal = foretPalette(feverMode, bg);
+    const layers: ForetLayer[] = [
+      { canvas: buildForetSky(pal),              parallax: 0,    shakeF: 0.10, drift: 0, tiled: false },
+      { canvas: buildForetClouds(pal),           parallax: 0.04, shakeF: 0.10, drift: 5, tiled: true  },
+      { canvas: buildForetHills(pal),            parallax: 0.12, shakeF: 0.20, drift: 0, tiled: false },
+      { canvas: buildForetFarTrees(pal),         parallax: 0.22, shakeF: 0.30, drift: 0, tiled: false },
+      { canvas: buildForetMidTrees(feverMode),   parallax: 0.40, shakeF: 0.55, drift: 0, tiled: false },
+      { canvas: buildForetGround(feverMode, bg), parallax: 0,    shakeF: 1.00, drift: 0, tiled: false },
+      { canvas: buildForetForeground(feverMode), parallax: 0.70, shakeF: 1.00, drift: 0, tiled: false },
+    ];
+    _foretCache = { key, layers, pal };
+  }
+  return _foretCache;
+}
+
+let _scanlines: OffscreenCanvas | null = null;
+
+function getScanlines(): OffscreenCanvas {
+  if (_scanlines === null) {
+    _scanlines = new OffscreenCanvas(CW_L, CH_L);
+    const c = _scanlines.getContext("2d")!;
+    c.fillStyle = "rgba(0,0,0,0.04)";
+    for (let y = 0; y < CH_L; y += 2) c.fillRect(0, y, CW_L, 1);
+  }
+  return _scanlines;
+}
+
+// ─── Composition de la forêt (par frame) ─────────────────────────────────────
+
+function drawForetLayers(
+  ctx: CanvasRenderingContext2D, s: GameState, feverMode: boolean, bg: BgTheme,
+): void {
+  const { layers, pal } = getForetLayers(feverMode, bg);
+  const launchDelta = Math.max(-PARALLAX_CLAMP, Math.min(PARALLAX_CLAMP, s.launcherX - W / 2));
+
+  for (let i = 0; i < layers.length; i++) {
+    const L  = layers[i]!;
+    const px = launchDelta * L.parallax;
+    // Brise : ondulation horizontale, plus forte sur le feuillage proche.
+    const breeze = Math.sin(s.animClock * 0.9 + i * 0.7) * L.parallax * 4;
+    const ex = LX0 - px + breeze - s.shakeX * (1 - L.shakeF);
+    const ey = -VPAD             - s.shakeY * (1 - L.shakeF);
+
+    if (L.tiled) {
+      const driftPx = (s.animClock * L.drift) % CW_L;
+      let start = (ex - driftPx) % CW_L;
+      while (start > LX0) start -= CW_L;
+      for (let x = start; x < RX1; x += CW_L) {
+        ctx.drawImage(L.canvas, Math.round(x), Math.round(ey));
+      }
+    } else {
+      ctx.drawImage(L.canvas, Math.round(ex), Math.round(ey));
+    }
+
+    // Insertion d'éléments animés au bon niveau de profondeur
+    if (i === 3) drawForetBirds(ctx, s, feverMode);      // derrière les arbres proches
+  }
+
+  // Scanlines CRT, fixées à l'écran (contre-translation complète du shake)
+  ctx.drawImage(getScanlines(), Math.round(LX0 - s.shakeX), Math.round(-VPAD - s.shakeY));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // ─── Point d'entrée principal ────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -845,19 +1209,21 @@ export function drawBackground(
 ): void {
   const feverMode = feverIntensity > 0.3;
 
-  // Fond statique (blit depuis OffscreenCanvas)
-  ctx.drawImage(getStaticBg(feverMode, theme), -BG_PAD, -BG_PAD);
-
-  // Éléments animés selon le thème
-  switch (theme.id) {
-    case "abime": drawAbimeAnimated(ctx, s, feverMode); break;
-    case "enfer": drawEnferAnimated(ctx, s, feverMode); break;
-    case "glace": drawGlaceAnimated(ctx, s, feverMode); break;
-    case "foret": drawForetBirds(ctx, s, feverMode);    break;
+  if (theme.id === "foret") {
+    // Décor forêt : couches procédurales avec parallaxe (lanceur + dérive + shake)
+    drawForetLayers(ctx, s, feverMode, theme.bg);
+  } else {
+    // Autres thèmes : fond statique unique (blit depuis OffscreenCanvas)
+    ctx.drawImage(getStaticBg(feverMode, theme), -BG_PAD, -BG_PAD);
+    switch (theme.id) {
+      case "abime": drawAbimeAnimated(ctx, s, feverMode); break;
+      case "enfer": drawEnferAnimated(ctx, s, feverMode); break;
+      case "glace": drawGlaceAnimated(ctx, s, feverMode); break;
+    }
   }
 
   // Corps céleste (soleil / lune de fièvre)
-  drawCelestialBody(ctx, s, feverMode);
+  drawCelestialBody(ctx, s, feverMode, theme.id);
 
   // Étoiles de fièvre (commun à tous les thèmes)
   if (feverMode) drawFeverStars(ctx, s);

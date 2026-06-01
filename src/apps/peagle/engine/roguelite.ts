@@ -29,10 +29,14 @@ export const UPGRADES: Record<UpgradeId, Upgrade> = {
 
 export interface RunState {
   upgrades: UpgradeId[];
+  /** Graine de la partie : combinée au numéro de niveau pour générer des
+   *  tableaux différents à chaque nouvelle partie, tout en restant déterministe
+   *  durant la partie en cours (debug / partage de seed). */
+  seed: number;
 }
 
 export function makeInitialRunState(): RunState {
-  return { upgrades: [] };
+  return { upgrades: [], seed: (Math.random() * 0xffffffff) >>> 0 };
 }
 
 // ─── Génération de l'offre d'upgrade (entre deux niveaux) ────────────────────

@@ -3,8 +3,22 @@ import { BALANCE } from "../balance";
 import { isTarget } from "../peg-kinds";
 import type { GameState } from "../types";
 import type { GameEvent } from "../events";
+import { spawnParticles, spawnImpactRing } from "./effects";
 
 export function endOfTurn(s: GameState, events: GameEvent[]): void {
+  // Disparition juicy : les pegs touchés ce tour-ci éclatent vraiment (gerbe de
+  // particules + onde de choc) au moment où ils quittent le tableau, au lieu de
+  // s'effacer silencieusement. C'est LE moment « pop » satisfaisant.
+  const cleared = s.pegs.filter(p => p.hit);
+  for (const p of cleared) {
+    const orange = p.kind === "orange";
+    spawnParticles(s, p.x, p.y, orange, orange ? 12 : 7);
+    spawnImpactRing(s, p.x, p.y, orange ? "#ffbb44" : "#9fb8ff", orange ? 0.7 : 0.32);
+  }
+  if (cleared.length > 0) {
+    s.trauma = Math.min(1, s.trauma + Math.min(0.35, cleared.length * 0.03));
+  }
+
   s.pegs = s.pegs.filter(p => !p.hit);
   s.combo = 0;
   s.scoreMultiplier = 1;
@@ -44,5 +58,6 @@ export function endOfTurn(s: GameState, events: GameEvent[]): void {
 
   } else {
     s.phase = "aim";
+    if (cleared.length > 0) events.push({ kind: "sound", id: "pop" });
   }
 }

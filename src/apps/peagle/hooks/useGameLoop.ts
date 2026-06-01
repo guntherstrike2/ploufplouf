@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useCallback } from "react";
 import type { RefObject } from "react";
 import { useSoundContext } from "@/lib/contexts/sound-context";
 import { drawFrame } from "../renderer";
+import { PAUSE_HIT } from "../renderer/hud";
 import { resolveTheme } from "../engine/game-theme";
 import { tick } from "../engine/state/tick";
 import { makeInitialState } from "../engine/state/init";
@@ -20,11 +21,14 @@ interface UseGameLoopOptions {
   mouseRef: RefObject<{ x: number; y: number }>;
   runStateRef: RefObject<RunState>;
   devConfigRef: RefObject<DevConfig | null>;
+  bestScoreRef: RefObject<number>;
+  pausedRef: RefObject<boolean>;
   onUiSync: (ui: UiState) => void;
   onOrangeTotalChange: (total: number) => void;
   onBestScore: (score: number) => void;
   onScoreSubmit: (score: number, won: boolean) => void;
   onLevelWon: () => void;
+  onRequestPause: () => void;
 }
 
 function clampAngle(angle: number): number {
@@ -58,11 +62,14 @@ export function useGameLoop({
   mouseRef,
   runStateRef,
   devConfigRef,
+  bestScoreRef,
+  pausedRef,
   onUiSync,
   onOrangeTotalChange,
   onBestScore,
   onScoreSubmit,
   onLevelWon,
+  onRequestPause,
 }: UseGameLoopOptions) {
   // eslint-disable-next-line react-hooks/refs -- stateRef n'est initialisé qu'une fois au montage
   const stateRef = useRef<GameState>(makeInitialState(1, runStateRef.current, false, 0));
@@ -72,9 +79,11 @@ export function useGameLoop({
   // Refs stables pour les callbacks — mutées en useLayoutEffect pour rester à jour
   const onScoreSubmitRef = useRef(onScoreSubmit);
   const onLevelWonRef = useRef(onLevelWon);
+  const onRequestPauseRef = useRef(onRequestPause);
   useLayoutEffect(() => {
     onScoreSubmitRef.current = onScoreSubmit;
     onLevelWonRef.current = onLevelWon;
+    onRequestPauseRef.current = onRequestPause;
   });
 
   const { playPop, playBip, playVictory, playDelete } = useSoundContext();
@@ -170,7 +179,7 @@ export function useGameLoop({
     const my = (clientY - rect.top) * (H / rect.height);
     const angle = clampAngle(Math.atan2(my - LAUNCHER_Y, mx - s.launcherX));
 
-    s.ball = { x: s.launcherX, y: LAUNCHER_Y, vx: Math.cos(angle) * LAUNCH_SPEED, vy: Math.sin(angle) * LAUNCH_SPEED, active: true, trail: [], trailHead: 0 };
+    s.ball = { x: s.launcherX, y: LAUNCHER_Y, vx: Math.cos(angle) * LAUNCH_SPEED, vy: Math.sin(angle) * LAUNCH_SPEED, active: true, trail: [], trailHead: 0, squash: 0 };
     s.balls -= 1;
     s.turnScoreStart = s.score;
     s.phase = "firing";
@@ -197,6 +206,16 @@ export function useGameLoop({
     const rect = e.currentTarget.getBoundingClientRect();
     const p = toCanvas(rect, e.clientX, e.clientY);
     const s = stateRef.current;
+
+    // Bouton pause taillé dans l'enseigne HUD (dessiné en canvas) → hit-test
+    if (
+      (s.phase === "aim" || s.phase === "firing") &&
+      p.x >= PAUSE_HIT.x && p.x <= PAUSE_HIT.x + PAUSE_HIT.w &&
+      p.y >= PAUSE_HIT.y && p.y <= PAUSE_HIT.y + PAUSE_HIT.h
+    ) {
+      onRequestPauseRef.current();
+      return;
+    }
 
     if (s.phase === "aim" && !s.ball) {
       const dx = p.x - s.launcherX, dy = p.y - LAUNCHER_Y;
@@ -271,6 +290,20 @@ export function useGameLoop({
     function frame() {
       const s = stateRef.current;
 
+      // Pause : on gèle la simulation mais on continue de rendre la frame courante
+      // (le plateau reste visible derrière le menu de pause).
+      if (pausedRef.current) {
+        const ol = s.pegs.reduce((n, p) => n + (isTarget(p) && !p.hit ? 1 : 0), 0);
+        drawFrame(ctx, s, getAngle(), ol, {
+          theme: resolveTheme(),
+          showHitboxes: devConfigRef.current?.showHitboxes ?? false,
+          bestScore: bestScoreRef.current,
+          orangeTotal: orangeTotalRef.current,
+        });
+        animRef.current = requestAnimationFrame(frame);
+        return;
+      }
+
       // God mode : recharge les œufs chaque frame pour qu'ils n'atteignent jamais 0
       if (devConfigRef.current?.godMode && s.phase !== "won" && s.phase !== "lost") {
         if (s.balls < 99) s.balls = 99;
@@ -284,6 +317,8 @@ export function useGameLoop({
       drawFrame(ctx, stateRef.current, getAngle(), orangeLeft, {
         theme: resolveTheme(),
         showHitboxes: devConfigRef.current?.showHitboxes ?? false,
+        bestScore: bestScoreRef.current,
+        orangeTotal: orangeTotalRef.current,
       });
 
       // Curseur dynamique : main ouverte au survol de l'aigle, main fermée pendant

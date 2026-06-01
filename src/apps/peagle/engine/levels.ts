@@ -279,9 +279,10 @@ function fallbackGrid(): Peg[] {
 
 // ─── Builder principal ─────────────────────────────────────────────────────────
 
-export function buildLevel(level: number): Peg[] {
+export function buildLevel(level: number, runSeed = 0): Peg[] {
   const diff = difficultyFor(level);
-  const baseSeed = hashSeed(level, 0x9e3a91e); // graine « peagle » par niveau
+  // Graine = f(niveau, partie) : tableaux distincts par niveau ET par partie.
+  const baseSeed = hashSeed(hashSeed(level, runSeed), 0x9e3a91e);
 
   let best: Peg[] | null = null;
   for (let attempt = 0; attempt < 10; attempt++) {

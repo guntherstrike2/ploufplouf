@@ -83,7 +83,7 @@ export const PEG_KINDS: Record<PegKind, PegKindDef> = {
     baseScore: 50,
     freezeFrames: 5,
     trauma: 0.12,
-    flash: 0.18,
+    flash: 0,
     particles: 12,
     hotParticles: false,
     sound: "pop",

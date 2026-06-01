@@ -40,3 +40,24 @@ export function spawnParticles(
     s.particles.push(p);
   }
 }
+
+// Spawne une onde de choc localisée : un anneau qui se propage dans le décor +
+// une lueur (bloom) au point d'impact. `intensity` 0..1 module rayon et durée.
+// Aucun flash plein écran — le feedback reste autour du point de contact.
+export function spawnImpactRing(
+  s: GameState,
+  x: number,
+  y: number,
+  color: string,
+  intensity: number,
+): void {
+  if (s.impactRings.length >= BALANCE.impact.maxRings) s.impactRings.shift();
+  s.impactRings.push({
+    x, y,
+    life: 1,
+    maxLife: 14 + intensity * 16,
+    maxRadius: 18 + intensity * 46,
+    intensity,
+    color,
+  });
+}

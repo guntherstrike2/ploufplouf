@@ -2,20 +2,23 @@ import { BALL_R } from "../engine/constants";
 import { getActiveBall } from "../engine/assets";
 import type { Ball } from "../engine/types";
 
-export function drawBall(ctx: CanvasRenderingContext2D, ball: Ball, inSlowMo: boolean): void {
+export function drawBall(ctx: CanvasRenderingContext2D, ball: Ball, inSlowMo: boolean, finale = false): void {
   const style = getActiveBall();
   // Trail pixel art — ring buffer: trailHead is the oldest write slot (= visual start)
   const trailLen = ball.trail.length;
   if (trailLen > 0) {
-    const trailColor = ball.tint ?? (inSlowMo ? "#88aaff" : "#555588");
+    // Finale : traînée dorée plus large et plus brillante derrière l'œuf.
+    const trailColor = finale ? "#ffd700" : (ball.tint ?? (inSlowMo ? "#88aaff" : "#555588"));
+    const widthMul = finale ? 0.95 : 0.7;
+    const alphaMul = finale ? 0.6 : 0.35;
     const head = ball.trailHead;
     ctx.fillStyle = trailColor;
     for (let i = 0; i < trailLen; i++) {
       const idx = (head + i) % trailLen;
       const tp = ball.trail[idx]; if (!tp) continue;
       const t = i / trailLen;
-      const trailR = Math.round(Math.max(1, BALL_R * t * 0.7));
-      ctx.globalAlpha = t * t * 0.35;
+      const trailR = Math.round(Math.max(1, BALL_R * t * widthMul));
+      ctx.globalAlpha = t * t * alphaMul;
       ctx.fillRect(
         Math.round(tp.x - trailR),
         Math.round(tp.y - trailR),
@@ -31,9 +34,26 @@ export function drawBall(ctx: CanvasRenderingContext2D, ball: Ball, inSlowMo: bo
 
   ctx.save();
 
+  // Squash & stretch : l'œuf s'étire dans sa direction de vol (vitesse) et
+  // s'écrase à l'impact (ball.squash). Transform pivotée sur le centre de l'œuf,
+  // appliquée à tout le corps + glow → rebond bien juicy.
+  const speed = Math.hypot(ball.vx, ball.vy);
+  const stretch = Math.min(0.32, speed * 0.018);
+  const q = ball.squash;
+  if (stretch > 0.01 || q > 0.01) {
+    const angle = Math.atan2(ball.vy, ball.vx);
+    const along = 1 + stretch - q * 0.55;   // axe de déplacement
+    const perp = 1 - stretch * 0.5 + q * 0.55; // axe perpendiculaire
+    ctx.translate(bx, by);
+    ctx.rotate(angle);
+    ctx.scale(along, perp);
+    ctx.rotate(-angle);
+    ctx.translate(-bx, -by);
+  }
+
   // Fake pixel glow — cheaper than shadowBlur (no GPU Gaussian pass)
-  const glowColor = inSlowMo ? "#88aaff" : (ball.tint ?? style.glow);
-  const glowR = inSlowMo ? 8 : (ball.tint ? 6 : 4);
+  const glowColor = finale ? "#ffd700" : inSlowMo ? "#88aaff" : (ball.tint ?? style.glow);
+  const glowR = finale ? 8 : inSlowMo ? 8 : (ball.tint ? 6 : 4);
   const bsz = br * 2;
   const bx0 = bx - br;
   const by0 = by - br;

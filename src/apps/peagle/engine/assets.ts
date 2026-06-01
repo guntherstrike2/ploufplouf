@@ -86,12 +86,12 @@ export const BACKGROUNDS: AssetVariant<BgVariant>[] = [
     id: "foret", name: "Forêt",
     value: {
       bg: {
-        skyTop: [58, 110, 140], skyBot: [106, 170, 68],
+        skyTop: [54, 184, 244], skyBot: [255, 232, 168],
         skyTopFever: [8, 4, 28], skyBotFever: [18, 10, 52],
-        groundColor: "#3a8c28", groundColorFever: "#0a0a28",
-        subGroundColor: "#1e6016", subGroundColorFever: "#050514",
-        mistColor: "rgba(180,240,160,0.07)", mistColorFever: "rgba(100,80,200,0.06)",
-        mistFarColor: "rgba(180,240,160,0.04)", mistFarColorFever: "rgba(80,60,180,0.04)",
+        groundColor: "#3fc62e", groundColorFever: "#0a0a28",
+        subGroundColor: "#229c16", subGroundColorFever: "#050514",
+        mistColor: "rgba(150,255,120,0.10)", mistColorFever: "rgba(100,80,200,0.06)",
+        mistFarColor: "rgba(150,255,120,0.05)", mistFarColorFever: "rgba(80,60,180,0.04)",
         hasTrees: true, hasFireflies: true,
       },
       flash: { normal: "#4455ff", fever: "#ff00cc" },

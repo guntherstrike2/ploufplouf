@@ -35,6 +35,9 @@ export interface Ball {
   trail: { x: number; y: number; speed: number }[];
   trailHead: number; // ring buffer write pointer (oldest slot)
   tint?: string;
+  // Squash d'impact (0..1) : pulse déclenché à chaque collision, décroît chaque
+  // frame. Le rendu écrase l'œuf perpendiculairement à sa trajectoire → bounce juicy.
+  squash: number;
 }
 
 export interface Particle {
@@ -57,6 +60,10 @@ export interface FloatingText {
   color: string;
   combo: boolean;
   fontSize?: number;
+  // Exclamation « hype » (JUICY!, AIGLE ROYAL!…) : rendu spécial avec contour
+  // pixel, glow et pop élastique. `spin` = graine d'inclinaison/oscillation.
+  exclaim?: boolean;
+  spin?: number;
 }
 
 export interface Star {
@@ -65,6 +72,19 @@ export interface Star {
   layer: 0 | 1 | 2;
   size: number;
   phase: number;
+}
+
+// Onde de choc dessinée par-dessus le décor à chaque impact de peg : un anneau
+// carré pixel-art qui se propage vers l'extérieur en s'estompant → le décor
+// « ressent » l'impact.
+export interface ImpactRing {
+  x: number;
+  y: number;
+  life: number;       // 1 → 0
+  maxLife: number;    // durée totale en frames
+  maxRadius: number;  // rayon atteint en fin de vie
+  intensity: number;  // 0..1 — module la lueur localisée (bloom) au point d'impact
+  color: string;
 }
 
 export interface GameState {
@@ -81,6 +101,7 @@ export interface GameState {
   scoreMultiplier: number;
   particles: Particle[];
   floatingTexts: FloatingText[];
+  impactRings: ImpactRing[];
   feverPulse: number;
   animClock: number;
   trauma: number;
@@ -88,7 +109,7 @@ export interface GameState {
   shakeY: number;
   flashWhite: number;
   slowMoFrames: number;
-  zoomLevel: number;
+  timeWarp: number;   // vitesse du temps lissée (1 = normal, →0 = ralenti) pour un ease juicy
   level: number;
   hitFreezeFrames: number;
 

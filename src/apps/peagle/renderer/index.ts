@@ -5,11 +5,14 @@ import { drawBackground } from "./background";
 import { drawPegs } from "./pegs";
 import { drawAimLine, drawLauncher, drawBuckets } from "./ui";
 import { drawBall } from "./ball";
-import { drawParticles, drawFloatingTexts, drawScreenFlash, drawVignette, drawBezel } from "./effects";
+import { drawParticles, drawFloatingTexts, drawScreenFlash, drawSlowMoOverlay, drawBezel, drawImpactRings } from "./effects";
+import { drawHud } from "./hud";
 
 export interface RenderOpts {
-  theme:        GameTheme;
+  theme:         GameTheme;
   showHitboxes?: boolean;
+  bestScore?:    number;
+  orangeTotal?:  number;
 }
 
 export function drawFrame(
@@ -19,31 +22,25 @@ export function drawFrame(
   orangeLeft: number,
   opts: RenderOpts,
 ): void {
-  const { theme, showHitboxes = false } = opts;
+  const { theme, showHitboxes = false, bestScore = 0, orangeTotal = 0 } = opts;
   const inFever = orangeLeft <= s.effectiveFeverThreshold && orangeLeft > 0;
   const feverIntensity = inFever ? 1 : 0;
-  const inSlowMo = s.slowMoFrames > 0;
-  const hasZoom = s.zoomLevel > 1.01 && s.ball?.active;
+  // Intensité visuelle du ralenti dérivée de la vitesse du temps lissée.
+  const slowVis = Math.max(0, Math.min(1, (1 - s.timeWarp) / 0.85));
+  const inSlowMo = slowVis > 0.08;
 
   ctx.save();
 
-  // Caméra : zoom suit l'œuf en slow-mo, sinon juste le screen shake
-  if (hasZoom && s.ball) {
-    const W = 480, H = 640;
-    ctx.translate(s.shakeX * 0.4, s.shakeY * 0.4);
-    ctx.translate(W / 2, H / 2);
-    ctx.scale(s.zoomLevel, s.zoomLevel);
-    ctx.translate(-s.ball.x, -s.ball.y);
-  } else {
-    ctx.translate(s.shakeX, s.shakeY);
-  }
+  // Caméra : plus de zoom en fin de niveau, juste le screen shake.
+  ctx.translate(s.shakeX, s.shakeY);
 
   drawBackground(ctx, s, feverIntensity, theme);
+  drawImpactRings(ctx, s);   // ondes de choc dans le décor, derrière les pegs
   drawAimLine(ctx, s, aimAngle);
   drawPegs(ctx, s, inFever, feverIntensity, theme);
   drawParticles(ctx, s);
 
-  if (s.ball?.active) drawBall(ctx, s.ball, inSlowMo);
+  if (s.ball?.active) drawBall(ctx, s.ball, inSlowMo, orangeLeft === 0);
 
   drawFloatingTexts(ctx, s);
   drawLauncher(ctx, s, aimAngle);
@@ -51,9 +48,14 @@ export function drawFrame(
 
   ctx.restore(); // fin transform caméra
 
+  drawSlowMoOverlay(ctx, s, slowVis);
   drawBezel(ctx);
   drawScreenFlash(ctx, s, inFever, theme);
-  drawVignette(ctx, s);
+
+  // HUD façon mobile : enseigne in-canvas, par-dessus tout sauf le flash écran
+  if (s.phase !== "lost" && s.phase !== "won") {
+    drawHud(ctx, s, orangeLeft, orangeTotal, bestScore, theme);
+  }
 
   if (showHitboxes) drawDebugHitboxes(ctx, s);
 }

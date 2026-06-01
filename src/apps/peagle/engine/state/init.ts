@@ -30,7 +30,7 @@ export function makeInitialState(
   const effectiveAimSteps = Math.round(AIM_LINE_STEPS * (upgrades.includes("sharp_aim") ? 1.6 : 1));
   const effectivePegBounce = PEG_BOUNCE * (upgrades.includes("heavy_ball") ? 1.3 : 1);
 
-  const pegs: Peg[] = buildLevel(level);
+  const pegs: Peg[] = buildLevel(level, runState.seed);
   const orangeLeft = pegs.filter(isTarget).length;
 
   return {
@@ -47,6 +47,7 @@ export function makeInitialState(
     scoreMultiplier: 1,
     particles: [],
     floatingTexts: [],
+    impactRings: [],
     feverPulse: 0,
     animClock: 0,
     trauma: 0,
@@ -54,7 +55,7 @@ export function makeInitialState(
     shakeY: 0,
     flashWhite: 0,
     slowMoFrames: 0,
-    zoomLevel: 1,
+    timeWarp: 1,
     level,
     hitFreezeFrames: 0,
 
