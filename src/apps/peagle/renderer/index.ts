@@ -11,7 +11,6 @@ import { drawHud } from "./hud";
 export interface RenderOpts {
   theme:         GameTheme;
   showHitboxes?: boolean;
-  bestScore?:    number;
   orangeTotal?:  number;
 }
 
@@ -22,7 +21,7 @@ export function drawFrame(
   orangeLeft: number,
   opts: RenderOpts,
 ): void {
-  const { theme, showHitboxes = false, bestScore = 0, orangeTotal = 0 } = opts;
+  const { theme, showHitboxes = false, orangeTotal = 0 } = opts;
   const inFever = orangeLeft <= s.effectiveFeverThreshold && orangeLeft > 0;
   const feverIntensity = inFever ? 1 : 0;
   // Intensité visuelle du ralenti dérivée de la vitesse du temps lissée.
@@ -54,7 +53,7 @@ export function drawFrame(
 
   // HUD façon mobile : enseigne in-canvas, par-dessus tout sauf le flash écran
   if (s.phase !== "lost" && s.phase !== "won") {
-    drawHud(ctx, s, orangeLeft, orangeTotal, bestScore, theme);
+    drawHud(ctx, s, orangeLeft, orangeTotal, theme);
   }
 
   if (showHitboxes) drawDebugHitboxes(ctx, s);

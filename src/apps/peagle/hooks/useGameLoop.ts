@@ -21,7 +21,6 @@ interface UseGameLoopOptions {
   mouseRef: RefObject<{ x: number; y: number }>;
   runStateRef: RefObject<RunState>;
   devConfigRef: RefObject<DevConfig | null>;
-  bestScoreRef: RefObject<number>;
   pausedRef: RefObject<boolean>;
   onUiSync: (ui: UiState) => void;
   onOrangeTotalChange: (total: number) => void;
@@ -62,7 +61,6 @@ export function useGameLoop({
   mouseRef,
   runStateRef,
   devConfigRef,
-  bestScoreRef,
   pausedRef,
   onUiSync,
   onOrangeTotalChange,
@@ -300,7 +298,6 @@ export function useGameLoop({
         drawFrame(ctx, s, getAngle(), ol, {
           theme: resolveTheme(),
           showHitboxes: devConfigRef.current?.showHitboxes ?? false,
-          bestScore: bestScoreRef.current,
           orangeTotal: orangeTotalRef.current,
         });
         animRef.current = requestAnimationFrame(frame);
@@ -320,7 +317,6 @@ export function useGameLoop({
       drawFrame(ctx, stateRef.current, getAngle(), orangeLeft, {
         theme: resolveTheme(),
         showHitboxes: devConfigRef.current?.showHitboxes ?? false,
-        bestScore: bestScoreRef.current,
         orangeTotal: orangeTotalRef.current,
       });
 

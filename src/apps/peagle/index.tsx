@@ -42,14 +42,29 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     if (typeof window === "undefined") return 0;
     return parseInt(localStorage.getItem("peagle98_best") ?? "0", 10);
   });
-  // Refs synchronisés pour que la boucle rAF lise record/pause sans re-souscrire
-  const bestScoreRef = useRef(bestScore);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [lbLoading, setLbLoading] = useState(false);
   const [scoreSubmitted, setScoreSubmitted] = useState(false);
 
   // Offre d'upgrade entre deux niveaux
   const [upgradeOffer, setUpgradeOffer] = useState<UpgradeId[] | null>(null);
+
+  // ── Screen transition overlay (simple CSS transition, pas de keyframes) ──
+  const [overlayOpaque, setOverlayOpaque] = useState(false);
+  // Indique si l'utilisateur a déjà vu l'intro → au retour menu on la skippe.
+  const [hasSeenIntro, setHasSeenIntro] = useState(false);
+
+  const transitionTo = useCallback((target: Screen, setup?: () => void) => {
+    setOverlayOpaque(true);
+    setTimeout(() => {
+      setup?.();
+      setScreen(target);
+      // Double rAF : attend que React ait rendu le nouvel écran avant de révéler
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        setOverlayOpaque(false);
+      }));
+    }, 200);
+  }, []);
 
   const userId = user?.id;
   useEffect(() => {
@@ -63,8 +78,7 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
 
   useEffect(() => {
     pausedRef.current = paused;
-    bestScoreRef.current = bestScore;
-  }, [paused, bestScore]);
+  }, [paused]);
 
   const fetchLeaderboard = useCallback(async () => {
     setLbLoading(true);
@@ -92,8 +106,6 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     setUpgradeOffer(generateUpgradeOffer(runStateRef.current.upgrades));
   }, []);
 
-  // Record : le moteur émet un score candidat en fin de niveau ; on compare au
-  // meilleur connu et on persiste ici (la sim ne touche pas à localStorage).
   const recordBestScore = useCallback((score: number) => {
     setBestScore(prev => {
       if (score <= prev) return prev;
@@ -112,7 +124,6 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     mouseRef,
     runStateRef,
     devConfigRef,
-    bestScoreRef,
     pausedRef,
     onUiSync: handleUiSync,
     onOrangeTotalChange: handleOrangeTotalChange,
@@ -134,6 +145,7 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
   }, [nextLevel]);
 
   const startRun = useCallback(() => {
+    setHasSeenIntro(true);
     devConfigRef.current = null;
     setDevSessionActive(false);
     runStateRef.current = makeInitialRunState();
@@ -141,10 +153,11 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     setScoreSubmitted(false);
     setUpgradeOffer(null);
     setPaused(false);
-    setScreen("game");
-  }, [resetGame]);
+    transitionTo("game");
+  }, [resetGame, transitionTo]);
 
   const handleDevLaunch = useCallback((cfg: DevConfig) => {
+    setHasSeenIntro(true);
     devConfigRef.current = cfg;
     runStateRef.current = { ...makeInitialRunState(), upgrades: cfg.upgrades };
     resetGame(false, cfg.startLevel);
@@ -153,20 +166,23 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     setDevSessionActive(true);
     setShowDevPanelInGame(false);
     setPaused(false);
-    setScreen("game");
-  }, [resetGame]);
+    transitionTo("game");
+  }, [resetGame, transitionTo]);
 
   const handleGoToMenu = useCallback(() => {
-    setUpgradeOffer(null);
-    setPaused(false);
-    setScreen("menu");
-  }, []);
+    transitionTo("menu", () => {
+      setUpgradeOffer(null);
+      setPaused(false);
+    });
+  }, [transitionTo]);
 
   const handleGoToLeaderboard = useCallback(() => {
-    setPaused(false);
-    setScreen("leaderboard");
-    fetchLeaderboard();
-  }, [fetchLeaderboard]);
+    setHasSeenIntro(true);
+    transitionTo("leaderboard", () => {
+      setPaused(false);
+      fetchLeaderboard();
+    });
+  }, [transitionTo, fetchLeaderboard]);
 
   const handleReplay = useCallback(() => {
     runStateRef.current = makeInitialRunState();
@@ -179,7 +195,7 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
   return (
     <div
       className="flex flex-col h-full select-none"
-      style={{ background: "var(--t-bg)", fontFamily: "var(--t-font-display)" }}
+      style={{ background: "var(--t-bg)", fontFamily: "var(--t-font-display)", position: "relative" }}
     >
       {screen === "menu" && (
         <MainMenu
@@ -187,6 +203,9 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
           onPlay={startRun}
           onLeaderboard={handleGoToLeaderboard}
           onDevLaunch={handleDevLaunch}
+          musicMuted={musicMuted}
+          onToggleMusic={toggleMusic}
+          skipIntro={hasSeenIntro}
         />
       )}
 
@@ -261,6 +280,21 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
           <SidePanel side="right" feverMode={ui.orangeLeft > 0 && ui.orangeLeft <= 3} />
         </div>
       </div>
+
+      {/* ── Transition overlay — CSS transition, toujours monté ─────────────── */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 200,
+          background: "#030804",
+          pointerEvents: "none",
+          opacity: overlayOpaque ? 1 : 0,
+          transition: overlayOpaque
+            ? "opacity 0.18s cubic-bezier(0.4, 0, 1, 1)"
+            : "opacity 0.35s cubic-bezier(0, 0, 0.4, 1)",
+        }}
+      />
     </div>
   );
 }

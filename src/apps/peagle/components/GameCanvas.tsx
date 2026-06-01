@@ -4,7 +4,8 @@ import { useRef, useEffect, useState, useMemo } from "react";
 import type { RefObject, PointerEvent } from "react";
 import type { UiState } from "../engine/types";
 import { W, H } from "../engine/constants";
-import { captionBtn, btnRaised, PG } from "../styles";
+import { PG } from "../styles";
+import { PixelSprite } from "./PixelSprite";
 import "../peagle.css";
 
 const WIN_QUIPS = [
@@ -78,14 +79,8 @@ export function GameCanvas({
       const area = el.closest('.pg-canvas-area') ?? el;
       const { width } = area.getBoundingClientRect();
       const { height } = el.getBoundingClientRect();
-      // In landscape the canvas-area has a CSS aspect-ratio so height is always
-      // proportional to width — use Math.min to fit within both axes.
-      // In portrait we want the canvas to always fill the full width (no black
-      // side bands), so we only clamp by height if the canvas would overflow.
       const scaleByW = width / W;
       const scaleByH = height / H;
-      // If fitting by width makes the canvas taller than available height, clamp.
-      // Otherwise always use width so there are no left/right black bands.
       const scale = H * scaleByW <= height ? scaleByW : scaleByH;
       setCssSize({ w: Math.round(W * scale), h: Math.round(H * scale) });
     };
@@ -115,296 +110,298 @@ export function GameCanvas({
       className="peagle-root relative flex-1 flex items-center justify-center overflow-hidden"
       style={{ background: "transparent" }}
     >
-      {/* Wrapper exactement à la taille du canvas → overlays alignés sur le jeu */}
       <div style={{ position: "relative", width: cssSize.w, height: cssSize.h }}>
-      <canvas
-        ref={canvasRef}
-        width={W}
-        height={H}
-        style={{
-          width: cssSize.w,
-          height: cssSize.h,
-          // curseur géré dynamiquement dans la boucle rAF (cf. useGameLoop) :
-          // grab/grabbing au survol & drag de l'aigle, crosshair en visée
-          display: "block",
-          imageRendering: "pixelated",
-          touchAction: "none",
-          background: "#060e04",
-        }}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-      />
+        <canvas
+          ref={canvasRef}
+          width={W}
+          height={H}
+          style={{
+            width: cssSize.w,
+            height: cssSize.h,
+            display: "block",
+            imageRendering: "pixelated",
+            touchAction: "none",
+            background: "#060e04",
+          }}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+        />
 
-      {/* Le bouton pause est taillé dans l'enseigne HUD (dessiné dans le canvas,
-          hit-testé dans useGameLoop) — pas de bouton HTML flottant ici. */}
+        {/* ── MENU PAUSE ───────────────────────────────────────────────────── */}
+        {paused && !isGameOver && (
+          <div className="pg-overlay-lux absolute inset-0">
+            <div className="pg-lux-panel" style={{ width: 288, maxWidth: "calc(100% - 32px)" }}>
 
-      {/* ── Menu de pause façon mobile ── */}
-      {paused && !isGameOver && (
-        <div
-          className="absolute inset-0 flex items-center justify-center"
-          style={{ background: "rgba(4,8,3,0.82)", zIndex: 6, fontFamily: "var(--pg-font)" }}
-        >
-          <div
-            className="pg-dialog"
-            style={{ minWidth: 260, maxWidth: 320, animation: "pg-slide-up 0.25s cubic-bezier(0.34,1.56,0.64,1)" }}
-          >
-            <div className="pg-titlebar">
-              <span style={{ fontSize: 8, color: "#aaaaee", flex: 1, letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: 5 }}>
-                ❚❚ PAUSE
-              </span>
-              {(["─", "□", "×"] as const).map(ch => (
-                <div key={ch} style={captionBtn}>{ch}</div>
-              ))}
-            </div>
-
-            <div style={{ padding: "22px 22px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
-              <div style={{ textAlign: "center", fontSize: 30, lineHeight: 1, marginBottom: 4 }}>🦅</div>
-
-              <button
-                onClick={onResume}
-                style={{
-                  ...btnRaised,
-                  fontSize: 9,
-                  padding: "11px 16px",
-                  background: `linear-gradient(to bottom, ${PG.orange}, #cc4400)`,
-                  color: "#fff",
-                  borderTopColor: PG.orangeGlow,
-                  borderLeftColor: PG.orangeGlow,
-                  borderBottomColor: "#882200",
-                  borderRightColor: "#882200",
-                  textShadow: "0 1px 0 rgba(0,0,0,0.5)",
-                }}
-              >
-                ▶ REPRENDRE
-              </button>
-
-              <button onClick={onReplay} style={{ ...btnRaised, fontSize: 8, padding: "10px 16px", color: PG.text }}>
-                ↻ RECOMMENCER
-              </button>
-
-              <button
-                onClick={onToggleMusic}
-                style={{ ...btnRaised, fontSize: 8, padding: "10px 16px", color: musicMuted ? PG.textMuted : PG.cyan, display: "flex", justifyContent: "space-between", alignItems: "center" }}
-              >
-                <span>{musicMuted ? "♪̸ MUSIQUE" : "♪ MUSIQUE"}</span>
-                <span style={{ color: musicMuted ? PG.red : PG.green }}>{musicMuted ? "OFF" : "ON"}</span>
-              </button>
-
-              <button onClick={onMenu} style={{ ...btnRaised, fontSize: 8, padding: "10px 16px", color: PG.textMuted }}>
-                ≡ MENU PRINCIPAL
-              </button>
-
-              {isAdmin && (
-                <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 8, borderTop: `1px solid ${PG.sh}`, paddingTop: 12 }}>
-                  <div style={{ fontSize: 6, color: PG.purple, letterSpacing: "0.1em", textAlign: "center" }}>— DEV —</div>
-                  {showDevTools && (
-                    <button
-                      onClick={() => { onResume(); onSkipLevel?.(); }}
-                      style={{ ...btnRaised, fontSize: 8, padding: "9px 16px", color: "#cc88ff", background: "rgba(20,10,30,0.6)", borderTopColor: "#7a4aaa", borderLeftColor: "#7a4aaa" }}
-                    >
-                      ⏭ NIVEAU SUIVANT
-                    </button>
-                  )}
-                  <button
-                    onClick={() => { onResume(); onOpenDevPanel?.(); }}
-                    style={{ ...btnRaised, fontSize: 8, padding: "9px 16px", color: "#cc88ff", background: "rgba(20,10,30,0.6)", borderTopColor: "#7a4aaa", borderLeftColor: "#7a4aaa" }}
-                  >
-                    ⚙ DEV TOOLS
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isGameOver && !upgradeOfferPending && (
-        <div
-          className="absolute inset-0 flex items-center justify-center"
-          style={{ background: "rgba(0,0,0,0.80)" }}
-        >
-          {/* Overlay de particules — faux confetti avec dots CSS */}
-          {isWon && (
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                backgroundImage: `
-                  radial-gradient(circle, ${PG.gold} 1px, transparent 1px),
-                  radial-gradient(circle, ${PG.orange} 1px, transparent 1px),
-                  radial-gradient(circle, ${PG.cyan} 1px, transparent 1px)
-                `,
-                backgroundSize: "60px 60px, 90px 90px, 75px 75px",
-                backgroundPosition: "10px 10px, 30px 40px, 50px 15px",
-                opacity: 0.15,
-                animation: "pg-star-slide 4s linear infinite",
-                pointerEvents: "none",
-              }}
-            />
-          )}
-
-          {/* Dialog */}
-          <div
-            className="pg-dialog"
-            style={{
-              minWidth: 280,
-              maxWidth: 340,
-              fontFamily: "var(--pg-font)",
-              animation: "pg-slide-up 0.3s cubic-bezier(0.34,1.56,0.64,1)",
-            }}
-          >
-            {/* Titlebar */}
-            <div className="pg-titlebar">
-              <span style={{ fontSize: 8, color: "#aaaaee", flex: 1, letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: 5 }}>
-                🦅 PEAGLE 98
-              </span>
-              {(["─", "□", "×"] as const).map((ch) => (
-                <div key={ch} style={captionBtn}>{ch}</div>
-              ))}
-            </div>
-
-            {/* Content */}
-            <div style={{ padding: "22px 24px 16px" }}>
-              {/* Big icon + titre */}
-              <div style={{ textAlign: "center", marginBottom: 16 }}>
-                <div
-                  style={{
-                    fontSize: 48,
-                    lineHeight: 1,
-                    marginBottom: 12,
-                    animation: isWon
-                      ? "pg-pulse-orange 1.5s ease-in-out infinite"
-                      : "pg-shake 0.5s ease-in-out 0.3s 2",
-                  }}
-                >
-                  {isWon ? "🏆" : "💀"}
-                </div>
-
-                <div
-                  style={{
-                    fontSize: 14,
-                    fontWeight: "bold",
-                    color: isWon ? PG.orange : PG.red,
-                    letterSpacing: "0.08em",
-                    textShadow: isWon
-                      ? `0 0 16px ${PG.orange}`
-                      : `0 0 16px ${PG.red}`,
-                    marginBottom: 4,
-                  }}
-                >
-                  {isWon ? "VICTOIRE !" : "GAME OVER"}
-                </div>
+              {/* Header */}
+              <div className="pg-lux-header">
+                <div className="pg-lux-gem" />
+                <span className="pg-lux-title">PAUSE</span>
+                <PixelSprite name="eagle" scale={2} />
               </div>
 
-              {/* Score */}
-              <div style={{ textAlign: "center", marginBottom: 14 }}>
-                <div style={{ fontSize: 7, color: PG.textMuted, marginBottom: 6, letterSpacing: "0.1em" }}>
-                  SCORE FINAL
-                </div>
-                <div
-                  className="pg-sunken"
-                  style={{ display: "inline-block", padding: "6px 20px" }}
-                >
-                  <span style={{ fontSize: 20, fontWeight: "bold", color: PG.text }}>
-                    {ui.score.toLocaleString()}
-                  </span>
+              {/* Body */}
+              <div style={{ padding: "20px 16px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
+
+                {/* Aigle qui flotte */}
+                <div style={{ display: "flex", justifyContent: "center", paddingBottom: 6 }}>
+                  <PixelSprite name="eagle" scale={7} className="pg-eagle-bob" />
                 </div>
 
+                {/* CTA or */}
+                <button onClick={onResume} className="pg-btn-gold">
+                  ▶ REPRENDRE
+                </button>
+
+                {/* Secondaire vert */}
+                <button onClick={onReplay} className="pg-btn-lux" style={{ fontSize: 8 }}>
+                  ↻ RECOMMENCER
+                </button>
+
+                {/* Séparateur orné */}
+                <div className="pg-sep-lux">
+                  <div className="pg-lux-gem" style={{ width: 6, height: 6 }} />
+                </div>
+
+                {/* Toggle musique */}
+                <button onClick={onToggleMusic} className="pg-toggle-row">
+                  <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <PixelSprite name="note" scale={2} />
+                    MUSIQUE
+                  </span>
+                  <span
+                    className="pg-toggle-pill"
+                    style={{
+                      background: musicMuted ? "#140808" : "#081808",
+                      color: musicMuted ? PG.red : PG.leaf,
+                      borderColor: musicMuted ? "#4a1010" : PG.greenDeep,
+                    }}
+                  >
+                    {musicMuted ? "OFF" : "ON"}
+                  </span>
+                </button>
+
+                {/* Menu principal */}
+                <button
+                  onClick={onMenu}
+                  className="pg-btn pg-btn-ghost"
+                  style={{ fontSize: 7, letterSpacing: "0.06em" }}
+                >
+                  ≡ MENU PRINCIPAL
+                </button>
+
+                {/* Dev section */}
+                {isAdmin && (
+                  <div
+                    style={{
+                      borderTop: `1px solid ${PG.border}`,
+                      paddingTop: 12,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 8,
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 6,
+                        color: PG.purple,
+                        letterSpacing: "0.12em",
+                        textAlign: "center",
+                        fontFamily: "var(--pg-font)",
+                      }}
+                    >
+                      — DEV —
+                    </div>
+                    {showDevTools && (
+                      <button
+                        onClick={() => { onResume(); onSkipLevel?.(); }}
+                        className="pg-btn"
+                        style={{
+                          fontSize: 7,
+                          color: "#e0b4ff",
+                          background: "linear-gradient(to bottom, #3a1d4f 0%, #2a1437 100%)",
+                          borderColor: "#7a3fb0",
+                        }}
+                      >
+                        ⏭ NIVEAU SUIVANT
+                      </button>
+                    )}
+                    <button
+                      onClick={() => { onResume(); onOpenDevPanel?.(); }}
+                      className="pg-btn"
+                      style={{
+                        fontSize: 7,
+                        color: "#e0b4ff",
+                        background: "linear-gradient(to bottom, #3a1d4f 0%, #2a1437 100%)",
+                        borderColor: "#7a3fb0",
+                      }}
+                    >
+                      ⚙ DEV TOOLS
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── GAME OVER / VICTOIRE ─────────────────────────────────────────── */}
+        {isGameOver && !upgradeOfferPending && (
+          <div
+            className={`pg-overlay-lux absolute inset-0${isLost ? " pg-overlay-lux-red" : ""}`}
+          >
+            {/* Particules victoire */}
+            {isWon && <div className="pg-victory-particles" />}
+
+            <div className="pg-lux-panel" style={{ width: 320, maxWidth: "calc(100% - 32px)" }}>
+
+              {/* Header */}
+              <div className="pg-lux-header">
+                <PixelSprite name="eagle" scale={2} />
+                <span className="pg-lux-title">PEAGLE</span>
+                <div className="pg-lux-gem" />
+              </div>
+
+              {/* Body */}
+              <div style={{ padding: "20px 20px 18px", fontFamily: "var(--pg-font)" }}>
+
+                {/* Icône + titre */}
+                <div style={{ textAlign: "center", marginBottom: 16 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "center",
+                      marginBottom: 12,
+                      animation: isWon
+                        ? "pg-trophy-hover 2.2s ease-in-out infinite"
+                        : "pg-shake 0.5s ease-in-out 0.3s 2",
+                    }}
+                  >
+                    <PixelSprite name={isWon ? "trophy" : "skull"} scale={7} />
+                  </div>
+
+                  {isWon ? (
+                    <div
+                      style={{
+                        fontSize: 15,
+                        fontWeight: "bold",
+                        color: PG.gold,
+                        letterSpacing: "0.1em",
+                        animation: "pg-glow-victory 1.5s ease-in-out infinite",
+                      }}
+                    >
+                      ★ VICTOIRE ! ★
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        fontSize: 14,
+                        fontWeight: "bold",
+                        color: PG.red,
+                        letterSpacing: "0.1em",
+                        animation: "pg-glow-defeat 1.3s ease-in-out infinite",
+                      }}
+                    >
+                      ✕ GAME OVER
+                    </div>
+                  )}
+                </div>
+
+                {/* Score héro */}
+                <div className="pg-hero-score" style={{ marginBottom: 10 }}>
+                  <div className="pg-hero-score-label">SCORE FINAL</div>
+                  <div className="pg-hero-score-val">{ui.score.toLocaleString()}</div>
+                </div>
+
+                {/* Record */}
                 {isRecord && (
                   <div
                     style={{
-                      fontSize: 8,
-                      marginTop: 8,
-                      letterSpacing: "0.08em",
-                      animation: "pg-record-flash 1s ease-in-out infinite",
-                    }}
-                  >
-                    ⭐ NOUVEAU RECORD !
-                  </div>
-                )}
-              </div>
-
-              {/* Quip aigle */}
-              <div
-                style={{
-                  fontSize: 7,
-                  color: isWon ? PG.gold : PG.textMuted,
-                  textAlign: "center",
-                  marginBottom: 10,
-                  fontStyle: "italic",
-                  fontFamily: "var(--font-vt323), monospace",
-                  lineHeight: 1.4,
-                }}
-              >
-                &ldquo;{quip}&rdquo;
-              </div>
-
-              {/* User info */}
-              <div style={{ fontSize: 7, color: PG.textMuted, textAlign: "center", marginBottom: 16, letterSpacing: "0.04em" }}>
-                {displayUser
-                  ? `▶ Score enregistré pour ${displayUser}`
-                  : "Connectez-vous pour sauver votre score"}
-              </div>
-
-              {/* Separator */}
-              <div className="pg-sep" style={{ marginBottom: 14 }} />
-
-              {/* Buttons */}
-              <div
-                style={{
-                  display: "flex",
-                  gap: 8,
-                  justifyContent: "center",
-                  flexWrap: "wrap",
-                }}
-              >
-                {isWon && (
-                  <div
-                    style={{
-                      ...btnRaised,
-                      cursor: "default",
-                      opacity: 0.5,
                       fontSize: 7,
+                      textAlign: "center",
+                      marginBottom: 10,
+                      letterSpacing: "0.08em",
                       display: "flex",
                       alignItems: "center",
-                      color: PG.textMuted,
+                      justifyContent: "center",
+                      gap: 8,
+                      animation: "pg-record-lux 1s ease-in-out infinite",
                     }}
                   >
-                    Choix d&apos;amélioration…
+                    <PixelSprite name="star" scale={2} />
+                    NOUVEAU RECORD !
+                    <PixelSprite name="star" scale={2} />
                   </div>
                 )}
-                <button
-                  onClick={onReplay}
+
+                {/* Quip aigle */}
+                <div className="pg-quip-lux" style={{ marginBottom: 12 }}>
+                  &ldquo;{quip}&rdquo;
+                </div>
+
+                {/* Utilisateur */}
+                <div
                   style={{
-                    ...btnRaised,
-                    fontSize: 8,
-                    background: `linear-gradient(to bottom, ${PG.orange}, #cc4400)`,
-                    color: "#fff",
-                    borderTopColor: PG.orangeGlow,
-                    borderLeftColor: PG.orangeGlow,
-                    borderBottomColor: "#882200",
-                    borderRightColor: "#882200",
-                    textShadow: "0 1px 0 rgba(0,0,0,0.5)",
+                    fontSize: 7,
+                    color: PG.textMuted,
+                    textAlign: "center",
+                    marginBottom: 16,
+                    letterSpacing: "0.04em",
                   }}
                 >
-                  ▶ REJOUER
-                </button>
-                {isLost && (
-                  <button onClick={onLeaderboard} style={{ ...btnRaised, fontSize: 8, color: PG.gold }}>
-                    ★ CLASSEMENT
+                  {displayUser
+                    ? `▶ Score enregistré pour ${displayUser}`
+                    : "Connectez-vous pour sauver votre score"}
+                </div>
+
+                {/* Séparateur orné */}
+                <div className="pg-sep-lux" style={{ marginBottom: 16 }}>
+                  <div className="pg-lux-gem" style={{ width: 6, height: 6 }} />
+                </div>
+
+                {/* Boutons */}
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    justifyContent: "center",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  {isWon && upgradeOfferPending && (
+                    <div style={{ fontSize: 7, color: PG.textMuted, alignSelf: "center" }}>
+                      Choix d&apos;amélioration…
+                    </div>
+                  )}
+
+                  <button onClick={onReplay} className="pg-btn-red-lux" style={{ flex: 1, minWidth: 110 }}>
+                    ▶ REJOUER
                   </button>
-                )}
-                <button onClick={onMenu} style={{ ...btnRaised, fontSize: 8, color: PG.textMuted }}>
-                  ≡ MENU
-                </button>
+
+                  {isLost && (
+                    <button
+                      onClick={onLeaderboard}
+                      className="pg-btn-gold"
+                      style={{ flex: 1, minWidth: 110, fontSize: 8 }}
+                    >
+                      ★ CLASSEMENT
+                    </button>
+                  )}
+
+                  <button
+                    onClick={onMenu}
+                    className="pg-btn pg-btn-ghost"
+                    style={{ fontSize: 7, letterSpacing: "0.06em", width: "100%" }}
+                  >
+                    ≡ MENU PRINCIPAL
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
       </div>
     </div>
   );
 }
-

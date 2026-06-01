@@ -128,6 +128,47 @@ const MENU_AT = 2.35;        // révélation du menu
 
 const lastLetterLand = LETTERS_START + (WORD.length - 1) * LETTER_STAGGER + LETTER_FALL;
 
+// ─── Forêt animée — positions précalculées (stables entre renders) ────────────
+interface TreeData { nx: number; nh: number; nw: number; swayAmp: number; swaySpeed: number; swayPhase: number; }
+interface ForestLayer { yBase: number; col: string; trees: TreeData[]; }
+function fhash(s: number): number { const x = Math.sin(s * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
+const _forestLayers: ForestLayer[] = (() => {
+  const defs = [
+    { count: 16, yBase: 0.67, col: "#050e03", minH: 0.11, maxH: 0.19, minW: 0.028, maxW: 0.046, swayMax: 0.020 },
+    { count: 11, yBase: 0.79, col: "#030a01", minH: 0.19, maxH: 0.30, minW: 0.038, maxW: 0.063, swayMax: 0.026 },
+    { count: 7,  yBase: 0.91, col: "#020501", minH: 0.28, maxH: 0.42, minW: 0.058, maxW: 0.092, swayMax: 0.033 },
+  ];
+  return defs.map((d, li) => ({
+    yBase: d.yBase, col: d.col,
+    trees: Array.from({ length: d.count }, (_, i) => {
+      const s = li * 100 + i;
+      return {
+        nx:        (i + 0.5) / d.count + (fhash(s)     - 0.5) * 0.07,
+        nh:        d.minH + fhash(s + 1) * (d.maxH - d.minH),
+        nw:        d.minW + fhash(s + 2) * (d.maxW - d.minW),
+        swayAmp:   d.swayMax * (0.4 + fhash(s + 3) * 0.6),
+        swaySpeed: 0.28 + fhash(s + 4) * 0.44,
+        swayPhase: fhash(s + 5) * Math.PI * 2,
+      };
+    }),
+  }));
+})();
+
+interface StarData { nx: number; ny: number; r: number; speed: number; phase: number; bright: number; col: string; }
+const _stars: StarData[] = Array.from({ length: 58 }, (_, i) => {
+  const s = i + 300;
+  const cols = ["#ffffff", "#e8f0ff", "#fff8e8", "#ffd0c8"] as const;
+  return {
+    nx:    fhash(s),
+    ny:    fhash(s + 1),
+    r:     fhash(s + 6) < 0.10 ? 2 : 1,
+    speed: 0.5 + fhash(s + 2) * 1.8,
+    phase: fhash(s + 3) * Math.PI * 2,
+    bright: 0.35 + fhash(s + 4) * 0.65,
+    col:   cols[Math.floor(fhash(s + 5) * cols.length)]!,
+  };
+});
+
 // ─── Sprites de l'aigle pré-rendus (1px = 1 cellule) ──────────────────────────
 function buildSprite(grid: readonly string[], palette: Record<string, string>): HTMLCanvasElement | null {
   if (typeof document === "undefined") return null;
@@ -284,16 +325,44 @@ function easeOutCubic(p: number): number {
   const x = 1 - p;
   return 1 - x * x * x;
 }
+// Progression 0→1 clampée pour les reveals du décor
+function bgP(elapsed: number, start: number, dur: number): number {
+  return Math.max(0, Math.min(1, (elapsed - start) / dur));
+}
+// Oscillation élastique décroissante (multi-rebond autour de 1.0)
+function easeOutElastic(p: number): number {
+  if (p <= 0) return 0;
+  if (p >= 1) return 1;
+  const c4 = (2 * Math.PI) / 3;
+  return Math.pow(2, -10 * p) * Math.sin((p * 10 - 0.75) * c4) + 1;
+}
+// Rebond multiple à l'atterrissage (CSS easeOutBounce)
+function easeOutBounce(p: number): number {
+  const n1 = 7.5625, d1 = 2.75;
+  if (p < 1 / d1)         return n1 * p * p;
+  if (p < 2 / d1)         { const q = p - 1.5 / d1;   return n1 * q * q + 0.75; }
+  if (p < 2.5 / d1)       { const q = p - 2.25 / d1;  return n1 * q * q + 0.9375; }
+  const q = p - 2.625 / d1; return n1 * q * q + 0.984375;
+}
 
 interface TitleCanvasProps {
   onMenuReveal: () => void;
+  /** Si true, saute l'intro et commence directement en état idle (retour au menu). */
+  skipIntro?: boolean;
+  /** Émis à chaque fois qu'un œuf percute le titre ou le badge (force 0..1).
+      Le menu s'en sert pour faire trembloter son texte — onde de choc lointaine. */
+  onImpact?: (force: number) => void;
 }
 
-export function TitleCanvas({ onMenuReveal }: TitleCanvasProps) {
+export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact }: TitleCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const revealedRef = useRef(false);
   const onRevealRef = useRef(onMenuReveal);
   onRevealRef.current = onMenuReveal;
+  const onImpactRef = useRef(onImpact);
+  onImpactRef.current = onImpact;
+  // Capturé à la création de l'effet — détermine l'état initial, ne change pas.
+  const skipIntroRef = useRef(skipIntro);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -311,7 +380,7 @@ export function TitleCanvas({ onMenuReveal }: TitleCanvasProps) {
 
     let raf = 0;
     let startT = 0;
-    let skipped = false;
+    let skipped = skipIntroRef.current; // déjà "skipé" si retour au menu
     let trauma = 0;
     let prevMs = 0;
     let cssW = 0;
@@ -343,9 +412,178 @@ export function TitleCanvas({ onMenuReveal }: TitleCanvasProps) {
       seed: i,
     }));
 
+    // ─── Dessin d'un conifère pixel (silhouette) ──────────────────────────────
+    function drawConifer(cx: number, tipY: number, h: number, w: number, swayRad: number) {
+      ctx!.save();
+      // Rotation autour de la base → la cime bouge plus que le tronc (balancement naturel)
+      ctx!.translate(cx, tipY + h);
+      ctx!.rotate(swayRad);
+      ctx!.translate(-cx, -(tipY + h));
+      const numLayers = Math.max(2, Math.floor(h / 22));
+      for (let l = 0; l < numLayers; l++) {
+        const ly = tipY + (l / numLayers) * h * 0.80;
+        const lw = w * (0.28 + 0.72 * (l + 1) / numLayers);
+        const lh = (h / numLayers) * 1.38;
+        ctx!.beginPath();
+        ctx!.moveTo(cx, ly);
+        ctx!.lineTo(cx - lw / 2, ly + lh);
+        ctx!.lineTo(cx + lw / 2, ly + lh);
+        ctx!.closePath();
+        ctx!.fill();
+      }
+      const tw = Math.max(2, w * 0.11);
+      ctx!.fillRect(Math.round(cx - tw / 2), Math.round(tipY + h * 0.82), Math.ceil(tw), Math.ceil(h * 0.18 + 1));
+      ctx!.restore();
+    }
+
+    function drawForest(elapsed: number) {
+      // Vent : deux sinusoïdes lentes + rafale périodique qui se propage de gauche à droite
+      const windBase = Math.sin(elapsed * 0.65) * 0.55 + Math.sin(elapsed * 0.29 + 1.1) * 0.38;
+      const gustT = elapsed % 9.0;
+      const gustStr = gustT < 2.2 ? Math.sin((gustT / 2.2) * Math.PI) * 1.9 : 0;
+
+      // Chaque arbre a son propre timing dérivé de swayPhase + rebond easeOutBack à l'atterrissage
+      const LAYER_BASE_START = [0.18, 0.25, 0.32] as const;
+      const LAYER_SPREAD     = [0.28, 0.25, 0.22] as const; // étalement intra-layer via swayPhase
+      const LAYER_SLIDE      = [1.10, 0.85, 0.65] as const; // chute depuis plus haut = impact + fort
+      const TREE_DUR = 0.36; // chute plus rapide = atterrissage plus percutant
+
+      ctx!.save();
+      ctx!.imageSmoothingEnabled = false;
+      for (let li = 0; li < _forestLayers.length; li++) {
+        const layer = _forestLayers[li]!;
+        ctx!.fillStyle = layer.col;
+        for (const tree of layer.trees) {
+          const treeNorm  = tree.swayPhase / (Math.PI * 2);         // [0..1] déterministe
+          const treeStart = LAYER_BASE_START[li]! + treeNorm * LAYER_SPREAD[li]!;
+          const treeP     = bgP(elapsed, treeStart, TREE_DUR);
+          if (treeP <= 0) continue;
+          const treeE  = easeOutBounce(treeP);                        // multi-rebond à l'atterrissage
+          const ySlide = (1 - treeE) * cssH * LAYER_SLIDE[li]!;
+
+          const h = tree.nh * cssH;
+          const w = tree.nw * cssW;
+          const tx = tree.nx * cssW;
+          const tipY = layer.yBase * cssH - h;
+          // Rafale décalée par position x → vague qui traverse la forêt
+          const gustPhase = elapsed * 2.8 + tree.nx * 4.8;
+          const windSway = (windBase + gustStr * Math.sin(gustPhase)) * tree.swayAmp * 0.85;
+          const sway = Math.sin(elapsed * tree.swaySpeed + tree.swayPhase) * tree.swayAmp * 2.4 + windSway;
+
+          ctx!.save();
+          ctx!.translate(0, ySlide);
+          drawConifer(tx, tipY, h, w, sway);
+          ctx!.restore();
+        }
+      }
+      // Brume de sol animée — arrive après la dernière vague d'arbres
+      const mistReveal = easeOutCubic(bgP(elapsed, 0.52, 0.65));
+      if (mistReveal > 0) {
+        for (let i = 0; i < 3; i++) {
+          const drift = Math.sin(elapsed * 0.07 + i * 2.1) * cssW * 0.05;
+          const mistY = cssH * (0.76 + i * 0.05);
+          const mistH = cssH * 0.20;
+          const a = [0.065, 0.044, 0.028][i]!;
+          const gm = ctx!.createLinearGradient(0, mistY, 0, mistY + mistH);
+          gm.addColorStop(0,    `rgba(70,130,45,0)`);
+          gm.addColorStop(0.22, `rgba(55,100,32,${a})`);
+          gm.addColorStop(0.60, `rgba(38,70,20,${a * 0.45})`);
+          gm.addColorStop(1,    `rgba(15,35,8,0)`);
+          ctx!.save();
+          ctx!.globalAlpha = mistReveal;
+          ctx!.translate(drift, 0);
+          ctx!.fillStyle = gm;
+          ctx!.fillRect(-cssW * 0.15, mistY, cssW * 1.3, mistH);
+          ctx!.restore();
+        }
+      }
+      ctx!.restore();
+    }
+
+    function drawFireflies(elapsed: number) {
+      ctx!.save();
+      for (const f of fireflies) {
+        // Chaque luciole pop à son propre moment (dérivé de sa phase aléatoire)
+        const popT  = 0.42 + (f.phase / (Math.PI * 2)) * 0.80; // spread 0.42..1.22s
+        const dt    = elapsed - popT;
+        if (dt < 0) continue;
+        const popP  = Math.min(1, dt / 0.22);
+        const flash = Math.max(0, 1 - dt / 0.16); // éclat bref à l'apparition
+        const fx = ((f.x + Math.sin(elapsed * f.speed + f.phase) * 0.04) % 1) * cssW;
+        const fy = (((f.y - elapsed * 0.012 * f.drift) % 1) + 1) % 1 * cssH;
+        const tw = 0.35 + 0.65 * Math.abs(Math.sin(elapsed * (1 + f.seed * 0.05) + f.phase));
+        const rExtra = Math.round(flash * 6);
+        ctx!.fillStyle = C.firefly;
+        ctx!.globalAlpha = Math.min(1, tw * 0.8 * popP + flash * 3.5);
+        ctx!.fillRect(Math.round(fx) - rExtra, Math.round(fy) - rExtra, f.r + rExtra * 2, f.r + rExtra * 2);
+        if (flash < 0.01) {
+          ctx!.globalAlpha = tw * 0.18 * popP;
+          ctx!.fillRect(Math.round(fx) - 2, Math.round(fy) - 2, f.r + 4, f.r + 4);
+        }
+      }
+      ctx!.restore();
+    }
+
+    // ─── Étoiles filantes ─────────────────────────────────────────────────────
+    interface ShootingStar { x: number; y: number; vx: number; vy: number; life: number; max: number; len: number; }
+    const shootingStars: ShootingStar[] = [];
+    let nextShootAt = 3 + Math.random() * 5;
+
+    function updateAndDrawShootingStars(elapsed: number, dt: number) {
+      if (elapsed > 1.0) {
+        nextShootAt -= dt;
+        if (nextShootAt <= 0) {
+          const angle = (0.12 + Math.random() * 0.42) * Math.PI;
+          const speed = 360 + Math.random() * 340;
+          const dur = 0.45 + Math.random() * 0.55;
+          shootingStars.push({
+            x: cssW * (0.04 + Math.random() * 0.72),
+            y: cssH * (0.02 + Math.random() * 0.36),
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            life: dur, max: dur,
+            len: 50 + Math.random() * 80,
+          });
+          nextShootAt = 5 + Math.random() * 9;
+        }
+      }
+      if (shootingStars.length === 0) return;
+      ctx!.save();
+      ctx!.globalCompositeOperation = "lighter";
+      for (let i = shootingStars.length - 1; i >= 0; i--) {
+        const s = shootingStars[i]!;
+        s.x += s.vx * dt;
+        s.y += s.vy * dt;
+        s.life -= dt;
+        if (s.life <= 0 || s.x > cssW + 60 || s.y > cssH * 0.64) { shootingStars.splice(i, 1); continue; }
+        const a = s.life / s.max;
+        const sp = Math.sqrt(s.vx * s.vx + s.vy * s.vy);
+        const nx = s.vx / sp, ny = s.vy / sp;
+        const tailX = s.x - nx * s.len * a;
+        const tailY = s.y - ny * s.len * a;
+        const grad = ctx!.createLinearGradient(tailX, tailY, s.x, s.y);
+        grad.addColorStop(0,    "rgba(255,255,255,0)");
+        grad.addColorStop(0.55, `rgba(200,220,255,${(a * 0.35).toFixed(3)})`);
+        grad.addColorStop(1,    `rgba(255,255,255,${(a * 0.9).toFixed(3)})`);
+        ctx!.globalAlpha = 1;
+        ctx!.strokeStyle = grad;
+        ctx!.lineWidth = 1.2;
+        ctx!.beginPath();
+        ctx!.moveTo(tailX, tailY);
+        ctx!.lineTo(s.x, s.y);
+        ctx!.stroke();
+        ctx!.fillStyle = "#ffffff";
+        ctx!.globalAlpha = a;
+        ctx!.fillRect(Math.round(s.x) - 1, Math.round(s.y) - 1, 2, 2);
+      }
+      ctx!.restore();
+    }
+
     // Suivi des atterrissages de lettres (pour shake + flash)
     const landed = new Array(WORD.length).fill(false);
     let badgePopped = false;
+    let lastImpactT = -999; // elapsed au dernier impact d'œuf (déclenche shine + sparkles)
+    let currentElapsed = 0; // elapsed courant, partagé avec les fonctions splat
     // Ressort d'impact propre au badge "98" — totalement indépendant de la vague
     // de PEAGLE : il ne bounce que quand un œuf le percute lui-même.
     let badgeKnock = 0;   // déplacement vertical (px)
@@ -421,7 +659,7 @@ export function TitleCanvas({ onMenuReveal }: TitleCanvasProps) {
       if (!body || !wing) return;
       const restX = cssW / 2;
       const restY = cssH * 0.21;
-      const targetScale = Math.max(1.4, Math.min(4.2, (cssW * 0.34) / bodyCols));
+      const targetScale = Math.max(1.0, Math.min(2.6, (cssW * 0.20) / bodyCols));
 
       let ex: number;
       let ey: number;
@@ -556,6 +794,7 @@ export function TitleCanvas({ onMenuReveal }: TitleCanvasProps) {
       knockV[li] += baseForce;     // la lettre touchée encaisse à fond
       flash[li] = 1;
       trauma = Math.min(1, trauma + 0.34);
+      onImpactRef.current?.(Math.min(1, baseForce / 760)); // onde vers le menu
       // Onde de rebond : les voisines suivent avec un délai croissant et une
       // force qui décroît → le rebond traverse le mot comme une vague (ricochet).
       for (let d = 1; d < WORD.length; d++) {
@@ -567,6 +806,7 @@ export function TitleCanvas({ onMenuReveal }: TitleCanvasProps) {
         if (li + d < WORD.length) pendingKnocks.push({ i: li + d, delay, force, fl: falloff });
       }
       burstShards(e);
+      lastImpactT = currentElapsed;
     }
 
     // Projection des coquilles depuis un œuf éclaté (partagé lettres ↔ badge).
@@ -590,10 +830,13 @@ export function TitleCanvas({ onMenuReveal }: TitleCanvasProps) {
     // seul le ressort du badge encaisse (pas de propagation aux lettres, ni
     // l'inverse). Même juice : bonk + flash + éclats + petit shake.
     function splatBadge(e: Egg) {
-      badgeKnockV += 440 + Math.min(320, Math.abs(e.vy) * 0.45);
+      const f = 440 + Math.min(320, Math.abs(e.vy) * 0.45);
+      badgeKnockV += f;
       badgeFlash = 1;
       trauma = Math.min(1, trauma + 0.3);
+      onImpactRef.current?.(Math.min(1, f / 760)); // onde vers le menu
       burstShards(e);
+      lastImpactT = currentElapsed;
     }
 
     function updateAndDrawEggs(dt: number) {
@@ -682,8 +925,8 @@ export function TitleCanvas({ onMenuReveal }: TitleCanvasProps) {
       // (~28% pour la hauteur du mot), pas de plafond fixe → grossit avec la fenêtre.
       const wordCells = WORD.length * GW + (WORD.length - 1) * 2; // 2 cellules d'espace
       // ~76% de largeur → laisse une gouttière à droite pour le badge "98"
-      const uByW = (cssW * 0.76) / wordCells;
-      const uByH = (cssH * 0.28) / GH;
+      const uByW = (cssW * 0.60) / wordCells;
+      const uByH = (cssH * 0.22) / GH;
       const u = Math.max(2, Math.floor(Math.min(uByW, uByH)));
       const gap = u * 2; // espace entre lettres
       const letterW = GW * u;
@@ -746,13 +989,17 @@ export function TitleCanvas({ onMenuReveal }: TitleCanvasProps) {
         const popScale = 1 + flash[i] * 0.16;             // pop d'échelle bref à l'impact
         const scaleX = (1 + sq * 0.55) * popScale;
         const scaleY = squashY * (1 - sq) * popScale;     // squashY = étirement d'atterrissage
-        const rot = Math.max(-0.22, Math.min(0.22, knockVel * 0.00048)); // wobble piloté par la vitesse
+        // flottement idle en vague : fond doucement une fois le logo posé
+        const floatFade = settledFor > 0 ? Math.min(1, settledFor / 0.7) : 0;
+        const floatOffset = Math.sin(settledFor * Math.PI * 1.2 + i * 0.45) * 3 * floatFade;
+        const idleRot = Math.sin(settledFor * Math.PI * 0.9 + i * 0.6) * 0.018 * floatFade;
+        const rot = Math.max(-0.22, Math.min(0.22, knockVel * 0.00048)) + idleRot;
 
         const naturalW = spr.cols * u;
         const naturalH = spr.rows * u;
         const ox = baseX + i * (letterW + gap) - u;       // coin haut-gauche (marge contour incl.)
         const cx = ox + naturalW / 2;                     // centre horizontal
-        const by = baseY + dy - u + knockY + naturalH;    // bord bas (ancre du squash/rotation)
+        const by = baseY + dy - u + knockY + naturalH + floatOffset; // bord bas + flottement
 
         // Hitbox + géométrie du reflet (approx. axis-aligned, rotation ignorée)
         const w = naturalW * scaleX;
@@ -785,14 +1032,13 @@ export function TitleCanvas({ onMenuReveal }: TitleCanvasProps) {
         ctx!.restore();
       }
 
-      // ─── Reflet (shine) qui balaie le titre en boucle ────────────────────────
-      // Une fois le mot posé, une bande lumineuse diagonale traverse les lettres
-      // toutes les ~4 s, clippée pile à leur forme via un offscreen (destination-in).
+      // ─── Reflet (shine) déclenché à chaque impact d'œuf ────────────────────────
+      // Une bande lumineuse diagonale traverse les lettres au moment de l'impact,
+      // clippée pile à leur forme via un offscreen (destination-in).
       if (shineCtx && shineCv && settledFor > 0 && shineLetters.length && bx1 > bx0) {
-        const period = 4.2;     // intervalle entre deux passages
-        const sweepDur = 0.95;  // durée d'un passage
-        const tt = settledFor % period;
-        if (tt < sweepDur) {
+        const sweepDur = 0.42;
+        const tt = elapsed - lastImpactT;
+        if (tt >= 0 && tt < sweepDur) {
           const pad = u * 2;
           const bx = Math.floor(bx0 - pad);
           const by = Math.floor(by0 - pad);
@@ -801,57 +1047,73 @@ export function TitleCanvas({ onMenuReveal }: TitleCanvasProps) {
           if (bw > 0 && bh > 0) {
             if (shineCv.width !== bw) shineCv.width = bw;
             if (shineCv.height !== bh) shineCv.height = bh;
-            const sp = tt / sweepDur; // 0..1 progression du balayage
+            // Progression accélérée (ease-in) → le reflet « whoosh » vers la droite
+            // et claque pile sur le 98 où le glint l'attend. Plus satisfaisant.
+            const lin = tt / sweepDur;
+            const sp = lin * lin * (2 - lin); // smootherstep-ish, biais accel
             shineCtx.setTransform(1, 0, 0, 1, 0, 0);
             shineCtx.clearRect(0, 0, bw, bh);
             shineCtx.imageSmoothingEnabled = false;
-            // Bande blanche diagonale (transparent → blanc → transparent)
-            const band = bw * 0.26;
-            const cx = -band + sp * (bw + band * 2);
-            const grad = shineCtx.createLinearGradient(cx - band, 0, cx + band, bh);
-            grad.addColorStop(0, "rgba(255,255,255,0)");
-            grad.addColorStop(0.5, "rgba(255,255,255,0.95)");
-            grad.addColorStop(1, "rgba(255,255,255,0)");
-            shineCtx.fillStyle = grad;
-            shineCtx.fillRect(0, 0, bw, bh);
-            // Masque par la forme exacte des lettres
-            shineCtx.globalCompositeOperation = "destination-in";
+            // 1) Masque = UNION des lettres (source-over → on les empile). Crucial :
+            //    un destination-in en boucle intersecterait les lettres (régions
+            //    disjointes) → masque vide. On bâtit donc l'union d'abord.
+            shineCtx.globalCompositeOperation = "source-over";
             for (const L of shineLetters) {
               shineCtx.drawImage(L.spr.cv, L.ox - bx, L.dy - by, L.w, L.h);
             }
+            // 2) Bande blanche diagonale, peinte uniquement DANS l'union (source-in)
+            const band = bw * 0.3;
+            const cx = -band + sp * (bw + band * 2);
+            const grad = shineCtx.createLinearGradient(cx - band, 0, cx + band, bh);
+            grad.addColorStop(0, "rgba(255,210,90,0)");
+            grad.addColorStop(0.34, "rgba(255,228,150,0.45)"); // liseré doré chaud
+            grad.addColorStop(0.5, "rgba(255,255,255,1)");      // cœur blanc surex
+            grad.addColorStop(0.66, "rgba(255,228,150,0.45)");
+            grad.addColorStop(1, "rgba(255,210,90,0)");
+            shineCtx.globalCompositeOperation = "source-in";
+            shineCtx.fillStyle = grad;
+            shineCtx.fillRect(0, 0, bw, bh);
             shineCtx.globalCompositeOperation = "source-over";
-            // Dépose le reflet en additif, fondu doux aux extrémités du passage
+            // Dépose le reflet en additif, fondu doux aux extrémités du passage.
+            // Double passe : un cœur blanc large + un re-dépôt « lighter » pour
+            // pousser la brillance vers le surex → streak bien juteux.
             ctx!.save();
             ctx!.globalCompositeOperation = "lighter";
-            ctx!.globalAlpha = 0.85 * Math.sin(sp * Math.PI);
             ctx!.imageSmoothingEnabled = false;
+            ctx!.globalAlpha = Math.sin(sp * Math.PI);
+            ctx!.drawImage(shineCv, bx, by);
+            ctx!.globalAlpha = 0.5 * Math.sin(sp * Math.PI);
             ctx!.drawImage(shineCv, bx, by);
             ctx!.restore();
           }
         }
       }
 
-      // ─── Étincelles scintillantes autour du logo ─────────────────────────────
+      // ─── Étincelles scintillantes (burst après impact d'œuf) ─────────────────
       if (settledFor > 0) {
-        const sphScale = Math.max(1, Math.round(u * 0.6));
-        ctx!.save();
-        ctx!.globalCompositeOperation = "lighter";
-        for (const s of titleSparkles) {
-          const tw = Math.sin(elapsed * s.sp + s.ph);
-          if (tw <= 0) continue;
-          const a = tw * tw; // pic court, scintillement net
-          const x = Math.round(baseX + s.fx * totalW);
-          const y = Math.round(baseY + s.fy * (GH * u));
-          const r = sphScale;
-          ctx!.fillStyle = s.col;
-          ctx!.globalAlpha = a;
-          // croix pixel (4 branches) + cœur plus dense
-          ctx!.fillRect(x - r, y, r * 2 + 1, 1);
-          ctx!.fillRect(x, y - r, 1, r * 2 + 1);
-          ctx!.globalAlpha = a * 0.8;
-          ctx!.fillRect(x - 1, y - 1, 2, 2);
+        const timeSinceImpact = elapsed - lastImpactT;
+        const sparkleDur = 1.4;
+        if (timeSinceImpact >= 0 && timeSinceImpact < sparkleDur) {
+          const fade = Math.pow(1 - timeSinceImpact / sparkleDur, 0.6);
+          const sphScale = Math.max(1, Math.round(u * 0.6));
+          ctx!.save();
+          ctx!.globalCompositeOperation = "lighter";
+          for (const s of titleSparkles) {
+            const tw = Math.sin(timeSinceImpact * s.sp * 7 + s.ph * 2);
+            if (tw <= 0) continue;
+            const a = tw * tw * fade;
+            const x = Math.round(baseX + s.fx * totalW);
+            const y = Math.round(baseY + s.fy * (GH * u));
+            const r = sphScale;
+            ctx!.fillStyle = s.col;
+            ctx!.globalAlpha = a;
+            ctx!.fillRect(x - r, y, r * 2 + 1, 1);
+            ctx!.fillRect(x, y - r, 1, r * 2 + 1);
+            ctx!.globalAlpha = a * 0.8;
+            ctx!.fillRect(x - 1, y - 1, 2, 2);
+          }
+          ctx!.restore();
         }
-        ctx!.restore();
       }
 
       // Badge "98" en pop, en haut à droite du mot (taille proportionnelle à `u`)
@@ -877,9 +1139,12 @@ export function TitleCanvas({ onMenuReveal }: TitleCanvasProps) {
         const pop = (1 + badgeFlash * 0.16) * scl;
         const bScaleX = (1 + sq * 0.55) * pop;
         const bScaleY = (1 - sq) * pop;
-        const bRot = Math.max(-0.22, Math.min(0.22, badgeKnockV * 0.00048));
+        const badgeFloatFade = bp >= 1 ? Math.min(1, (elapsed - BADGE_AT - 0.4) / 0.7) : 0;
+        const badgeFloat = Math.sin(settledFor * Math.PI * 1.4 + 1.2) * 2.8 * badgeFloatFade;
+        const badgeIdleRot = Math.sin(settledFor * Math.PI * 1.0 + 2.0) * 0.022 * badgeFloatFade;
+        const bRot = Math.max(-0.22, Math.min(0.22, badgeKnockV * 0.00048)) + badgeIdleRot;
         const acx = bx + bW / 2;                 // centre horizontal
-        const aby = by + bH + badgeKnock;         // bord bas (ancre) + enfoncement
+        const aby = by + bH + badgeKnock + badgeFloat; // bord bas + enfoncement + flottement
 
         // Hitbox du badge (approx. axis-aligned, rotation ignorée)
         const hbW = bW * bScaleX;
@@ -908,48 +1173,235 @@ export function TitleCanvas({ onMenuReveal }: TitleCanvasProps) {
           }
         }
         ctx!.restore();
+
+        // ─── Glint « bling » sur le 98 ─────────────────────────────────────────
+        // Calé sur la fin du balayage du reflet, une étincelle éclate pile sur le
+        // coin haut-droit du badge : flash + anneau + étoile 8 branches qui claque,
+        // par-dessus le « 98 » (rendu après lui) → effet bijou. ✨
+        if (settledFor > 0 && badgeRect) {
+          const sweepDur = 0.42;
+          const glintAt = sweepDur * 0.74; // calé sur la fin du whoosh
+          const glintDur = 0.5;
+          const tt = elapsed - lastImpactT;
+          if (tt >= glintAt && tt < glintAt + glintDur) {
+            const gp = (tt - glintAt) / glintDur;                 // 0..1
+            // Attaque quasi-instantanée puis decay → claque sec et satisfaisant
+            const pop = Math.pow(1 - gp, 0.6);                    // pic immédiat, fond lent
+            const snap = Math.pow(1 - gp, 2.4);                   // cœur + anneau ultra-bref
+            // Coin haut-droit du badge
+            const gx = Math.round(badgeRect.x + badgeRect.w * 0.82);
+            const gy = Math.round(badgeRect.y + badgeRect.h * 0.16);
+            const arm = u * (4 + 9 * pop);                        // grandes branches
+            const thick = Math.max(1, Math.round(u * 0.7));
+
+            ctx!.save();
+            ctx!.globalCompositeOperation = "lighter";
+            ctx!.imageSmoothingEnabled = false;
+
+            // Halo rond chaud
+            const halo = ctx!.createRadialGradient(gx, gy, 0, gx, gy, arm);
+            halo.addColorStop(0, `rgba(255,255,255,${0.95 * pop})`);
+            halo.addColorStop(0.35, `rgba(255,235,160,${0.5 * pop})`);
+            halo.addColorStop(1, "rgba(255,210,90,0)");
+            ctx!.fillStyle = halo;
+            ctx!.fillRect(gx - arm, gy - arm, arm * 2, arm * 2);
+
+            // Étoile 8 branches : 4 cardinales longues + 4 diagonales courtes
+            const rays: [number, number, number][] = [
+              [1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1],
+              [0.7, 0.7, 0.5], [-0.7, 0.7, 0.5], [0.7, -0.7, 0.5], [-0.7, -0.7, 0.5],
+            ];
+            // Rotation stylée : spin continu + coup de boost pendant le pop
+            const spin = elapsed * 1.1 + (1 - pop) * 1.6;
+            const cs = Math.cos(spin), sn = Math.sin(spin);
+            ctx!.globalAlpha = pop;
+            for (const [dx, dy, len] of rays) {
+              const rx = dx * cs - dy * sn;   // direction tournée
+              const ry = dx * sn + dy * cs;
+              const ex = gx + rx * arm * len;
+              const ey = gy + ry * arm * len;
+              const gr = ctx!.createLinearGradient(gx, gy, ex, ey);
+              gr.addColorStop(0, "rgba(255,255,255,0.95)");
+              gr.addColorStop(1, "rgba(255,235,170,0)");
+              ctx!.strokeStyle = gr;
+              ctx!.lineWidth = Math.max(1, thick * len);
+              ctx!.beginPath();
+              ctx!.moveTo(gx, gy);
+              ctx!.lineTo(ex, ey);
+              ctx!.stroke();
+            }
+
+            // Anneau de choc qui se dilate puis s'efface
+            const ringR = u * (1.5 + 7 * gp);
+            ctx!.globalAlpha = snap * 0.8;
+            ctx!.strokeStyle = "rgba(255,245,200,1)";
+            ctx!.lineWidth = Math.max(1, Math.round(u * 0.4));
+            ctx!.beginPath();
+            ctx!.arc(gx, gy, ringR, 0, Math.PI * 2);
+            ctx!.stroke();
+
+            // Cœur blanc dense
+            const core = Math.max(1, Math.round(thick * (1 + snap)));
+            ctx!.globalAlpha = 1;
+            ctx!.fillStyle = "#ffffff";
+            ctx!.fillRect(gx - core, gy - core, core * 2 + 1, core * 2 + 1);
+
+            ctx!.restore();
+          }
+        }
       }
     }
 
     function drawBackdrop(elapsed: number) {
-      // Dégradé forêt sombre
+      const skyReveal = easeOutCubic(bgP(elapsed, 0.00, 0.38));
+
+      // Ciel nocturne — dégradé bleu nuit → horizon teal lumineux → sol forêt
       const g = ctx!.createLinearGradient(0, 0, 0, cssH);
-      g.addColorStop(0, "#0d2008");
-      g.addColorStop(0.5, "#0a1806");
-      g.addColorStop(1, "#040a02");
+      g.addColorStop(0,    "#020916");
+      g.addColorStop(0.22, "#051228");
+      g.addColorStop(0.46, "#07203c");
+      g.addColorStop(0.60, "#0b2b1f"); // horizon teal — les cimes se silhouettent dessus
+      g.addColorStop(0.73, "#062015");
+      g.addColorStop(0.86, "#040d04");
+      g.addColorStop(1,    "#020502");
+      ctx!.globalAlpha = skyReveal;
       ctx!.fillStyle = g;
       ctx!.fillRect(0, 0, cssW, cssH);
+      ctx!.globalAlpha = 1;
 
-      // Rayons de lumière diagonaux
+      // Étoiles — chacune pop à son propre moment avec un éclat pixel bref
       ctx!.save();
-      ctx!.globalCompositeOperation = "lighter";
-      for (let i = 0; i < 4; i++) {
-        const x = cssW * (0.2 + i * 0.22) + Math.sin(elapsed * 0.3 + i) * 12;
-        ctx!.globalAlpha = 0.03;
-        ctx!.fillStyle = "#aaff66";
-        ctx!.beginPath();
-        ctx!.moveTo(x, 0);
-        ctx!.lineTo(x + 40, 0);
-        ctx!.lineTo(x + 90, cssH);
-        ctx!.lineTo(x + 50, cssH);
-        ctx!.closePath();
-        ctx!.fill();
+      for (let si = 0; si < _stars.length; si++) {
+        const st   = _stars[si]!;
+        const popT = 0.04 + fhash(si * 13 + 88) * 0.54; // 0.04..0.58s, déterministe
+        const dt   = elapsed - popT;
+        if (dt < 0) continue;
+        const popP  = Math.min(1, dt / 0.20);
+        const flash = Math.max(0, 1 - dt / 0.10); // éclat très bref au pop
+        const tw = 0.3 + 0.7 * Math.abs(Math.sin(elapsed * st.speed + st.phase));
+        const sx = Math.round(st.nx * cssW);
+        const sy = Math.round(st.ny * cssH * 0.55);
+        const rFlash = st.r + Math.round(flash * 5); // rayon élargi à l'impact
+        ctx!.fillStyle = st.col;
+        ctx!.globalAlpha = Math.min(1, tw * st.bright * popP + flash * 2.8);
+        ctx!.fillRect(sx - (rFlash - st.r), sy - (rFlash - st.r), rFlash * 2, rFlash * 2);
+        if (flash < 0.01 && st.r > 1) {
+          ctx!.globalAlpha = tw * st.bright * 0.20 * popP;
+          ctx!.fillRect(sx - 1, sy - 1, st.r + 2, st.r + 2);
+        }
       }
       ctx!.restore();
 
-      // Lucioles
-      ctx!.save();
-      for (const f of fireflies) {
-        const fx = ((f.x + Math.sin(elapsed * f.speed + f.phase) * 0.04) % 1) * cssW;
-        const fy = (((f.y - elapsed * 0.012 * f.drift) % 1) + 1) % 1 * cssH;
-        const tw = 0.35 + 0.65 * Math.abs(Math.sin(elapsed * (1 + f.seed * 0.05) + f.phase));
-        ctx!.globalAlpha = tw * 0.8;
-        ctx!.fillStyle = C.firefly;
-        ctx!.fillRect(Math.round(fx), Math.round(fy), f.r, f.r);
-        ctx!.globalAlpha = tw * 0.18;
-        ctx!.fillRect(Math.round(fx) - 2, Math.round(fy) - 2, f.r + 4, f.r + 4);
+      // Lune — oscillation élastique (gonfle → rebondit → se stabilise) + bloom
+      {
+        const moonRevealP = bgP(elapsed, 0.14, 0.72); // plus long = rebonds visibles
+        if (moonRevealP > 0) {
+          const moonScale = easeOutElastic(moonRevealP); // 0→1.25→0.87→1.03→1.0
+          const moonAlpha = Math.min(1, moonRevealP * 6.0); // alpha rapide
+          // Bloom intense calé sur le premier pic d'overshoot (~p=0.10 = t+0.07s)
+          const bloom = Math.sin(bgP(elapsed, 0.14, 0.24) * Math.PI) * 1.1;
+
+          const pulse = 0.93 + 0.07 * Math.sin(elapsed * 0.38);
+          const moonX = cssW * 0.74;
+          const moonY = cssH * 0.15;
+          const moonR = Math.max(8, cssH * 0.056) * pulse;
+
+          ctx!.save();
+          ctx!.translate(moonX, moonY);
+          ctx!.scale(moonScale, moonScale);
+          ctx!.translate(-moonX, -moonY);
+
+          // Bloom additif au moment du scale-in
+          if (bloom > 0.01) {
+            ctx!.save();
+            ctx!.globalCompositeOperation = "lighter";
+            ctx!.globalAlpha = bloom * moonAlpha;
+            const bGlow = ctx!.createRadialGradient(moonX, moonY, 0, moonX, moonY, moonR * 5.5);
+            bGlow.addColorStop(0,   "rgba(200,220,255,1)");
+            bGlow.addColorStop(0.4, "rgba(140,180,255,0.35)");
+            bGlow.addColorStop(1,   "rgba(80,120,220,0)");
+            ctx!.fillStyle = bGlow;
+            ctx!.fillRect(moonX - moonR * 6, moonY - moonR * 6, moonR * 12, moonR * 12);
+            ctx!.restore();
+          }
+
+          // Halo permanent
+          const halo = ctx!.createRadialGradient(moonX, moonY, moonR * 0.5, moonX, moonY, moonR * 4.2);
+          halo.addColorStop(0,    "rgba(210,230,255,0.22)");
+          halo.addColorStop(0.32, "rgba(160,200,245,0.09)");
+          halo.addColorStop(1,    "rgba(100,150,220,0)");
+          ctx!.fillStyle = halo;
+          ctx!.globalAlpha = moonAlpha;
+          ctx!.fillRect(moonX - moonR * 5, moonY - moonR * 5, moonR * 10, moonR * 10);
+
+          // Disque nacré
+          ctx!.beginPath();
+          ctx!.arc(moonX, moonY, moonR, 0, Math.PI * 2);
+          ctx!.fillStyle = "#d5e8f8";
+          ctx!.fill();
+
+          // Cratères
+          ctx!.globalAlpha = 0.13 * moonAlpha;
+          ctx!.fillStyle = "#587898";
+          ctx!.fillRect(Math.round(moonX - moonR * 0.28), Math.round(moonY - moonR * 0.1), Math.round(moonR * 0.36), Math.round(moonR * 0.26));
+          ctx!.fillRect(Math.round(moonX + moonR * 0.18), Math.round(moonY + moonR * 0.22), Math.round(moonR * 0.22), Math.round(moonR * 0.17));
+
+          // ─── Catchlight : éclat permanent (halo + étoile 8 branches qui tourne) ─
+          {
+            const shinePop  = 0.55 + 0.45 * Math.sin(elapsed * 1.4);  // pulsation douce
+            const shineSpin = elapsed * 0.28;                           // rotation lente
+            const gx  = moonX + moonR * 0.36;
+            const gy  = moonY - moonR * 0.40;
+            const arm = moonR * (0.50 + 0.30 * shinePop);
+            const core = Math.max(1, Math.round(moonR * 0.07));
+
+            ctx!.save();
+            ctx!.globalCompositeOperation = "lighter";
+
+            // Halo doux autour du catchlight
+            ctx!.globalAlpha = moonAlpha * shinePop * 0.55;
+            const sg = ctx!.createRadialGradient(gx, gy, 0, gx, gy, arm * 1.6);
+            sg.addColorStop(0,   "rgba(255,255,255,0.8)");
+            sg.addColorStop(0.5, "rgba(200,230,255,0.2)");
+            sg.addColorStop(1,   "rgba(180,220,255,0)");
+            ctx!.fillStyle = sg;
+            ctx!.fillRect(gx - arm * 1.7, gy - arm * 1.7, arm * 3.4, arm * 3.4);
+
+            // Étoile 8 branches (4 longues + 4 courtes en diagonale)
+            const rays: [number, number, number][] = [
+              [1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1],
+              [0.707, 0.707, 0.45], [-0.707, 0.707, 0.45], [0.707, -0.707, 0.45], [-0.707, -0.707, 0.45],
+            ];
+            const cs = Math.cos(shineSpin), sn = Math.sin(shineSpin);
+            ctx!.globalAlpha = moonAlpha * shinePop;
+            for (const [dx, dy, len] of rays) {
+              const rx = dx * cs - dy * sn;
+              const ry = dx * sn + dy * cs;
+              const ex = gx + rx * arm * len;
+              const ey = gy + ry * arm * len;
+              const gr = ctx!.createLinearGradient(gx, gy, ex, ey);
+              gr.addColorStop(0, "rgba(255,255,255,0.95)");
+              gr.addColorStop(1, "rgba(200,230,255,0)");
+              ctx!.strokeStyle = gr;
+              ctx!.lineWidth = Math.max(1, Math.round(moonR * 0.05 * len));
+              ctx!.beginPath();
+              ctx!.moveTo(gx, gy);
+              ctx!.lineTo(ex, ey);
+              ctx!.stroke();
+            }
+
+            // Cœur pixel blanc dense
+            ctx!.globalAlpha = moonAlpha;
+            ctx!.fillStyle = "#ffffff";
+            ctx!.fillRect(Math.round(gx) - core, Math.round(gy) - core, core * 2 + 1, core * 2 + 1);
+
+            ctx!.restore();
+          }
+
+          ctx!.restore();
+        }
       }
-      ctx!.restore();
+
     }
 
     function drawVignette() {
@@ -963,12 +1415,14 @@ export function TitleCanvas({ onMenuReveal }: TitleCanvasProps) {
     function frame(now: number) {
       syncSize();
       if (!startT) {
-        startT = now;
+        // Si skipIntro, on démarre directement en état idle (après toutes les animations d'intro)
+        startT = skipIntroRef.current ? now - (MENU_AT + 0.2) * 1000 : now;
         prevMs = now;
       }
       const dt = Math.min(0.05, (now - prevMs) / 1000);
       prevMs = now;
       const elapsed = (now - startT) / 1000;
+      currentElapsed = elapsed;
 
       // shake
       trauma = Math.max(0, trauma - dt * 2.2);
@@ -1021,6 +1475,9 @@ export function TitleCanvas({ onMenuReveal }: TitleCanvasProps) {
       ctx!.save();
       ctx!.clearRect(0, 0, cssW, cssH);
       drawBackdrop(elapsed);
+      updateAndDrawShootingStars(elapsed, dt);
+      drawForest(elapsed);
+      drawFireflies(elapsed);
       ctx!.translate(sx, sy);
       drawEagle(elapsed);
       updateAndDrawEggs(dt);
