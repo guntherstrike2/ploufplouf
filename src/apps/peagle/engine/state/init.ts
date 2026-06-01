@@ -66,6 +66,7 @@ export function makeInitialState(
     launcherGrab: 0,
 
     stars: makeStars(),
+    birds: [],
     turnScoreStart: 0,
     orangeLeft,
 

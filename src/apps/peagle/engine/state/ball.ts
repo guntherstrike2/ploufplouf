@@ -8,6 +8,7 @@ import type { GameEvent } from "../events";
 import { PEG_KINDS } from "../peg-kinds";
 import { circleCollide } from "../physics";
 import { spawnParticles, spawnImpactRing } from "./effects";
+import { spawnBirds } from "./birds";
 
 // ─── Exclamations « hype » à thème aigle / œuf ───────────────────────────────
 // Escalade par paliers de combo : plus la chaîne est longue, plus le mot est
@@ -133,6 +134,8 @@ export function processBallPhysics(
       if (def.destructible) {
         // Pop : le peg disparaît.
         p.hit = true; p.popping = true; p.popAlpha = BALANCE.peg.popStartAlpha; p.scale = BALANCE.peg.popStartScale;
+        // Easter egg « peagle » : chaque peg éclaté envoie un oiseau dans le ciel.
+        spawnBirds(s);
         if (def.isTarget) {
           s.orangeLeft = Math.max(0, s.orangeLeft - 1);
           // Dernière cible → punch (freeze d'impact appuyé) puis ralenti dramatique

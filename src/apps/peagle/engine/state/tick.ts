@@ -4,6 +4,7 @@ import type { GameEvent } from "../events";
 import { updateBucket } from "./bucket";
 import { updatePegAnimations } from "./pegs";
 import { updateParticles } from "./particles";
+import { updateBirds } from "./birds";
 import { processBallPhysics } from "./ball";
 import { endOfTurn } from "./turn";
 
@@ -28,6 +29,10 @@ export function tick(s: GameState): TickResult {
     s.launcherVx = 0;
   }
   s.launcherGrab += ((s.launcherDragging ? 1 : 0) - s.launcherGrab) * 0.2;
+
+  // Oiseaux easter egg : ambiance décorative — volent toujours, même pendant le
+  // hit-freeze ou le ralenti, pour ne jamais se figer en plein ciel.
+  updateBirds(s, 1);
 
   // Hit freeze : fige la physique, anime seulement les scales de pegs
   if (s.hitFreezeFrames > 0) {

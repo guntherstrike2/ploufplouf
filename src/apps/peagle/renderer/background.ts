@@ -61,13 +61,6 @@ const FEVER_STARS = [
   { x: 110, y: 120, s: 1 }, { x: 270, y: 110, s: 2 }, { x: 360, y: 130, s: 1 },
 ] as const;
 
-// Oiseaux qui traversent le ciel en forêt
-const FORET_BIRDS = [
-  { y: 52, speed: 25, period: 28, offset: 0  },
-  { y: 38, speed: 36, period: 22, offset: 8  },
-  { y: 70, speed: 20, period: 34, offset: 16 },
-] as const;
-
 // ═══════════════════════════════════════════════════════════════════════════
 // ─── ABÎME data ──────────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════
@@ -638,24 +631,43 @@ function drawGlaceAurora(ctx: CanvasRenderingContext2D, animClock: number, fever
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ─── FORÊT — oiseaux ─────────────────────────────────────────────────────
+// ─── Easter egg : oiseaux déclenchés par les impacts de pegs ──────────────
 // ═══════════════════════════════════════════════════════════════════════════
+//
+// Clin d'œil « peagle » : chaque peg touché peut faire surgir un oiseau (cf.
+// engine/state/birds.ts). Silhouette pixel scalable, ailes battantes, avec un
+// liséré clair en bout d'aile pour rester lisible sur ciel clair comme sombre.
 
-function drawBirdPixel(ctx: CanvasRenderingContext2D, x: number, y: number, wingPhase: number): void {
-  const wo = Math.round(Math.sin(wingPhase) * 2);
-  ctx.fillRect(Math.round(x - 4), y + wo, 3, 1);
-  ctx.fillRect(Math.round(x),     y,      2, 2);
-  ctx.fillRect(Math.round(x + 2), y + wo, 3, 1);
+function drawFlyingBird(
+  ctx: CanvasRenderingContext2D,
+  x: number, y: number, wingPhase: number, scale: number, tint: string,
+): void {
+  const span = Math.max(3, Math.round(7 * scale));
+  const lift = Math.sin(wingPhase) * 3 * scale;   // battement : pointes haut/bas
+  const px   = Math.round(x), py = Math.round(y);
+  const th   = Math.max(1, Math.round(scale));     // épaisseur du trait d'aile
+
+  // Corps
+  ctx.fillStyle = tint;
+  ctx.fillRect(px - 1, py - 1, 3, 2);
+
+  // Ailes : escalier pixel des deux côtés, pointes d'autant plus mobiles
+  for (let i = 1; i <= span; i++) {
+    const off = Math.round(lift * (i / span));
+    ctx.fillRect(px - i, py - off, 1, th);
+    ctx.fillRect(px + i, py - off, 1, th);
+  }
+
+  // Liseré clair sur les pointes d'ailes → glint lisible quel que soit le fond
+  ctx.fillStyle = "rgba(255,245,215,0.5)";
+  const tip = Math.round(lift);
+  ctx.fillRect(px - span, py - tip - 1, 1, 1);
+  ctx.fillRect(px + span, py - tip - 1, 1, 1);
 }
 
-function drawForetBirds(ctx: CanvasRenderingContext2D, s: GameState, feverMode: boolean): void {
-  if (feverMode) return;
-  ctx.fillStyle = "#0a2a06";
-  for (const bird of FORET_BIRDS) {
-    const t = (s.animClock + bird.offset) % bird.period;
-    const x = t * bird.speed - 10;
-    if (x < -10 || x > W + 10) continue;
-    drawBirdPixel(ctx, x, bird.y, s.animClock * 6 + bird.offset);
+function drawBgBirds(ctx: CanvasRenderingContext2D, s: GameState): void {
+  for (const b of s.birds) {
+    drawFlyingBird(ctx, b.x, b.y, b.wingPhase, b.scale, b.tint);
   }
 }
 
@@ -1189,8 +1201,6 @@ function drawForetLayers(
       ctx.drawImage(L.canvas, Math.round(ex), Math.round(ey));
     }
 
-    // Insertion d'éléments animés au bon niveau de profondeur
-    if (i === 3) drawForetBirds(ctx, s, feverMode);      // derrière les arbres proches
   }
 
   // Scanlines CRT, fixées à l'écran (contre-translation complète du shake)
@@ -1230,4 +1240,7 @@ export function drawBackground(
 
   // Lucioles (Forêt uniquement)
   if (theme.bg.hasFireflies) drawFireflies(ctx, s, feverMode);
+
+  // Easter egg : oiseaux déclenchés par les impacts de pegs (clin d'œil peagle)
+  if (s.birds.length > 0) drawBgBirds(ctx, s);
 }

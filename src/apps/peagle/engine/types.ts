@@ -74,6 +74,19 @@ export interface Star {
   phase: number;
 }
 
+// Easter egg « peagle » : chaque peg touché peut faire surgir un oiseau qui
+// traverse le ciel en battant des ailes. Transient — vit le temps d'une
+// traversée d'écran, puis est retiré.
+export interface BgBird {
+  x: number;
+  y: number;
+  vx: number;        // px/frame ; le signe donne la direction de vol
+  wingPhase: number;
+  flap: number;      // vitesse de battement d'ailes
+  scale: number;
+  tint: string;
+}
+
 // Onde de choc dessinée par-dessus le décor à chaque impact de peg : un anneau
 // carré pixel-art qui se propage vers l'extérieur en s'estompant → le décor
 // « ressent » l'impact.
@@ -121,6 +134,7 @@ export interface GameState {
   launcherGrab: number;     // 0..1 anim de saisie (pop + lueur)
 
   stars: Star[];
+  birds: BgBird[];
   turnScoreStart: number;
   orangeLeft: number;
 
