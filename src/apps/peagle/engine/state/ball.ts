@@ -7,7 +7,7 @@ import type { GameState, Ball } from "../types";
 import type { GameEvent } from "../events";
 import { PEG_KINDS } from "../peg-kinds";
 import { circleCollide } from "../physics";
-import { spawnParticles, spawnImpactRing } from "./effects";
+import { spawnParticles, spawnImpactRing, spawnLeafBurst } from "./effects";
 import { spawnBirds } from "./birds";
 
 // ─── Exclamations « hype » à thème aigle / œuf ───────────────────────────────
@@ -129,6 +129,7 @@ export function processBallPhysics(
       if (def.trauma > 0) s.trauma = Math.min(1, s.trauma + def.trauma * visualMult);
       if (def.flash > 0) s.flashWhite = Math.max(s.flashWhite, def.flash);
       spawnParticles(s, p.x, p.y, def.hotParticles, Math.round(def.particles * visualMult));
+      spawnLeafBurst(s, p.x, p.y, 3 + Math.round(comboBoost * 5));
 
       // Bounce & juice : l'œuf s'écrase à l'impact, une onde de choc se propage
       // dans le décor et le fond pulse (cible orange = réaction la plus forte).

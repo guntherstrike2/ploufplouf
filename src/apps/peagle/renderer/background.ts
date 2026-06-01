@@ -64,6 +64,20 @@ const FIREFLY_POS = [
   { x: 45,  y: 260 }, { x: 410, y: 200 }, { x: 190, y: 280 }, { x: 270, y: 100 },
 ] as const;
 
+// Feuilles ambiantes qui dérivent dans le vent (forêt uniquement)
+const AMBIENT_LEAVES = (() => {
+  const rnd = makePrng(0x1eaf7a11);
+  const COLS = ["#4ab832", "#7acc44", "#aadd22", "#c4cc22", "#88bb33", "#55cc44"] as const;
+  return Array.from({ length: 24 }, () => ({
+    x:      Math.round(rnd() * W),
+    speedY: 0.16 + rnd() * 0.38,
+    drift:  (rnd() - 0.5) * 2.8,
+    phase:  rnd() * Math.PI * 2,
+    sz:     rnd() < 0.38 ? 3 : 2,
+    col:    COLS[Math.floor(rnd() * COLS.length)]!,
+  }));
+})();
+
 const FEVER_STARS = [
   { x: 30,  y: 20,  s: 2 }, { x: 80,  y: 45,  s: 1 }, { x: 130, y: 15,  s: 2 },
   { x: 190, y: 55,  s: 1 }, { x: 240, y: 25,  s: 2 }, { x: 300, y: 50,  s: 1 },
@@ -225,6 +239,64 @@ function drawPixelTree(
     const layerX = Math.round(baseX - layerW / 2);
     ctx.fillRect(layerX, Math.round(layerY + layerH - 3), layerW, 3);
   }
+}
+
+// Arbre feuillu à canopée ronde — style chêne / hêtre
+function drawRoundTree(
+  ctx: Ctx2D,
+  baseX: number, baseY: number,
+  trunkW: number, trunkH: number,
+  crownR: number,
+  leafColor: string, leafHi: string, leafShade: string, trunkColor: string,
+): void {
+  const tx = Math.round(baseX - trunkW / 2);
+  const crownCY = Math.round(baseY - trunkH - crownR * 0.72);
+  ctx.fillStyle = trunkColor;
+  ctx.fillRect(tx, Math.round(baseY - trunkH), trunkW, trunkH);
+  ctx.fillStyle = "rgba(255,200,100,0.10)";
+  ctx.fillRect(tx, Math.round(baseY - trunkH), 1, trunkH);
+  for (let dy = -crownR; dy <= crownR; dy++) {
+    const hw = Math.round(Math.sqrt(Math.max(0, crownR * crownR - dy * dy)));
+    if (hw === 0) continue;
+    const t = (dy + crownR) / (crownR * 2);
+    ctx.fillStyle = t < 0.22 ? leafHi : t > 0.72 ? leafShade : leafColor;
+    ctx.fillRect(Math.round(baseX - hw), Math.round(crownCY + dy), hw * 2, 1);
+  }
+  // Reflet diffus au sommet
+  ctx.fillStyle = "rgba(180,255,140,0.22)";
+  const hiR = Math.round(crownR * 0.30);
+  ctx.fillRect(Math.round(baseX - hiR * 1.3), crownCY - crownR + 2, Math.round(hiR * 2.4), 3);
+}
+
+// Champignon pixel (chapeau rouge à pois blancs)
+function drawMushroom(ctx: Ctx2D, cx: number, baseY: number, size: number): void {
+  const stemH = Math.max(3, Math.round(size * 0.65));
+  const capR  = size;
+  ctx.fillStyle = "#e0c898";
+  ctx.fillRect(Math.round(cx - 1), baseY - stemH, 2, stemH);
+  for (let dy = 0; dy <= capR; dy++) {
+    const t  = dy / capR;
+    const hw = Math.round(capR * Math.sin(t * Math.PI * 0.5) * 1.5);
+    if (hw === 0) continue;
+    ctx.fillStyle = dy < Math.round(capR * 0.35) ? "#dd4433" : "#cc3322";
+    ctx.fillRect(Math.round(cx - hw), baseY - stemH - capR + dy, hw * 2, 1);
+  }
+  ctx.fillStyle = "rgba(255,255,255,0.72)";
+  ctx.fillRect(Math.round(cx - 2), baseY - stemH - capR + 2, 2, 2);
+  if (capR > 5) ctx.fillRect(Math.round(cx + 2), baseY - stemH - capR + 4, 1, 1);
+}
+
+// Fleur pixel — tige verte + 4 pétales + cœur jaune
+function drawFlower(ctx: Ctx2D, cx: number, baseY: number, color: string): void {
+  ctx.fillStyle = "#3a8030";
+  ctx.fillRect(Math.round(cx), baseY - 5, 1, 5);
+  ctx.fillStyle = color;
+  ctx.fillRect(Math.round(cx - 1), baseY - 7, 3, 1);
+  ctx.fillRect(Math.round(cx - 1), baseY - 5, 3, 1);
+  ctx.fillRect(Math.round(cx - 2), baseY - 6, 1, 1);
+  ctx.fillRect(Math.round(cx + 2), baseY - 6, 1, 1);
+  ctx.fillStyle = "#ffee88";
+  ctx.fillRect(Math.round(cx), baseY - 6, 1, 1);
 }
 
 // Triangle de montagne (utilisé pour Enfer)
@@ -845,7 +917,7 @@ function buildStaticBg(feverMode: boolean, bg: BgTheme, themeId: string): OffCan
   const CW = W + BG_PAD * 2;
   const CH = H + BG_PAD * 2;
   const canvas = makeOffscreen(CW, CH);
-  const ctx = canvas.getContext("2d")!;
+  const ctx = canvas.getContext("2d") as Ctx2D;
   ctx.translate(BG_PAD, BG_PAD);
 
   const skyRows = 12;
@@ -988,16 +1060,16 @@ function foretPalette(feverMode: boolean, bg: BgTheme): ForetPalette {
 // Crée un canvas de couche dont (0,0) local = coin haut-gauche visible.
 function makeLayerCanvas(): { canvas: OffCanvas; ctx: Ctx2D } {
   const canvas = makeOffscreen(CW_L, CH_L);
-  const ctx = canvas.getContext("2d")!;
+  const ctx = canvas.getContext("2d") as Ctx2D;
   ctx.translate(LAYER_MARGIN, VPAD);
   return { canvas, ctx };
 }
 
 // ─── Générateurs de couches (déterministes via PRNG) ─────────────────────────
 
-function buildForetSky(pal: ForetPalette): OffCanvas {
+function buildForetSky(pal: ForetPalette, feverMode: boolean): OffCanvas {
   const { canvas, ctx } = makeLayerCanvas();
-  const rows = 16;
+  const rows = 22;
   const rowH = Math.ceil(H / rows);
   for (let r = 0; r < rows; r++) {
     const t = r / rows;
@@ -1008,6 +1080,38 @@ function buildForetSky(pal: ForetPalette): OffCanvas {
     const y = r === 0 ? -VPAD : r * rowH;
     const h = r === 0 ? rowH + VPAD + 1 : rowH + 1;
     ctx.fillRect(LX0, y, CW_L, h);
+  }
+
+  if (!feverMode) {
+    // Rayons de soleil baked — cônes lumineux qui traversent la canopée.
+    // Tracés en aller/retour perpendiculaire à chaque rayon pour éviter
+    // les trous entre pixels diagonaux.
+    const sx = SUN_X, sy = SUN_Y;
+    const RAY_DEFS = [
+      { a: Math.PI * 0.56, hw0: 12, len: 270, alpha: 0.052 },
+      { a: Math.PI * 0.65, hw0: 20, len: 320, alpha: 0.065 },
+      { a: Math.PI * 0.74, hw0: 16, len: 290, alpha: 0.048 },
+      { a: Math.PI * 0.83, hw0: 24, len: 350, alpha: 0.060 },
+      { a: Math.PI * 0.92, hw0: 13, len: 330, alpha: 0.044 },
+      { a: Math.PI * 1.06, hw0: 19, len: 390, alpha: 0.055 },
+    ] as const;
+    for (const ray of RAY_DEFS) {
+      const cosA = Math.cos(ray.a), sinA = Math.sin(ray.a);
+      const perpX = -sinA, perpY = cosA;
+      for (let d = 10; d < ray.len; d += 1) {
+        const t = d / ray.len;
+        const a = (1 - t) * (1 - t) * ray.alpha;
+        if (a < 0.002) continue;
+        const cx = sx + cosA * d;
+        const cy = sy + sinA * d;
+        if (cy > GROUND_Y || cy < -VPAD) continue;
+        const hw = Math.max(1, Math.round(ray.hw0 * (1 - t * 0.86)));
+        ctx.fillStyle = `rgba(255,238,160,${a.toFixed(3)})`;
+        for (let i = -hw; i <= hw; i++) {
+          ctx.fillRect(Math.round(cx + perpX * i), Math.round(cy + perpY * i), 1, 1);
+        }
+      }
+    }
   }
   return canvas;
 }
@@ -1047,48 +1151,84 @@ function fillHills(
   }
 }
 
-function buildForetHills(pal: ForetPalette): OffCanvas {
+function buildForetHills(pal: ForetPalette, feverMode: boolean): OffCanvas {
   const { canvas, ctx } = makeLayerCanvas();
-  fillHills(ctx, GROUND_Y - 72, 18, 0.012, 1.3, pal.hillFar);
-  fillHills(ctx, GROUND_Y - 42, 14, 0.018, 4.1, pal.hillNear);
+  // 3 couches de collines pour plus de profondeur
+  const midColor = feverMode ? "#10102a" : "#88e8b0";
+  fillHills(ctx, GROUND_Y - 100, 22, 0.009, 2.7, pal.hillFar);
+  fillHills(ctx, GROUND_Y - 72,  18, 0.013, 1.3, midColor);
+  fillHills(ctx, GROUND_Y - 40,  14, 0.019, 4.1, pal.hillNear);
   return canvas;
 }
 
 function buildForetFarTrees(pal: ForetPalette): OffCanvas {
   const { canvas, ctx } = makeLayerCanvas();
   const rnd = makePrng(0xa17e3f01);
-  for (let x = LX0; x < RX1; x += 9 + Math.floor(rnd() * 8)) {
-    const h = 38 + Math.floor(rnd() * 46);
-    const w = 13 + Math.floor(rnd() * 14);
-    for (let dy = 0; dy < h; dy++) {
-      const t  = dy / h;
-      const hw = Math.max(1, Math.round((w / 2) * Math.sin((1 - t) * Math.PI * 0.5)));
+  for (let x = LX0; x < RX1; x += 7 + Math.floor(rnd() * 7)) {
+    const h = 40 + Math.floor(rnd() * 52);
+    const w = 12 + Math.floor(rnd() * 16);
+    const isRound = rnd() > 0.55; // ~45% arbres feuillus
+    if (isRound) {
+      // Canopée ronde en silhouette
+      const cr = Math.round(w * 0.72);
+      const cy = GROUND_Y - h + cr;
+      for (let dy = -cr; dy <= cr; dy++) {
+        const hw = Math.round(Math.sqrt(Math.max(0, cr * cr - dy * dy)));
+        if (hw === 0) continue;
+        ctx.fillStyle = pal.forestSil;
+        ctx.fillRect(x - hw, cy + dy, hw * 2, 1);
+      }
+      // Tronc
       ctx.fillStyle = pal.forestSil;
-      ctx.fillRect(x - hw, GROUND_Y - h + dy, hw * 2, 1);
+      ctx.fillRect(x - 2, cy + cr - 2, 4, h - cr * 2 + 2);
+    } else {
+      // Conifère/sapin en silhouette
+      for (let dy = 0; dy < h; dy++) {
+        const t  = dy / h;
+        const hw = Math.max(1, Math.round((w / 2) * Math.sin((1 - t) * Math.PI * 0.52)));
+        ctx.fillStyle = pal.forestSil;
+        ctx.fillRect(x - hw, GROUND_Y - h + dy, hw * 2, 1);
+      }
     }
     ctx.fillStyle = pal.forestSilHi;
     ctx.fillRect(x - 1, GROUND_Y - h, 2, 3);
   }
   // Bande de base pour souder la ligne d'arbres
   ctx.fillStyle = pal.forestSil;
-  ctx.fillRect(LX0, GROUND_Y - 14, CW_L, 20);
+  ctx.fillRect(LX0, GROUND_Y - 16, CW_L, 22);
   return canvas;
 }
 
 function buildForetMidTrees(feverMode: boolean): OffCanvas {
   const { canvas, ctx } = makeLayerCanvas();
   const rnd = makePrng(0xbada55e1);
-  const greens = ["#36c46a", "#2fb088", "#46cc54", "#22b89a"] as const;
+  const coniferGreens   = ["#36c46a", "#2fb088", "#46cc54", "#22b89a", "#5edd6a", "#2acc80"] as const;
+  const deciduousGreens = ["#3acc60", "#55dd70", "#28b855", "#44cc5a", "#6aee78", "#38d468"] as const;
   let x = LX0 + 10;
   while (x < RX1) {
-    const tw   = 6 + Math.floor(rnd() * 4);
-    const th   = 8 + Math.floor(rnd() * 6);
-    const cw   = 22 + Math.floor(rnd() * 14);
-    const ch   = 32 + Math.floor(rnd() * 20);
-    const leaf = feverMode ? "#0c0c30" : greens[Math.floor(rnd() * greens.length)]!;
+    const tw    = 6 + Math.floor(rnd() * 4);
+    const th    = 8 + Math.floor(rnd() * 6);
+    const cw    = 22 + Math.floor(rnd() * 14);
+    const ch    = 32 + Math.floor(rnd() * 20);
     const trunk = feverMode ? "#050510" : "#4a3012";
-    drawPixelTree(ctx, x, GROUND_Y, tw, th, cw, ch, leaf, trunk);
-    x += 40 + Math.floor(rnd() * 36);
+
+    if (!feverMode && rnd() > 0.50) {
+      // Arbre feuillu à canopée ronde
+      const crownR = 14 + Math.floor(rnd() * 12);
+      const leaf   = deciduousGreens[Math.floor(rnd() * deciduousGreens.length)]!;
+      drawRoundTree(ctx, x, GROUND_Y, tw, th + 4, crownR, leaf, "#88ff88", "#1a7a40", trunk);
+    } else {
+      const leaf = feverMode ? "#0c0c30" : coniferGreens[Math.floor(rnd() * coniferGreens.length)]!;
+      drawPixelTree(ctx, x, GROUND_Y, tw, th, cw, ch, leaf, trunk);
+    }
+
+    // Champignon au pied de l'arbre (20% de chance, jamais en fièvre)
+    if (!feverMode && rnd() > 0.80) {
+      const mx = x + Math.round((rnd() - 0.5) * 20);
+      drawMushroom(ctx, mx, GROUND_Y, 3 + Math.floor(rnd() * 4));
+    }
+
+    x += 38 + Math.floor(rnd() * 34);
   }
   return canvas;
 }
@@ -1097,13 +1237,31 @@ function buildForetGround(feverMode: boolean, bg: BgTheme): OffCanvas {
   const { canvas, ctx } = makeLayerCanvas();
   ctx.fillStyle = feverMode ? bg.groundColorFever : bg.groundColor;
   ctx.fillRect(LX0, GROUND_Y, CW_L, CH_L);
-  // Herbe
-  ctx.fillStyle = feverMode ? bg.subGroundColorFever : bg.subGroundColor;
-  for (let gx = LX0; gx < RX1; gx += 4) {
-    const h = 2 + (Math.round(gx * 7 + gx * 3) % 5);
+
+  // Herbe variée — hauteur et couleur légèrement différentes par touffes
+  const grassCols = feverMode
+    ? [bg.subGroundColorFever]
+    : [bg.subGroundColor, "#45b530", "#3aaa28", "#50c040", "#38a825"] as const;
+  const rndG = makePrng(0x60077a55);
+  for (let gx = LX0; gx < RX1; gx += 3) {
+    const h  = 2 + (Math.round(gx * 7 + gx * 3) % 6);
+    const gc = grassCols[Math.floor(rndG() * grassCols.length)]!;
+    ctx.fillStyle = gc;
     ctx.fillRect(gx, GROUND_Y - h, 2, h);
   }
+  ctx.fillStyle = feverMode ? bg.subGroundColorFever : bg.subGroundColor;
   ctx.fillRect(LX0, GROUND_Y + 10, CW_L, CH_L);
+
+  // Fleurs dispersées dans l'herbe (pas en mode fièvre)
+  if (!feverMode) {
+    const FLOWER_COLS = ["#ff5588", "#ffaa22", "#ff88dd", "#ffffff", "#aaddff", "#ffcc44"] as const;
+    const rndF = makePrng(0xf10e7e44);
+    for (let gx = LX0 + 20; gx < RX1 - 20; gx += 22 + Math.floor(rndF() * 32)) {
+      const fc = FLOWER_COLS[Math.floor(rndF() * FLOWER_COLS.length)]!;
+      drawFlower(ctx, gx + Math.round((rndF() - 0.5) * 12), GROUND_Y, fc);
+    }
+  }
+
   // Brume au sol (deux profondeurs)
   ctx.fillStyle = feverMode ? bg.mistColorFever : bg.mistColor;
   ctx.fillRect(LX0, GROUND_Y - 8, CW_L, 16);
@@ -1137,9 +1295,33 @@ function buildForetForeground(feverMode: boolean): OffCanvas {
   const { canvas, ctx } = makeLayerCanvas();
   const dark   = feverMode ? "#04040c" : "#0e3a2c";
   const darkHi = feverMode ? "#0a0a1e" : "#1c6048";
-  drawFernBush(ctx, LX0 + 34,  GROUND_Y + 6,  72, dark, darkHi);
-  drawFernBush(ctx, W * 0.5,   GROUND_Y + 14, 50, dark, darkHi);
-  drawFernBush(ctx, RX1 - 40,  GROUND_Y + 6,  80, dark, darkHi);
+  const mid    = feverMode ? "#060614" : "#175438";
+  const midHi  = feverMode ? "#0c0c22" : "#267050";
+
+  // Fougères à différentes profondeurs — plus variées qu'avant
+  drawFernBush(ctx, LX0 + 34,   GROUND_Y + 6,  80, dark,  darkHi);
+  drawFernBush(ctx, LX0 + 148,  GROUND_Y + 10, 58, mid,   midHi);
+  drawFernBush(ctx, W * 0.42,   GROUND_Y + 14, 52, dark,  darkHi);
+  drawFernBush(ctx, W * 0.58,   GROUND_Y + 8,  64, mid,   midHi);
+  drawFernBush(ctx, RX1 - 148,  GROUND_Y + 12, 56, mid,   midHi);
+  drawFernBush(ctx, RX1 - 36,   GROUND_Y + 6,  88, dark,  darkHi);
+
+  if (!feverMode) {
+    // Fleurs en avant-plan — couleurs plus vives que les fleurs d'herbe
+    const FORE_FLOWERS = [
+      { x: LX0 + 72,  c: "#ffaa22" }, { x: LX0 + 210, c: "#ff5588" },
+      { x: W * 0.28,  c: "#aaddff" }, { x: W * 0.50,  c: "#ffcc44" },
+      { x: W * 0.62,  c: "#ff88dd" }, { x: RX1 - 170, c: "#ff5588" },
+      { x: RX1 - 68,  c: "#ffcc44" },
+    ] as const;
+    for (const f of FORE_FLOWERS) drawFlower(ctx, f.x, GROUND_Y + 1, f.c);
+
+    // Champignons décoratifs au pied des fougères
+    drawMushroom(ctx, LX0 + 108, GROUND_Y - 1, 6);
+    drawMushroom(ctx, W * 0.73,  GROUND_Y - 1, 5);
+    drawMushroom(ctx, RX1 - 100, GROUND_Y - 1, 7);
+  }
+
   return canvas;
 }
 
@@ -1154,6 +1336,36 @@ function sunBob(animClock: number): number {
   return Math.sin(animClock * 1.1) * 1.5;
 }
 
+// Feuilles ambiantes qui dérivent doucement dans le vent — vie permanente de la forêt.
+function drawAmbientLeaves(ctx: CanvasRenderingContext2D, s: GameState, feverMode: boolean): void {
+  for (let i = 0; i < AMBIENT_LEAVES.length; i++) {
+    const lf = AMBIENT_LEAVES[i]!;
+    const rawY = (lf.phase / (Math.PI * 2) * (H + 50) + lf.speedY * s.animClock * 28) % (H + 60);
+    const y    = Math.round(rawY) - 20;
+    if (y > GROUND_Y - 28 || y < -10) continue;
+    const sway = Math.sin(s.animClock * 0.52 + lf.phase * 1.4) * 38 * (Math.abs(lf.drift) / 2.8);
+    const x    = Math.round((lf.x + sway + W * 5) % W);
+    const twinkle = 0.22 + 0.78 * Math.abs(Math.sin(s.animClock * 0.55 + i * 0.73));
+
+    if (feverMode) {
+      ctx.globalAlpha = twinkle * 0.11;
+      ctx.fillStyle = "#7733cc";
+    } else {
+      ctx.globalAlpha = twinkle * 0.52;
+      ctx.fillStyle = lf.col;
+    }
+    ctx.fillRect(x, y, lf.sz, lf.sz);
+
+    // Petite tige sous la feuille — donne un rendu pixel-art plus lisible
+    if (lf.sz > 2 && !feverMode) {
+      ctx.globalAlpha = twinkle * 0.22;
+      ctx.fillStyle = "#2a7818";
+      ctx.fillRect(x + 1, y + lf.sz, 1, 2);
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
 // ─── Cache des couches + scanlines ───────────────────────────────────────────
 
 let _foretCache: { key: string; layers: ForetLayer[]; pal: ForetPalette } | null = null;
@@ -1163,9 +1375,9 @@ function getForetLayers(feverMode: boolean, bg: BgTheme): { layers: ForetLayer[]
   if (_foretCache === null || _foretCache.key !== key) {
     const pal = foretPalette(feverMode, bg);
     const layers: ForetLayer[] = [
-      { canvas: buildForetSky(pal),              parallax: 0,    shakeF: 0.10, drift: 0, tiled: false },
+      { canvas: buildForetSky(pal, feverMode),   parallax: 0,    shakeF: 0.10, drift: 0, tiled: false },
       { canvas: buildForetClouds(pal),           parallax: 0.04, shakeF: 0.10, drift: 5, tiled: true  },
-      { canvas: buildForetHills(pal),            parallax: 0.12, shakeF: 0.20, drift: 0, tiled: false },
+      { canvas: buildForetHills(pal, feverMode), parallax: 0.12, shakeF: 0.20, drift: 0, tiled: false },
       { canvas: buildForetFarTrees(pal),         parallax: 0.22, shakeF: 0.30, drift: 0, tiled: false },
       { canvas: buildForetMidTrees(feverMode),   parallax: 0.40, shakeF: 0.55, drift: 0, tiled: false },
       { canvas: buildForetGround(feverMode, bg), parallax: 0,    shakeF: 1.00, drift: 0, tiled: false },
@@ -1181,7 +1393,7 @@ let _scanlines: OffCanvas | null = null;
 function getScanlines(): OffCanvas {
   if (_scanlines === null) {
     _scanlines = makeOffscreen(CW_L, CH_L);
-    const c = _scanlines.getContext("2d")!;
+    const c = _scanlines.getContext("2d") as Ctx2D;
     c.fillStyle = "rgba(0,0,0,0.04)";
     for (let y = 0; y < CH_L; y += 2) c.fillRect(0, y, CW_L, 1);
   }
@@ -1216,6 +1428,9 @@ function drawForetLayers(
     }
 
   }
+
+  // Feuilles ambiantes (forêt vivante — dessus des couches statiques)
+  drawAmbientLeaves(ctx, s, feverMode);
 
   // Scanlines CRT, fixées à l'écran (contre-translation complète du shake)
   ctx.drawImage(getScanlines(), Math.round(LX0 - s.shakeX), Math.round(-VPAD - s.shakeY));
