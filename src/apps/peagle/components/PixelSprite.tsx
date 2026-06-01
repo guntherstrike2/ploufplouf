@@ -8,29 +8,33 @@
 const PAL: Record<string, string> = {
   K: "#050d03", // contour (ink)
   C: "#f2e6c2", // crème (corps clair)
-  G: "#ffd24a", // or
+  G: "#ffd24a", // or / iris
   O: "#ff8a3c", // orange (bec / danger)
   W: "#ffffff", // blanc (reflets)
   R: "#ff5544", // rouge
   g: "#8fe04a", // vert feuille
   s: "#c8d8e0", // argent
   b: "#cc8844", // bronze
+  B: "#8f7d52", // sourcil brun-gris (mascotte)
+  N: "#6e4420", // nuque brun foncé (mascotte)
 };
 
 export type SpriteName = "eagle" | "trophy" | "skull" | "star" | "note" | "grave";
 
 const SPRITES: Record<SpriteName, string[]> = {
-  // Aigle de face, ailes déployées — ailes or, corps crème, bec orange.
+  // Mascotte de face façon Doom — tête d'aigle avec yeux, bec, sourcils.
   eagle: [
-    "K...........K",
-    "KK....C....KK",
-    "GKK..CCC..KKG",
-    "GGKKKCKCKKKGG",
-    ".GGGCCOCCGGG.",
-    "..GGCCCCCGG..",
-    "...GGCCCGG...",
-    "....KCCCK....",
-    ".....KKK.....",
+    "....KKKKK....",
+    "..KCCCCCCCCK.",
+    ".KCCCCCCCCCK.",
+    ".KCBCCCCCBCK.",
+    ".KCCCCCCCCCK.",
+    ".KGKGCCCGKGK.",
+    ".KGKGCCCGKGK.",
+    ".KCC.GGGG.CK.",
+    ".KCC..OO..CK.",
+    "..NKCCCCCKN..",
+    "...NKKKKKN...",
   ],
   // Trophée or, anses orange.
   trophy: [

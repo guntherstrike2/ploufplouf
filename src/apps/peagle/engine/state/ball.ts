@@ -118,16 +118,23 @@ export function processBallPhysics(
       const earned = Math.round(def.baseScore * totalMult);
       s.score += earned;
 
+      // Intensité visuelle qui monte avec le combo : 1.0 au premier peg → ~2.5 à combo 10+.
+      // Cela amplifie progressivement les particules, l'onde de choc et le screenshake
+      // pour rendre la montée en puissance tangible sans changer le gameplay.
+      const comboBoost = Math.min(1, (s.combo - 1) / 10); // 0..1
+      const visualMult = 1 + comboBoost * 1.5;            // 1..2.5
+
       // Feedback (freeze, shake, flash, particules) — valeurs de la table.
       s.hitFreezeFrames = Math.max(s.hitFreezeFrames, def.freezeFrames);
-      if (def.trauma > 0) s.trauma = Math.min(1, s.trauma + def.trauma);
+      if (def.trauma > 0) s.trauma = Math.min(1, s.trauma + def.trauma * visualMult);
       if (def.flash > 0) s.flashWhite = Math.max(s.flashWhite, def.flash);
-      spawnParticles(s, p.x, p.y, def.hotParticles, def.particles);
+      spawnParticles(s, p.x, p.y, def.hotParticles, Math.round(def.particles * visualMult));
 
       // Bounce & juice : l'œuf s'écrase à l'impact, une onde de choc se propage
       // dans le décor et le fond pulse (cible orange = réaction la plus forte).
       b.squash = Math.max(b.squash, Math.min(1, 0.5 + speed * 0.04));
-      const ringIntensity = def.isTarget ? 1 : p.kind === "bumper" ? 0.6 : 0.28;
+      const baseRingIntensity = def.isTarget ? 1 : p.kind === "bumper" ? 0.6 : 0.28;
+      const ringIntensity = Math.min(1, baseRingIntensity + comboBoost * (1 - baseRingIntensity) * 0.7);
       const ringColor = def.isTarget ? "#ffbb44" : p.kind === "bumper" ? "#ffdd55" : "#9fb8ff";
       spawnImpactRing(s, p.x, p.y, ringColor, ringIntensity);
 

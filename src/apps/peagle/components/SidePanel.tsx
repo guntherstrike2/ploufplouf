@@ -2,36 +2,6 @@
 
 import "../peagle.css";
 
-// ─── Aigle pixel-art SVG ──────────────────────────────────────────────────────
-
-function PixelEagle({ size = 40 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 40 40" style={{ imageRendering: "pixelated", display: "block" }}>
-      <rect x="14" y="16" width="12" height="10" fill="#884400" />
-      <rect x="15" y="19" width="6" height="6" fill="#eeeecc" />
-      <rect x="18" y="10" width="8" height="8" fill="#eeeecc" />
-      <rect x="25" y="14" width="4" height="2" fill="#ffcc00" />
-      <rect x="26" y="16" width="3" height="1" fill="#ddaa00" />
-      <rect x="23" y="12" width="2" height="2" fill="#111" />
-      <rect x="24" y="12" width="1" height="1" fill="#ffff44" />
-      <g style={{ transformOrigin: "14px 18px", animation: "pg-wing-l 0.9s ease-in-out infinite" }}>
-        <rect x="4" y="15" width="12" height="4" fill="#663300" />
-        <rect x="2" y="17" width="6" height="3" fill="#552200" />
-        <rect x="6" y="19" width="8" height="2" fill="#441800" />
-      </g>
-      <g style={{ transformOrigin: "26px 18px", animation: "pg-wing-r 0.9s ease-in-out infinite", animationDelay: "-0.45s" }}>
-        <rect x="26" y="15" width="10" height="4" fill="#663300" />
-        <rect x="30" y="17" width="6" height="3" fill="#552200" />
-        <rect x="26" y="19" width="8" height="2" fill="#441800" />
-      </g>
-      <rect x="17" y="26" width="2" height="4" fill="#884400" />
-      <rect x="15" y="29" width="5" height="1" fill="#ffcc00" />
-      <rect x="21" y="26" width="2" height="4" fill="#884400" />
-      <rect x="19" y="29" width="5" height="1" fill="#ffcc00" />
-    </svg>
-  );
-}
-
 // ─── Petit oiseau pixel-art SVG ───────────────────────────────────────────────
 
 function PixelBird({ size = 20, color = "#88cc44", flipped = false }: { size?: number; color?: string; flipped?: boolean }) {
@@ -200,11 +170,7 @@ export function SidePanel({ side, feverMode = false }: SidePanelProps) {
       }}>
         {/* Soleil ou lune en haut */}
         <div style={{ paddingTop: 18, paddingBottom: 8, flexShrink: 0, display: "flex", justifyContent: "center" }}>
-          {side === "left" ? (
-            <div className="pg-side-eagle">
-              <PixelEagle size={34} />
-            </div>
-          ) : feverMode ? (
+          {feverMode ? (
             /* Lune */
             <div style={{
               width: 18, height: 18, position: "relative",

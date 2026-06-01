@@ -6,7 +6,63 @@ import type { UiState } from "../engine/types";
 import { W, H } from "../engine/constants";
 import { PG } from "../styles";
 import { PixelSprite } from "./PixelSprite";
+import { eagleFace } from "../renderer/face";
+import type { FaceMood } from "../renderer/face";
 import "../peagle.css";
+
+// ─── Mascotte animée pour le menu pause ──────────────────────────────────────
+function PauseMascot({ size = 80 }: { size?: number }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    canvas.width = 28;
+    canvas.height = 32;
+
+    let raf = 0;
+    let startT = 0;
+
+    function frame(now: number) {
+      if (!startT) startT = now;
+      const t = (now - startT) / 1000;
+
+      ctx!.clearRect(0, 0, 28, 32);
+      ctx!.imageSmoothingEnabled = false;
+
+      const mood: FaceMood = {
+        blink: (t % 4.2) < 0.12,
+        open: 0,
+        brow: "flat",
+        eyeRed: false,
+        wide: false,
+        look: Math.sin(t * 0.55) * 1.2,
+        pop: 0,
+      };
+
+      eagleFace(ctx!, 14, 16, mood);
+      raf = requestAnimationFrame(frame);
+    }
+
+    raf = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  return (
+    <canvas
+      ref={ref}
+      style={{
+        width: size,
+        height: Math.round(size * 32 / 28),
+        imageRendering: "pixelated",
+        display: "block",
+      }}
+    />
+  );
+}
 
 const WIN_QUIPS = [
   "L'aigle est satisfait. C'est rare. Profitez-en.",
@@ -137,15 +193,15 @@ export function GameCanvas({
               <div className="pg-lux-header">
                 <div className="pg-lux-gem" />
                 <span className="pg-lux-title">PAUSE</span>
-                <PixelSprite name="eagle" scale={2} />
+                <div className="pg-lux-gem" />
               </div>
 
               {/* Body */}
               <div style={{ padding: "20px 16px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
 
-                {/* Aigle qui flotte */}
-                <div style={{ display: "flex", justifyContent: "center", paddingBottom: 6 }}>
-                  <PixelSprite name="eagle" scale={7} className="pg-eagle-bob" />
+                {/* Mascotte qui flotte */}
+                <div style={{ display: "flex", justifyContent: "center", paddingBottom: 6 }} className="pg-eagle-bob">
+                  <PauseMascot size={80} />
                 </div>
 
                 {/* CTA or */}

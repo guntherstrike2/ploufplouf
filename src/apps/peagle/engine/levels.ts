@@ -260,7 +260,7 @@ function assignKinds(rng: Rng, pegs: Peg[], reachable: Set<Peg>, diff: Difficult
     r[Math.floor(rng() * r.length)]!.kind = "orange";
   }
 
-  // Bumpers (obstacles permanents) parmi les pegs restants, pas collés au lanceur.
+  // Bumpers (obstacles permanents) parmi les pegs normaux restants.
   let placed = 0;
   for (const i of order) {
     if (placed >= diff.bumperCount) break;
@@ -269,6 +269,7 @@ function assignKinds(rng: Rng, pegs: Peg[], reachable: Set<Peg>, diff: Difficult
     p.kind = "bumper";
     placed++;
   }
+
 }
 
 // ─── Fallback garanti ────────────────────────────────────────────────────────

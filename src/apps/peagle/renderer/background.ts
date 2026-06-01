@@ -692,18 +692,20 @@ function drawCelestialBody(
 ): void {
   if (feverMode) {
     const pulse = 0.88 + 0.12 * Math.sin(s.animClock * 1.2);
+    const cx = W - 42;
+    const cy = 92 + Math.round(Math.sin(s.animClock * 0.85) * 2.5);
     ctx.fillStyle = `rgba(180,150,255,${0.12 * pulse})`;
-    ctx.fillRect(W - 66, 10, 44, 44);
+    ctx.fillRect(cx - 22, cy - 22, 44, 44);
     ctx.fillStyle = `rgba(210,190,255,${0.22 * pulse})`;
-    ctx.fillRect(W - 60, 14, 32, 32);
+    ctx.fillRect(cx - 16, cy - 16, 32, 32);
     ctx.fillStyle = `rgba(240,230,180,${0.95 * pulse})`;
-    ctx.fillRect(W - 54, 18, 20, 20);
+    ctx.fillRect(cx - 10, cy - 10, 20, 20);
     ctx.fillStyle = "rgba(255,255,220,0.7)";
-    ctx.fillRect(W - 52, 20, 6, 3);
-    ctx.fillRect(W - 52, 20, 3, 6);
+    ctx.fillRect(cx - 8, cy - 8, 6, 3);
+    ctx.fillRect(cx - 8, cy - 8, 3, 6);
     ctx.fillStyle = "rgba(180,160,100,0.4)";
-    ctx.fillRect(W - 46, 26, 3, 3);
-    ctx.fillRect(W - 40, 30, 2, 2);
+    ctx.fillRect(cx - 2, cy - 2, 3, 3);
+    ctx.fillRect(cx + 4, cy + 2, 2, 2);
   } else if (themeId === "foret") {
     drawJuicySun(ctx, s);
   } else {
@@ -721,17 +723,7 @@ function drawCelestialBody(
   }
 }
 
-// Disque plein dessiné en bandes horizontales (pixel art rond).
-function fillDisc(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, color: string): void {
-  ctx.fillStyle = color;
-  for (let dy = -r; dy <= r; dy++) {
-    const hw = Math.round(Math.sqrt(Math.max(0, r * r - dy * dy)));
-    if (hw <= 0) continue;
-    ctx.fillRect(Math.round(cx - hw), Math.round(cy + dy), hw * 2, 1);
-  }
-}
-
-// Soleil "juicy" (forêt) : disque rond dégradé + halo rond additif + rayons
+// Soleil "juicy" (forêt) : carré dégradé + halo carré additif + rayons
 // triangulaires qui tournent doucement, avec un léger rebond vertical.
 function drawJuicySun(ctx: CanvasRenderingContext2D, s: GameState): void {
   const cx     = SUN_X;
@@ -740,43 +732,53 @@ function drawJuicySun(ctx: CanvasRenderingContext2D, s: GameState): void {
   const pulse  = 0.85 + 0.15 * Math.sin(s.animClock * 0.9);
   const R      = 13;
 
-  // Halo rond pulsant (disques concentriques en blend additif)
+  // Halo carré pulsant (derrière les rayons)
   ctx.globalCompositeOperation = "lighter";
   for (let k = 0; k < 5; k++) {
-    const r = R + 4 + k * 5 + breath * 3;
+    const r = Math.round(R + 4 + k * 5 + breath * 3);
     ctx.globalAlpha = (0.10 - k * 0.017) * pulse;
-    fillDisc(ctx, cx, cy, r, "#ffd24a");
-  }
-
-  // Rayons triangulaires qui tournent lentement (additifs → glow doux)
-  const rays = 12;
-  for (let i = 0; i < rays; i++) {
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate((i / rays) * Math.PI * 2 + s.animClock * 0.2);
-    const len = 9 + breath * 4 + (i % 2 === 0 ? 2 : 0);
-    ctx.globalAlpha = 0.5 * pulse;
-    ctx.fillStyle = "#ffdd66";
-    for (let d = 0; d < len; d++) {
-      const w = Math.max(1, Math.round((1 - d / len) * 4));
-      ctx.fillRect(-w, R + 2 + d, w * 2, 1);
-    }
-    ctx.restore();
+    ctx.fillStyle = "#ffd24a";
+    ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
   }
   ctx.globalCompositeOperation = "source-over";
   ctx.globalAlpha = 1;
 
-  // Cœur : disque avec dégradé vertical (clair en haut, chaud en bas)
+  // Rayons cardinaux : partent des 4 bords du carré central
+  const rayLen = Math.round(14 + breath * 5);
+  for (let d = 1; d <= rayLen; d++) {
+    const t  = d / rayLen;
+    const hw = Math.max(1, Math.round((1 - t * 0.85) * 4));
+    ctx.globalAlpha = (1 - t * 0.72) * 0.92 * pulse;
+    ctx.fillStyle = t < 0.25 ? "#ffe98a" : "#ffcc44";
+    ctx.fillRect(cx - hw, cy - R - d, hw * 2, 1);   // haut
+    ctx.fillRect(cx - hw, cy + R + d, hw * 2, 1);   // bas
+    ctx.fillRect(cx - R - d, cy - hw, 1, hw * 2);   // gauche
+    ctx.fillRect(cx + R + d, cy - hw, 1, hw * 2);   // droite
+  }
+
+  // Rayons diagonaux : partent des 4 coins du carré
+  const diagLen = Math.round(10 + breath * 4);
+  for (let d = 1; d <= diagLen; d++) {
+    const t = d / diagLen;
+    ctx.globalAlpha = (1 - t * 0.85) * 0.65 * pulse;
+    ctx.fillStyle = "#ffd84a";
+    ctx.fillRect(cx - R - d,     cy - R - d,     2, 2);   // coin haut-gauche
+    ctx.fillRect(cx + R + d - 1, cy - R - d,     2, 2);   // coin haut-droite
+    ctx.fillRect(cx - R - d,     cy + R + d - 1, 2, 2);   // coin bas-gauche
+    ctx.fillRect(cx + R + d - 1, cy + R + d - 1, 2, 2);   // coin bas-droite
+  }
+  ctx.globalAlpha = 1;
+
+  // Cœur : carré avec dégradé vertical (clair en haut, chaud en bas)
   for (let dy = -R; dy <= R; dy++) {
-    const hw = Math.round(Math.sqrt(Math.max(0, R * R - dy * dy)));
-    if (hw <= 0) continue;
     const t = (dy + R) / (R * 2);
     ctx.fillStyle = t < 0.4 ? "#ffe98a" : t < 0.75 ? "#ffd24a" : "#ffb22e";
-    ctx.fillRect(Math.round(cx - hw), Math.round(cy + dy), hw * 2, 1);
+    ctx.fillRect(Math.round(cx - R), Math.round(cy + dy), R * 2, 1);
   }
 
   // Reflet doux en haut à gauche
-  fillDisc(ctx, cx - 4, cy - 5, 3, "rgba(255,253,228,0.85)");
+  ctx.fillStyle = "rgba(255,253,228,0.85)";
+  ctx.fillRect(cx - 7, cy - 8, 6, 6);
   ctx.fillStyle = "rgba(255,255,245,0.9)";
   ctx.fillRect(cx - 5, cy - 6, 3, 2);
 }

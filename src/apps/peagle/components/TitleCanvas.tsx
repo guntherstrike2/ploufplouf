@@ -116,7 +116,6 @@ const C = {
   badge: "#aaee66",
   badgeBot: "#66bb33",
   badgeDeep: "#3f8a1f",
-  firefly: "#cdff66",
 };
 
 // ─── Timeline (secondes) ──────────────────────────────────────────────────────
@@ -402,17 +401,6 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact }: Title
       { fx: 0.18, fy: 0.96, ph: 4.0, sp: 2.3, col: "#fff3b0" },
     ];
 
-    // Lucioles déterministes
-    const fireflies = Array.from({ length: 26 }, (_, i) => ({
-      x: Math.random(),
-      y: Math.random(),
-      phase: Math.random() * Math.PI * 2,
-      speed: 0.3 + Math.random() * 0.5,
-      drift: 0.4 + Math.random() * 0.8,
-      r: Math.random() < 0.2 ? 2 : 1,
-      seed: i,
-    }));
-
     // ─── Dessin d'un conifère pixel (silhouette) ──────────────────────────────
     function drawConifer(cx: number, tipY: number, h: number, w: number, swayRad: number) {
       ctx!.save();
@@ -496,30 +484,6 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact }: Title
           ctx!.fillStyle = gm;
           ctx!.fillRect(-cssW * 0.15, mistY, cssW * 1.3, mistH);
           ctx!.restore();
-        }
-      }
-      ctx!.restore();
-    }
-
-    function drawFireflies(elapsed: number) {
-      ctx!.save();
-      for (const f of fireflies) {
-        // Chaque luciole pop à son propre moment (dérivé de sa phase aléatoire)
-        const popT  = 0.42 + (f.phase / (Math.PI * 2)) * 0.80; // spread 0.42..1.22s
-        const dt    = elapsed - popT;
-        if (dt < 0) continue;
-        const popP  = Math.min(1, dt / 0.22);
-        const flash = Math.max(0, 1 - dt / 0.16); // éclat bref à l'apparition
-        const fx = ((f.x + Math.sin(elapsed * f.speed + f.phase) * 0.04) % 1) * cssW;
-        const fy = (((f.y - elapsed * 0.012 * f.drift) % 1) + 1) % 1 * cssH;
-        const tw = 0.35 + 0.65 * Math.abs(Math.sin(elapsed * (1 + f.seed * 0.05) + f.phase));
-        const rExtra = Math.round(flash * 6);
-        ctx!.fillStyle = C.firefly;
-        ctx!.globalAlpha = Math.min(1, tw * 0.8 * popP + flash * 3.5);
-        ctx!.fillRect(Math.round(fx) - rExtra, Math.round(fy) - rExtra, f.r + rExtra * 2, f.r + rExtra * 2);
-        if (flash < 0.01) {
-          ctx!.globalAlpha = tw * 0.18 * popP;
-          ctx!.fillRect(Math.round(fx) - 2, Math.round(fy) - 2, f.r + 4, f.r + 4);
         }
       }
       ctx!.restore();
@@ -1312,44 +1276,46 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact }: Title
           // Bloom intense calé sur le premier pic d'overshoot (~p=0.10 = t+0.07s)
           const bloom = Math.sin(bgP(elapsed, 0.14, 0.24) * Math.PI) * 1.1;
 
-          const pulse = 0.93 + 0.07 * Math.sin(elapsed * 0.38);
-          const moonX = cssW * 0.74;
-          const moonY = cssH * 0.15;
-          const moonR = Math.max(8, cssH * 0.056) * pulse;
+          const pulse = 0.96 + 0.04 * Math.sin(elapsed * 0.38);
+          const moonX = cssW * 0.88 + Math.sin(elapsed * 0.45) * 2;
+          const moonY = cssH * 0.06 + Math.sin(elapsed * 0.70) * 3;
+          const moonR = Math.max(5, cssH * 0.028) * pulse;
+
+          const R = Math.round(moonR);
 
           ctx!.save();
           ctx!.translate(moonX, moonY);
           ctx!.scale(moonScale, moonScale);
           ctx!.translate(-moonX, -moonY);
 
-          // Bloom additif au moment du scale-in
+          // Bloom additif au moment du scale-in (carrés concentriques)
           if (bloom > 0.01) {
             ctx!.save();
             ctx!.globalCompositeOperation = "lighter";
-            ctx!.globalAlpha = bloom * moonAlpha;
-            const bGlow = ctx!.createRadialGradient(moonX, moonY, 0, moonX, moonY, moonR * 5.5);
-            bGlow.addColorStop(0,   "rgba(200,220,255,1)");
-            bGlow.addColorStop(0.4, "rgba(140,180,255,0.35)");
-            bGlow.addColorStop(1,   "rgba(80,120,220,0)");
-            ctx!.fillStyle = bGlow;
-            ctx!.fillRect(moonX - moonR * 6, moonY - moonR * 6, moonR * 12, moonR * 12);
+            for (let k = 0; k < 4; k++) {
+              const br = Math.round(R * (2.5 + k * 1.5));
+              ctx!.globalAlpha = bloom * moonAlpha * (0.13 - k * 0.025);
+              ctx!.fillStyle = "#88aaff";
+              ctx!.fillRect(Math.round(moonX - br), Math.round(moonY - br), br * 2, br * 2);
+            }
             ctx!.restore();
           }
 
-          // Halo permanent
-          const halo = ctx!.createRadialGradient(moonX, moonY, moonR * 0.5, moonX, moonY, moonR * 4.2);
-          halo.addColorStop(0,    "rgba(210,230,255,0.22)");
-          halo.addColorStop(0.32, "rgba(160,200,245,0.09)");
-          halo.addColorStop(1,    "rgba(100,150,220,0)");
-          ctx!.fillStyle = halo;
-          ctx!.globalAlpha = moonAlpha;
-          ctx!.fillRect(moonX - moonR * 5, moonY - moonR * 5, moonR * 10, moonR * 10);
+          // Halo permanent (carrés concentriques décroissants)
+          for (let k = 0; k < 5; k++) {
+            const hr = Math.round(R * (1.5 + k * 0.7));
+            ctx!.globalAlpha = moonAlpha * (0.15 - k * 0.024);
+            ctx!.fillStyle = "#c0d4f8";
+            ctx!.fillRect(Math.round(moonX - hr), Math.round(moonY - hr), hr * 2, hr * 2);
+          }
 
-          // Disque nacré
-          ctx!.beginPath();
-          ctx!.arc(moonX, moonY, moonR, 0, Math.PI * 2);
-          ctx!.fillStyle = "#d5e8f8";
-          ctx!.fill();
+          // Corps carré nacré avec dégradé vertical
+          ctx!.globalAlpha = moonAlpha;
+          for (let dy = -R; dy <= R; dy++) {
+            const t = (dy + R) / (R * 2);
+            ctx!.fillStyle = t < 0.3 ? "#e8f0ff" : t < 0.65 ? "#d5e8f8" : "#c0d8ee";
+            ctx!.fillRect(Math.round(moonX - R), Math.round(moonY + dy), R * 2, 1);
+          }
 
           // Cratères
           ctx!.globalAlpha = 0.13 * moonAlpha;
@@ -1488,7 +1454,6 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact }: Title
       drawBackdrop(elapsed);
       updateAndDrawShootingStars(elapsed, dt);
       drawForest(elapsed);
-      drawFireflies(elapsed);
       ctx!.translate(sx, sy);
       drawEagle(elapsed);
       updateAndDrawEggs(dt);
