@@ -6,6 +6,7 @@ import { useSoundContext } from "@/lib/contexts/sound-context";
 import { DevPanel } from "./DevPanel";
 import type { DevConfig } from "./DevPanel";
 import { TitleCanvas } from "./TitleCanvas";
+import { parseSeed } from "../engine/roguelite";
 
 const NW = {
   gold: "#88cc44"
@@ -14,6 +15,7 @@ const NW = {
 interface MainMenuProps {
   isAdmin: boolean;
   onPlay: () => void;
+  onPlayWithSeed: (seed: number) => void;
   onLeaderboard: () => void;
   onDevLaunch: (cfg: DevConfig) => void;
   musicMuted: boolean;
@@ -24,6 +26,7 @@ interface MainMenuProps {
 export function MainMenu({
   isAdmin,
   onPlay,
+  onPlayWithSeed,
   onLeaderboard,
   onDevLaunch,
   musicMuted,
@@ -34,7 +37,17 @@ export function MainMenu({
   // Si skipIntro, le menu est directement visible (l'overlay de transition couvre le reveal)
   const [showMenu, setShowMenu] = useState(skipIntro);
   const [showSettings, setShowSettings] = useState(false);
+  const [seedInput, setSeedInput] = useState("");
+  const [seedError, setSeedError] = useState(false);
   const { playClick, playBip } = useSoundContext();
+
+  const handlePlayWithSeed = useCallback(() => {
+    const clean = seedInput.trim().toUpperCase().replace(/[^0-9A-Z]/g, '');
+    if (!clean) { setSeedError(true); return; }
+    setSeedError(false);
+    playClick();
+    onPlayWithSeed(parseSeed(clean));
+  }, [seedInput, onPlayWithSeed, playClick]);
 
   // Texte des boutons qui réagit aux impacts d'œufs sur le titre.
   // Onde de choc lointaine → amplitude volontairement minuscule (~force × 3px),
@@ -105,9 +118,50 @@ export function MainMenu({
                   {musicMuted ? "OFF" : "ON"}
                 </button>
               </div>
+
+              {/* ── Seed personnalisé ──────────────────────────────── */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6 }}>
+                <span style={{ fontSize: 7, letterSpacing: "0.06em" }}>SEED (6 CAR.)</span>
+                <div style={{ display: "flex", gap: 4 }}>
+                  <input
+                    type="text"
+                    maxLength={6}
+                    placeholder="ex: 4XZ2K1"
+                    value={seedInput}
+                    onChange={e => { setSeedInput(e.target.value.toUpperCase()); setSeedError(false); }}
+                    onKeyDown={e => { if (e.key === "Enter") handlePlayWithSeed(); }}
+                    style={{
+                      flex: 1,
+                      fontFamily: "var(--pg-font)",
+                      fontSize: 9,
+                      padding: "4px 6px",
+                      background: seedError ? "#2a0808" : "#0a120a",
+                      color: seedError ? "#ff6666" : NW.gold,
+                      border: `1px solid ${seedError ? "#aa3333" : "#2a4a2a"}`,
+                      outline: "none",
+                      letterSpacing: "0.12em",
+                      textTransform: "uppercase",
+                    }}
+                  />
+                  <button
+                    className="pg-btn pg-btn-primary"
+                    style={{ padding: "4px 8px", fontSize: 7 }}
+                    onPointerEnter={playBip}
+                    onClick={handlePlayWithSeed}
+                  >
+                    ▶ JOUER
+                  </button>
+                </div>
+                {seedError && (
+                  <span style={{ fontSize: 6, color: "#ff6666", letterSpacing: "0.04em" }}>
+                    Entre un code valide (A-Z, 0-9)
+                  </span>
+                )}
+              </div>
+
               <button
                 className="pg-btn"
-                style={{ alignSelf: "center", marginTop: 4 }}
+                style={{ alignSelf: "center", marginTop: 8 }}
                 onPointerEnter={playBip}
                 onClick={() => { playClick(); setShowSettings(false); }}
               >

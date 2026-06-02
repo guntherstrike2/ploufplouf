@@ -39,6 +39,23 @@ export function makeInitialRunState(): RunState {
   return { upgrades: [], seed: (Math.random() * 0xffffffff) >>> 0 };
 }
 
+export function makeRunStateWithSeed(seed: number): RunState {
+  return { upgrades: [], seed: seed >>> 0 };
+}
+
+// Encode le seed en 6 caractères alphanumériques (base 36) : ex. "4XZ2K1"
+const BASE36_RANGE = 2176782336; // 36^6
+export function formatSeed(seed: number): string {
+  return ((seed >>> 0) % BASE36_RANGE).toString(36).toUpperCase().padStart(6, '0');
+}
+
+// Parse un code seed (6 chars base-36) → nombre 32-bit
+export function parseSeed(s: string): number {
+  const clean = s.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 6);
+  if (!clean) return (Math.random() * 0xffffffff) >>> 0;
+  return parseInt(clean, 36) >>> 0;
+}
+
 // ─── Génération de l'offre d'upgrade (entre deux niveaux) ────────────────────
 
 /** Renvoie jusqu'à 3 upgrades non encore possédées, tirées au hasard. */

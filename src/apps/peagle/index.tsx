@@ -15,7 +15,7 @@ import type { DevConfig } from "./components/DevPanel";
 import { W } from "./engine/constants";
 import type { UiState, LeaderboardEntry, UpgradeId } from "./engine/types";
 import type { RunState } from "./engine/roguelite";
-import { makeInitialRunState, generateUpgradeOffer } from "./engine/roguelite";
+import { makeInitialRunState, makeRunStateWithSeed, generateUpgradeOffer } from "./engine/roguelite";
 
 type Screen = "menu" | "game" | "leaderboard";
 
@@ -38,6 +38,8 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     balls: 12, score: 0, orangeLeft: 0, orangeTotal: 0,
     phase: "aim", message: "", combo: 0, level: 1, stars: 0,
   });
+  const [currentSeed, setCurrentSeed] = useState<number>(EMPTY_RUN.seed);
+
   const [bestScore, setBestScore] = useState<number>(() => {
     if (typeof window === "undefined") return 0;
     return parseInt(localStorage.getItem("peagle98_best") ?? "0", 10);
@@ -144,11 +146,15 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     nextLevel();
   }, [nextLevel]);
 
-  const startRun = useCallback(() => {
+  const startRun = useCallback((seedOverride?: number) => {
     setHasSeenIntro(true);
     devConfigRef.current = null;
     setDevSessionActive(false);
-    runStateRef.current = makeInitialRunState();
+    const run = seedOverride !== undefined
+      ? makeRunStateWithSeed(seedOverride)
+      : makeInitialRunState();
+    runStateRef.current = run;
+    setCurrentSeed(run.seed);
     resetGame(false);
     setScoreSubmitted(false);
     setUpgradeOffer(null);
@@ -159,7 +165,9 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
   const handleDevLaunch = useCallback((cfg: DevConfig) => {
     setHasSeenIntro(true);
     devConfigRef.current = cfg;
-    runStateRef.current = { ...makeInitialRunState(), upgrades: cfg.upgrades };
+    const run = { ...makeInitialRunState(), upgrades: cfg.upgrades };
+    runStateRef.current = run;
+    setCurrentSeed(run.seed);
     resetGame(false, cfg.startLevel);
     setScoreSubmitted(false);
     setUpgradeOffer(null);
@@ -185,7 +193,20 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
   }, [transitionTo, fetchLeaderboard]);
 
   const handleReplay = useCallback(() => {
-    runStateRef.current = makeInitialRunState();
+    const run = makeInitialRunState();
+    runStateRef.current = run;
+    setCurrentSeed(run.seed);
+    resetGame(false);
+    setScoreSubmitted(false);
+    setUpgradeOffer(null);
+    setPaused(false);
+  }, [resetGame]);
+
+  // Rejouer avec exactement le même seed (upgrades remises à zéro).
+  const handleReplaySeed = useCallback(() => {
+    const seed = runStateRef.current.seed;
+    runStateRef.current = makeRunStateWithSeed(seed);
+    // setCurrentSeed reste inchangé (même seed)
     resetGame(false);
     setScoreSubmitted(false);
     setUpgradeOffer(null);
@@ -200,7 +221,8 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
       {screen === "menu" && (
         <MainMenu
           isAdmin={isAdmin}
-          onPlay={startRun}
+          onPlay={() => startRun()}
+          onPlayWithSeed={(seed) => startRun(seed)}
           onLeaderboard={handleGoToLeaderboard}
           onDevLaunch={handleDevLaunch}
           musicMuted={musicMuted}
@@ -247,6 +269,7 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
                 canvasRef={canvasRef}
                 ui={ui}
                 bestScore={bestScore}
+                currentSeed={currentSeed}
                 user={user}
                 isAdmin={isAdmin}
                 showDevTools={isAdmin && devSessionActive}
@@ -259,6 +282,7 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
                 onReplay={handleReplay}
+                onReplaySeed={handleReplaySeed}
                 onLeaderboard={handleGoToLeaderboard}
                 onMenu={handleGoToMenu}
                 onSkipLevel={skipLevel}

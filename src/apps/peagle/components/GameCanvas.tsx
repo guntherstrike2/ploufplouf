@@ -1,10 +1,11 @@
 "use client";
 
-import { useRef, useEffect, useState, useMemo } from "react";
+import { useRef, useEffect, useState, useMemo, useCallback } from "react";
 import type { RefObject, PointerEvent } from "react";
 import type { UiState } from "../engine/types";
 import { W, H } from "../engine/constants";
 import { PG } from "../styles";
+import { formatSeed } from "../engine/roguelite";
 import { PixelSprite } from "./PixelSprite";
 import { eagleFace } from "../renderer/face";
 import type { FaceMood } from "../renderer/face";
@@ -86,6 +87,7 @@ interface GameCanvasProps {
   canvasRef: RefObject<HTMLCanvasElement | null>;
   ui: UiState;
   bestScore: number;
+  currentSeed: number;
   user: { name?: string | null; email?: string | null; id?: string } | null;
   isAdmin?: boolean;
   showDevTools?: boolean;
@@ -98,6 +100,7 @@ interface GameCanvasProps {
   onPointerMove: (e: PointerEvent<HTMLCanvasElement>) => void;
   onPointerUp: (e: PointerEvent<HTMLCanvasElement>) => void;
   onReplay: () => void;
+  onReplaySeed: () => void;
   onLeaderboard: () => void;
   onMenu: () => void;
   onSkipLevel?: () => void;
@@ -108,6 +111,7 @@ export function GameCanvas({
   canvasRef,
   ui,
   bestScore,
+  currentSeed,
   user,
   isAdmin,
   showDevTools,
@@ -120,6 +124,7 @@ export function GameCanvas({
   onPointerMove,
   onPointerUp,
   onReplay,
+  onReplaySeed,
   onLeaderboard,
   onMenu,
   onSkipLevel,
@@ -146,6 +151,15 @@ export function GameCanvas({
     if (area) ro.observe(area);
     return () => ro.disconnect();
   }, []);
+
+  const [seedCopied, setSeedCopied] = useState(false);
+  const seedCode = formatSeed(currentSeed);
+
+  const copySeed = useCallback(() => {
+    navigator.clipboard.writeText(seedCode).catch(() => {});
+    setSeedCopied(true);
+    setTimeout(() => setSeedCopied(false), 1800);
+  }, [seedCode]);
 
   const isLost = ui.phase === "lost";
   const isWon = ui.phase === "won";
@@ -235,6 +249,16 @@ export function GameCanvas({
                   >
                     {musicMuted ? "OFF" : "ON"}
                   </span>
+                </button>
+
+                {/* Seed de la partie */}
+                <button
+                  onClick={copySeed}
+                  className="pg-btn pg-btn-ghost"
+                  style={{ fontSize: 7, letterSpacing: "0.06em", color: seedCopied ? PG.leaf : PG.textMuted }}
+                  title="Copier le code seed"
+                >
+                  {seedCopied ? "✓ COPIÉ !" : `SEED : ${seedCode}`}
                 </button>
 
                 {/* Menu principal */}
@@ -410,6 +434,31 @@ export function GameCanvas({
                     : "Connectez-vous pour sauver votre score"}
                 </div>
 
+                {/* Badge seed + copie */}
+                <button
+                  onClick={copySeed}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    width: "100%",
+                    padding: "6px 8px",
+                    marginBottom: 12,
+                    fontFamily: "var(--pg-font)",
+                    fontSize: 8,
+                    letterSpacing: "0.08em",
+                    cursor: "pointer",
+                    background: "rgba(255,255,255,0.04)",
+                    color: seedCopied ? PG.leaf : PG.textMuted,
+                    border: `1px solid ${seedCopied ? PG.leaf + "66" : PG.border}`,
+                    transition: "color 0.2s, border-color 0.2s",
+                  }}
+                  title="Copier le code seed pour relancer cette partie"
+                >
+                  {seedCopied ? `✓ ${seedCode} COPIÉ !` : `SEED : ${seedCode}  ·  COPIER`}
+                </button>
+
                 {/* Séparateur orné */}
                 <div className="pg-sep-lux" style={{ marginBottom: 16 }}>
                   <div className="pg-lux-gem" style={{ width: 6, height: 6 }} />
@@ -444,6 +493,14 @@ export function GameCanvas({
                       ★ CLASSEMENT
                     </button>
                   )}
+
+                  <button
+                    onClick={onReplaySeed}
+                    className="pg-btn pg-btn-ghost"
+                    style={{ fontSize: 7, letterSpacing: "0.06em", width: "100%", color: PG.cyan }}
+                  >
+                    ↻ REJOUER CE SEED ({seedCode})
+                  </button>
 
                   <button
                     onClick={onMenu}

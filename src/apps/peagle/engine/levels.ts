@@ -37,11 +37,11 @@ const AREA: Area = { x0: 44, x1: W - 44, y0: 116, y1: 470, cx: W / 2 };
 // MOTIFS. Reste symétrique/centré quand tu peux : ça « a l'air dessiné ».
 
 function motifHexField(rng: Rng, a: Area): Peg[] {
-  const spacing = randInt(rng, 22, 30);
+  const spacing = randInt(rng, 22, 28);
   const cols = Math.floor((a.x1 - a.x0) / spacing);
-  const rows = randInt(rng, 6, 10);
+  const rows = randInt(rng, 10, 16);
   const originX = a.cx - ((cols - 1) * spacing) / 2;
-  const originY = a.y0 + randInt(rng, 0, 24);
+  const originY = a.y0 + randInt(rng, 0, 16);
   return tHexGrid(originX, originY, cols, rows, spacing);
 }
 
@@ -113,7 +113,31 @@ function motifWave(rng: Rng, a: Area): Peg[] {
   return out;
 }
 
-const MOTIFS = [motifHexField, motifRings, motifArches, motifDiamond, motifColumns, motifWave];
+// Lignes décalées (staggered) couvrant toute la hauteur jouable — style Peggle/pachinko.
+// Génère ~200-300 pegs sur une grille hex dense ; compose() taille ensuite au budget.
+function motifPachinko(rng: Rng, a: Area): Peg[] {
+  const hSpacing = randInt(rng, 24, 30);
+  const vGap = Math.round(hSpacing * 0.86); // ≈ √3/2 pour un packing hexagonal
+  const cols = Math.ceil((a.x1 - a.x0) / hSpacing) + 1;
+  const rows = Math.ceil((a.y1 - a.y0) / vGap) + 1;
+  const startX = a.cx - ((cols - 1) * hSpacing) / 2;
+  const startY = a.y0 + randInt(rng, 0, 8);
+  const out: Peg[] = [];
+  for (let r = 0; r < rows; r++) {
+    const y = startY + r * vGap;
+    const offset = (r % 2) * (hSpacing / 2);
+    for (let c = 0; c < cols; c++) {
+      const x = startX + c * hSpacing + offset;
+      if (x >= a.x0 - 2 && x <= a.x1 + 2) {
+        out.push(makePeg(x, clamp(y, a.y0, a.y1)));
+      }
+    }
+  }
+  return out;
+}
+
+// Poids élevé pour motifPachinko → style dense par défaut, variété assurée par les autres.
+const MOTIFS = [motifPachinko, motifPachinko, motifPachinko, motifHexField, motifHexField, motifRings, motifArches, motifDiamond, motifWave];
 
 // ─── Remplissage Poisson-disk (Bridson) ──────────────────────────────────────
 // Blue noise : points aléatoires, jamais plus proches que `minDist`, sans paquets

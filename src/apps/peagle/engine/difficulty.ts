@@ -27,17 +27,17 @@ export interface DifficultyParams {
 export function difficultyFor(level: number): DifficultyParams {
   const L = Math.max(1, level);
 
-  // Densité de pegs : 40 au niveau 1 → ~95 plafonné.
-  const pegBudget = Math.round(clamp(40 + (L - 1) * 6, 40, 95));
+  // Densité de pegs : 110 au niveau 1 → ~160 plafonné (style pachinko dense).
+  const pegBudget = Math.round(clamp(110 + (L - 1) * 4, 110, 160));
 
-  // % d'oranges : 22% → 42%, croissance douce.
-  const orangePct = clamp(0.22 + (L - 1) * 0.025, 0.22, 0.42);
+  // % d'oranges : 18% → 36%, croissance douce.
+  const orangePct = clamp(0.18 + (L - 1) * 0.02, 0.18, 0.36);
 
-  // Bumpers : apparaissent au niveau 3, +1 tous les 2 niveaux, plafonnés à 6.
-  const bumperCount = L < 3 ? 0 : clamp(Math.floor((L - 1) / 2), 1, 6);
+  // Bumpers : apparaissent au niveau 3, +1 tous les 2 niveaux, plafonnés à 8.
+  const bumperCount = L < 3 ? 0 : clamp(Math.floor((L - 1) / 2), 1, 8);
 
-  // Remplissage de plus en plus serré : 46px → 30px.
-  const fillSpacing = clamp(46 - (L - 1) * 1.4, 30, 46);
+  // Remplissage de plus en plus serré : 26px → 20px.
+  const fillSpacing = clamp(26 - (L - 1) * 0.4, 20, 26);
 
   // Plus de niveaux → plus de structures superposées.
   const motifCount = L >= 5 ? 2 : 1;
