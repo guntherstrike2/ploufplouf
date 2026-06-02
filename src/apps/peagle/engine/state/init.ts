@@ -1,6 +1,7 @@
 import {
   BALL_R, FEVER_THRESHOLD, AIM_LINE_STEPS, PEG_BOUNCE,
   W, BUCKET_W, BUCKET_SPEED, START_BALLS, STAR_COUNT, LAUNCHER_X,
+  PEG_REVEAL_START, PEG_REVEAL_STRIDE, PEG_REVEAL_ANIM_DUR,
 } from "../constants";
 import { buildLevel } from "../levels";
 import { isTarget } from "../peg-kinds";
@@ -33,12 +34,23 @@ export function makeInitialState(
   const pegs: Peg[] = buildLevel(level, runState.seed);
   const orangeLeft = pegs.filter(isTarget).length;
 
+  // Vague d'apparition : les pegs popent un par un dans un ordre diagonal
+  // (balayage haut-gauche → bas-droit) pour un effet de rideau dynamique.
+  const sorted = [...pegs.keys()].sort(
+    (a, b) => (pegs[a]!.y + pegs[a]!.x * 0.4) - (pegs[b]!.y + pegs[b]!.x * 0.4),
+  );
+  for (let i = 0; i < sorted.length; i++) {
+    pegs[sorted[i]!]!.revealT = PEG_REVEAL_START + i * PEG_REVEAL_STRIDE;
+  }
+  const introEndT = PEG_REVEAL_START + (pegs.length - 1) * PEG_REVEAL_STRIDE + PEG_REVEAL_ANIM_DUR;
+
   return {
     pegs,
     ball: null,
     balls: baseBalls,
     score: keepScore ? prevScore : 0,
-    phase: "aim",
+    phase: "intro",
+    introEndT,
     bucket: W / 2 - BUCKET_W / 2,
     bucketDir: BUCKET_SPEED,
     bucketFlash: 0,
@@ -75,5 +87,7 @@ export function makeInitialState(
     effectiveFeverThreshold: FEVER_THRESHOLD,
     effectiveAimSteps,
     effectivePegBounce,
+
+    forestSeed: (runState.seed ^ 0xf0e5741b) >>> 0,
   };
 }

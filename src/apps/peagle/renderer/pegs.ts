@@ -1,7 +1,12 @@
-import { PEG_R } from "../engine/constants";
+import { PEG_R, PEG_REVEAL_ANIM_DUR } from "../engine/constants";
 import type { GameState, Peg } from "../engine/types";
 import { getPegType } from "../engine/types";
 import type { GameTheme, PegTheme } from "../engine/game-theme";
+
+function easeOutBack(t: number): number {
+  const c1 = 2.2, c3 = c1 + 1;
+  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+}
 
 // Faux glow pixel — 3 rects concentriques semi-transparents au lieu de ctx.shadowBlur
 // (shadowBlur déclenche une passe gaussienne GPU par draw call ; ceci est ~10× moins cher).
@@ -108,6 +113,31 @@ export function drawPegs(ctx: CanvasRenderingContext2D, s: GameState, inFever: b
   ctx.imageSmoothingEnabled = false;
 
   for (const p of s.pegs) {
+    const raw = s.animClock - p.revealT;
+    if (raw < 0) continue; // pas encore révélé
+
+    const revT = Math.min(1, raw / PEG_REVEAL_ANIM_DUR);
+    const inReveal = revT < 1;
+
+    if (inReveal) {
+      const spring = easeOutBack(revT);
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.scale(spring, spring);
+      ctx.translate(-p.x, -p.y);
+
+      // Halo flash à l'apparition — pic brillant sur les 25 premières %
+      const flash = Math.max(0, 1 - revT / 0.25) * 0.75;
+      if (flash > 0.01) {
+        const glowR = PEG_R * (3.5 + flash * 4.5);
+        const glowColor = p.kind === "orange" ? "#ffbb44" : p.kind === "bumper" ? "#ffee55" : "#9fb8ff";
+        ctx.globalAlpha = flash * 0.55;
+        ctx.fillStyle = glowColor;
+        ctx.fillRect(Math.round(p.x - glowR), Math.round(p.y - glowR), Math.round(glowR * 2), Math.round(glowR * 2));
+        ctx.globalAlpha = 1;
+      }
+    }
+
     const pulseExtra = inFever && p.kind === "orange" && !p.hit ? Math.sin(s.feverPulse * 2) * 1.5 : 0;
     const r = (PEG_R + pulseExtra) * p.scale;
 
@@ -118,7 +148,6 @@ export function drawPegs(ctx: CanvasRenderingContext2D, s: GameState, inFever: b
     else drawNormalPeg(ctx, p, r, t);
 
     if (p.popping) {
-      // Anneau d'explosion — carré qui s'agrandit vers l'extérieur
       const ringR = PEG_R + (1 - p.popAlpha) * 18;
       const rs = Math.round(ringR * 2);
       ctx.globalAlpha = p.popAlpha * 0.8;
@@ -127,5 +156,7 @@ export function drawPegs(ctx: CanvasRenderingContext2D, s: GameState, inFever: b
       ctx.strokeRect(Math.round(p.x - ringR), Math.round(p.y - ringR), rs, rs);
       ctx.globalAlpha = 1;
     }
+
+    if (inReveal) ctx.restore();
   }
 }

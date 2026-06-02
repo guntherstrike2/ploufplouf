@@ -5,6 +5,43 @@ import type { BirdSprite, BucketStyle } from "../engine/assets";
 import type { GameState } from "../engine/types";
 import { eagleFace, getFaceMood } from "./face";
 
+// ── Offscreen canvas pour l'aigle — isole le corps des ailes/pattes ─────────
+// Le corps a des pixels '.' transparents sur ses bords. Sans isolation, les ailes
+// et pattes dessinées dessous transparaissent à travers ces zones. On règle ça
+// en dessinant ailes+pattes sur un offscreen, en effaçant la silhouette du corps
+// (destination-out), puis en dessinant les pixels du corps par-dessus.
+const EAGLE_OFF_W = 56;
+const EAGLE_OFF_H = 60;
+const EAGLE_OFF_CX = 28;  // centre aigle en x sur l'offscreen
+const EAGLE_OFF_CY = 22;  // centre aigle en y sur l'offscreen (body top = -19 ↔ row 3)
+
+let _eagleOffCv: HTMLCanvasElement | null = null;
+let _eagleOffCtx: CanvasRenderingContext2D | null = null;
+
+function getEagleOffscreen(): [HTMLCanvasElement, CanvasRenderingContext2D] | null {
+  if (typeof document === "undefined") return null;
+  if (!_eagleOffCv) {
+    _eagleOffCv = document.createElement("canvas");
+    _eagleOffCv.width = EAGLE_OFF_W;
+    _eagleOffCv.height = EAGLE_OFF_H;
+    _eagleOffCtx = _eagleOffCv.getContext("2d");
+  }
+  return _eagleOffCtx ? [_eagleOffCv, _eagleOffCtx] : null;
+}
+
+// Silhouette du corps pré-calculée : span [left, right] par ligne.
+const _bCols = EAGLE_BODY.grid[0]?.length ?? 48;
+const _bRows = EAGLE_BODY.grid.length;
+const _bodyOx = -Math.round(_bCols / 2);  // = -24
+const _bodyOy = -Math.round(_bRows / 2);  // = -19
+const _bodyRowSpans: Array<[number, number] | null> = EAGLE_BODY.grid.map(row => {
+  let l = row.length, r = -1;
+  for (let c = 0; c < row.length; c++) {
+    if (row[c] !== '.') { if (c < l) l = c; if (c > r) r = c; }
+  }
+  return r >= 0 ? [l, r] : null;
+});
+
 function drawBirdSkin(ctx: CanvasRenderingContext2D, skin: BirdSprite, cx: number, cy: number, cellPx: number) {
   const rows = skin.grid.length;
   const cols = skin.grid[0]?.length ?? 9;
@@ -204,15 +241,50 @@ function drawLauncherRail(ctx: CanvasRenderingContext2D, s: GameState): void {
   ctx.restore();
 }
 
+// L'oiseau arrive de loin, tout droit : un minuscule point qui grossit jusqu'à
+// la bonne taille. Effet de profondeur (zoom avant depuis la perspective).
+const BIRD_ENTRY_START = 3.3;  // animClock — juste après le lever du soleil
+const BIRD_ENTRY_DUR   = 1.0;  // animClock — durée de l'approche
+
+function easeOutBack(t: number): number {
+  const c1 = 2.2, c3 = c1 + 1;
+  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+}
+
 export function drawLauncher(ctx: CanvasRenderingContext2D, s: GameState, aimAngle: number): void {
   drawLauncherRail(ctx, s);
 
-  const vx = s.launcherVx;
-  const grab = s.launcherGrab;
-  const speed = Math.min(1, Math.abs(vx) / 7);
+  const entryRaw = (s.animClock - BIRD_ENTRY_START) / BIRD_ENTRY_DUR;
+  const entryT   = Math.max(0, Math.min(1, entryRaw));
+  const inEntry  = entryT < 1;
+
+  // Phase "point lointain" : trop petit pour rendre le sprite, on dessine juste
+  // un pixel doré qui pulse doucement pour rester visible.
+  const entryScale = inEntry ? 0.015 + 0.985 * easeOutBack(entryT) : 1.0;
+  if (inEntry && entryScale < 0.10) {
+    const dotAlpha = Math.min(1, entryScale / 0.10);
+    const dotS     = Math.max(2, Math.round(4 * dotAlpha));
+    ctx.save();
+    ctx.translate(Math.round(s.launcherX), LAUNCHER_Y);
+    ctx.globalAlpha = dotAlpha * (0.7 + 0.3 * Math.sin(s.animClock * 8));
+    ctx.fillStyle = "#d4a820";
+    ctx.fillRect(-(dotS >> 1), -(dotS >> 1), dotS, dotS);
+    ctx.globalAlpha = 1;
+    ctx.restore();
+    return;
+  }
+
+  // Ailes qui battent fort pendant l'approche (vole vers nous)
+  const vx    = s.launcherVx;
+  const grab  = s.launcherGrab;
+  const speed = inEntry
+    ? Math.min(1, 0.9 * (1 - entryT) + Math.abs(vx) / 7)
+    : Math.min(1, Math.abs(vx) / 7);
 
   ctx.save();
   ctx.translate(s.launcherX, LAUNCHER_Y);
+  // Grossissement depuis un point : scale uniforme autour du centre de l'oiseau
+  if (inEntry) ctx.scale(entryScale, entryScale);
 
   // Lueur dorée à la saisie (halo radial, derrière tout)
   if (grab > 0.01) {
@@ -224,7 +296,8 @@ export function drawLauncher(ctx: CanvasRenderingContext2D, s: GameState, aimAng
   }
 
   // Traits de vitesse traînant à l'opposé du mouvement (espace monde, non tourné)
-  if (speed > 0.12) {
+  // Supprimés pendant l'entrée (l'oiseau arrive de face, pas de côté).
+  if (speed > 0.12 && !inEntry) {
     ctx.save();
     ctx.globalAlpha = speed * 0.55;
     ctx.strokeStyle = "rgba(255,255,255,0.7)";
@@ -270,9 +343,36 @@ export function drawLauncher(ctx: CanvasRenderingContext2D, s: GameState, aimAng
       Math.sin(s.animClock * 3.2) * 0.06;
 
     drawWindStreaks(ctx, phase);             // effet de vol (derrière tout)
-    drawEagleWings(ctx, flap);               // ailes derrière le corps
-    drawEagleLegs(ctx, ponte, legSwing);     // pattes (écart ponte + balancier)
-    drawBirdSkin(ctx, EAGLE_BODY, 0, 0, 1);  // corps par-dessus
+
+    // Ailes + pattes + corps via offscreen pour rendre le corps opaque :
+    // destination-out efface les pixels d'ailes/pattes dans la zone du corps,
+    // puis on dessine le corps par-dessus — plus de transparence parasite.
+    const eagleOff = getEagleOffscreen();
+    if (eagleOff) {
+      const [offCv, offCtx] = eagleOff;
+      offCtx.clearRect(0, 0, EAGLE_OFF_W, EAGLE_OFF_H);
+      offCtx.save();
+      offCtx.translate(EAGLE_OFF_CX, EAGLE_OFF_CY);
+      drawEagleWings(offCtx, flap);
+      drawEagleLegs(offCtx, ponte, legSwing);
+      offCtx.save();
+      offCtx.globalCompositeOperation = "destination-out";
+      offCtx.fillStyle = "#000";
+      for (let r = 0; r < _bodyRowSpans.length; r++) {
+        const span = _bodyRowSpans[r];
+        if (!span) continue;
+        offCtx.fillRect(_bodyOx + span[0], _bodyOy + r, span[1] - span[0] + 1, 1);
+      }
+      offCtx.restore();
+      drawBirdSkin(offCtx, EAGLE_BODY, 0, 0, 1);
+      offCtx.restore();
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(offCv, -EAGLE_OFF_CX, -EAGLE_OFF_CY);
+    } else {
+      drawEagleWings(ctx, flap);
+      drawEagleLegs(ctx, ponte, legSwing);
+      drawBirdSkin(ctx, EAGLE_BODY, 0, 0, 1);
+    }
     // Tête Doom réactive par-dessus le sprite — même expressions que le HUD
     eagleFace(ctx, 0, -13, getFaceMood(s));
   } else {

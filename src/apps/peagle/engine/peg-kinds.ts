@@ -58,7 +58,7 @@ export const PEG_KINDS: Record<PegKind, PegKindDef> = {
     flash: 0,
     particles: 8,
     hotParticles: false,
-    sound: "bip",
+    sound: "peg-hit",
     cooldownFrames: 0,
   },
   orange: {
@@ -72,7 +72,7 @@ export const PEG_KINDS: Record<PegKind, PegKindDef> = {
     flash: BALANCE.flash.orangePeg,
     particles: 20,
     hotParticles: true,
-    sound: "pop",
+    sound: "orange-hit",
     cooldownFrames: 0,
   },
   bumper: {
@@ -86,7 +86,7 @@ export const PEG_KINDS: Record<PegKind, PegKindDef> = {
     flash: 0,
     particles: 12,
     hotParticles: false,
-    sound: "pop",
+    sound: "bumper-hit",
     cooldownFrames: 8,
   },
 };

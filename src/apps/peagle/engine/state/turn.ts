@@ -39,7 +39,7 @@ export function endOfTurn(s: GameState, events: GameEvent[]): void {
 
     s.phase = "won";
     s.message = `NIVEAU ${s.level} TERMINÉ !`;
-    events.push({ kind: "sound", id: "victory" });
+    events.push({ kind: "sound", id: "level-clear" });
     events.push({ kind: "level-won" });
 
   } else if (s.balls <= 0) {
@@ -47,11 +47,11 @@ export function endOfTurn(s: GameState, events: GameEvent[]): void {
     events.push({ kind: "best-score", score: s.score });
     s.phase = "lost";
     s.message = "GAME OVER";
-    events.push({ kind: "sound", id: "delete" });
+    events.push({ kind: "sound", id: "game-over" });
     events.push({ kind: "level-lost", score: s.score });
 
   } else {
     s.phase = "aim";
-    if (cleared.length > 0) events.push({ kind: "sound", id: "pop" });
+    if (cleared.length > 0) events.push({ kind: "sound", id: "peg-clear" });
   }
 }

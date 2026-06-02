@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import "../peagle.css";
-import { useSoundContext } from "@/lib/contexts/sound-context";
+import { usePeagleSounds } from "../hooks/usePeagleSounds";
 import { DevPanel } from "./DevPanel";
 import type { DevConfig } from "./DevPanel";
 import { TitleCanvas } from "./TitleCanvas";
@@ -36,21 +36,22 @@ export function MainMenu({
   const [showSettings, setShowSettings] = useState(false);
   const [seedInput, setSeedInput] = useState("");
   const [seedError, setSeedError] = useState(false);
-  const { playClick, playBip } = useSoundContext();
+  const { playMenuClick, playMenuHover, playMenuReveal, playTitleImpact } = usePeagleSounds();
 
   const handlePlayWithSeed = useCallback(() => {
     const clean = seedInput.trim().toUpperCase().replace(/[^0-9A-Z]/g, '');
     if (!clean) { setSeedError(true); return; }
     setSeedError(false);
-    playClick();
+    playMenuClick();
     onPlayWithSeed(parseSeed(clean));
-  }, [seedInput, onPlayWithSeed, playClick]);
+  }, [seedInput, onPlayWithSeed, playMenuClick]);
 
   // Texte des boutons qui réagit aux impacts d'œufs sur le titre.
   // Onde de choc lointaine → amplitude volontairement minuscule (~force × 3px),
   // avec un léger décalage par bouton pour que la secousse « descende » le menu.
   const btnRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const handleImpact = useCallback((force: number) => {
+    playTitleImpact(force);
     const amp = 1 + force * 2.4; // ~1 à 3.4px max — bien plus faible que le titre
     btnRefs.current.forEach((el, i) => {
       if (!el) return;
@@ -63,7 +64,7 @@ export function MainMenu({
         { duration: 200, delay: i * 45, easing: "cubic-bezier(0.34,1.56,0.64,1)" },
       );
     });
-  }, []);
+  }, [playTitleImpact]);
 
   return (
     <div
@@ -81,7 +82,7 @@ export function MainMenu({
       }}
     >
       {/* Intro animée + décor en boucle (canvas, derrière tout) */}
-      <TitleCanvas skipIntro={skipIntro} onMenuReveal={() => setShowMenu(true)} onImpact={handleImpact} />
+      <TitleCanvas skipIntro={skipIntro} onMenuReveal={() => { setShowMenu(true); playMenuReveal(); }} onImpact={handleImpact} />
 
       {showDev && (
         <DevPanel
@@ -97,7 +98,7 @@ export function MainMenu({
       {showSettings && (
         <div
           className="pg-settings-overlay"
-          onClick={() => { playClick(); setShowSettings(false); }}
+          onClick={() => { playMenuClick(); setShowSettings(false); }}
         >
           <div className="pg-dialog pg-settings-dialog" onClick={(e) => e.stopPropagation()}>
             <div className="pg-titlebar">
@@ -109,8 +110,8 @@ export function MainMenu({
                 <span>MUSIQUE</span>
                 <button
                   className={`pg-btn ${musicMuted ? "" : "pg-btn-primary"}`}
-                  onPointerEnter={playBip}
-                  onClick={() => { playClick(); onToggleMusic(); }}
+                  onPointerEnter={playMenuHover}
+                  onClick={() => { playMenuClick(); onToggleMusic(); }}
                 >
                   {musicMuted ? "OFF" : "ON"}
                 </button>
@@ -143,7 +144,7 @@ export function MainMenu({
                   <button
                     className="pg-btn pg-btn-primary"
                     style={{ padding: "4px 8px", fontSize: 7 }}
-                    onPointerEnter={playBip}
+                    onPointerEnter={playMenuHover}
                     onClick={handlePlayWithSeed}
                   >
                     ▶ JOUER
@@ -159,8 +160,8 @@ export function MainMenu({
               <button
                 className="pg-btn"
                 style={{ alignSelf: "center", marginTop: 8 }}
-                onPointerEnter={playBip}
-                onClick={() => { playClick(); setShowSettings(false); }}
+                onPointerEnter={playMenuHover}
+                onClick={() => { playMenuClick(); setShowSettings(false); }}
               >
                 FERMER
               </button>
@@ -174,7 +175,7 @@ export function MainMenu({
       {isAdmin && showMenu && (
         <button
           className="pg-dev-link"
-          onClick={() => { playClick(); setShowDev(true); }}
+          onClick={() => { playMenuClick(); setShowDev(true); }}
           title="Outils développeur"
         >
           ⚙ dev
@@ -220,8 +221,8 @@ export function MainMenu({
         <button
           ref={(el) => { btnRefs.current[0] = el; }}
           className="pg-menu-btn pg-menu-btn-primary"
-          onPointerEnter={playBip}
-          onClick={() => { playClick(); onPlay(); }}
+          onPointerEnter={playMenuHover}
+          onClick={() => { playMenuClick(); onPlay(); }}
         >
           JOUER
         </button>
@@ -229,8 +230,8 @@ export function MainMenu({
         <button
           ref={(el) => { btnRefs.current[1] = el; }}
           className="pg-menu-btn"
-          onPointerEnter={playBip}
-          onClick={() => { playClick(); onLeaderboard(); }}
+          onPointerEnter={playMenuHover}
+          onClick={() => { playMenuClick(); onLeaderboard(); }}
         >
           CLASSEMENT
         </button>
@@ -238,8 +239,8 @@ export function MainMenu({
         <button
           ref={(el) => { btnRefs.current[2] = el; }}
           className="pg-menu-btn"
-          onPointerEnter={playBip}
-          onClick={() => { playClick(); setShowSettings(true); }}
+          onPointerEnter={playMenuHover}
+          onClick={() => { playMenuClick(); setShowSettings(true); }}
         >
           RÉGLAGES
         </button>

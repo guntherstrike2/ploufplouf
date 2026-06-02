@@ -128,6 +128,11 @@ const MENU_AT = 2.35;        // révélation du menu
 
 const lastLetterLand = LETTERS_START + (WORD.length - 1) * LETTER_STAGGER + LETTER_FALL;
 
+// ─── Timeline pré-intro ────────────────────────────────────────────────────────
+const STUDIO_DUR  = 3.2;                       // "Gunther Studio présente"
+const PIGEON_DUR  = 3.6;                       // séquence pigeon
+const INTRO_OFFSET = STUDIO_DUR + PIGEON_DUR;  // 6.8 s avant le vrai générique
+
 // ─── Forêt animée — positions précalculées (stables entre renders) ────────────
 interface TreeData { nx: number; nh: number; nw: number; swayAmp: number; swaySpeed: number; swayPhase: number; }
 interface ForestLayer { yBase: number; col: string; trees: TreeData[]; }
@@ -568,6 +573,38 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact }: Title
     let legSwingV = 0;       // vitesse angulaire du balancier
     // Position/échelle de l'aigle exposées par drawEagle pour ancrer la ponte
     let eagleX = 0, eagleY = 0, eagleScl = 1, eagleBob = 0;
+    // Dernière position du pigeon (bout du peek 3) → point de départ de l'aigle
+    let lastPigeonX = 0;
+    let lastPigeonY = 0;
+
+    // Peeks aléatoires générés une seule fois — bord + position le long du bord
+    // Le dernier peek a un bord de SORTIE différent du bord d'entrée :
+    //   le pigeon entre d'un côté, repart par un autre → l'aigle part de là.
+    type PeekSide = "left" | "right" | "top" | "bottom";
+    interface PeekConfig {
+      side: PeekSide; pos: number;
+      exitSide: PeekSide; exitPos: number; // sortie (= entrée pour tous sauf le dernier)
+    }
+    const PEEK_COUNT = 3;
+    const _peekConfigs: PeekConfig[] = (() => {
+      const sides: PeekSide[] = ["left", "right", "top", "bottom"];
+      const randSide = (exclude: string) => {
+        let s: PeekSide;
+        do { s = sides[Math.floor(Math.random() * sides.length)]!; } while (s === exclude);
+        return s;
+      };
+      const out: PeekConfig[] = [];
+      let prev = "";
+      for (let i = 0; i < PEEK_COUNT; i++) {
+        const s = randSide(prev);
+        prev = s;
+        const isLast = i === PEEK_COUNT - 1;
+        // Dernier peek : sort par un bord aléatoire différent de son entrée
+        const exitSide = isLast ? randSide(s) : s;
+        out.push({ side: s, pos: 0.25 + Math.random() * 0.50, exitSide, exitPos: 0.25 + Math.random() * 0.50 });
+      }
+      return out;
+    })();
 
     // ─── Impact des œufs sur les lettres du logo ──────────────────────────────
     // Quand un œuf percute une lettre, elle encaisse : ressort vertical (bonk),
@@ -609,10 +646,18 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact }: Title
     syncSize();
 
     function skip() {
-      if (skipped) return;
-      skipped = true;
-      // Recale le temps de départ pour sauter à l'état final
-      startT = performance.now() - (MENU_AT + 0.2) * 1000;
+      const now = performance.now();
+      const elapsedNow = startT ? (now - startT) / 1000 : 0;
+      if (elapsedNow < INTRO_OFFSET) {
+        // Premier clic : saute la pré-intro, démarre le générique principal
+        startT = now - INTRO_OFFSET * 1000;
+        // Initialise la position pigeon au défaut si pas encore vue
+        if (lastPigeonX === 0) { lastPigeonX = cssW + 40; lastPigeonY = cssH * 0.38; }
+      } else if (!skipped) {
+        // Second clic (pendant le générique) : saute à la fin
+        skipped = true;
+        startT = now - (INTRO_OFFSET + MENU_AT + 0.2) * 1000;
+      }
     }
     function onKey(e: KeyboardEvent) {
       if (e.key === "Enter" || e.key === " " || e.key === "Escape") skip();
@@ -634,11 +679,12 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact }: Title
 
       if (elapsed < EAGLE_IN) {
         const p = easeOutCubic(elapsed / EAGLE_IN);
-        // Vol courbe depuis le coin haut-gauche
-        const sx = -bodyCols * targetScale * 0.7;
-        const sy = restY - cssH * 0.18;
+        // Démarre depuis la dernière position du pigeon (bord aléatoire) → cohérence narrative
+        const hasPigPos = lastPigeonX !== 0 || lastPigeonY !== 0;
+        const sx = hasPigPos ? lastPigeonX : cssW + bodyCols * targetScale * 0.5;
+        const sy = hasPigPos ? lastPigeonY : restY - cssH * 0.18;
         ex = sx + (restX - sx) * p;
-        ey = sy + (restY - sy) * p + Math.sin(p * Math.PI) * 26; // petit arc
+        ey = sy + (restY - sy) * p + Math.sin(p * Math.PI) * 32; // arc de vol
         scl = targetScale * (0.55 + 0.45 * p);
         flapSpeed = 26;
         flapAmp = 0.55;
@@ -1381,6 +1427,242 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact }: Title
 
     }
 
+    // ─── Écran "Gunther Studio présente" ──────────────────────────────────────
+    function drawStudioScreen(elapsed: number) {
+      const fadeIn  = Math.min(1, elapsed / 0.50);
+      const fadeOut = elapsed > STUDIO_DUR - 0.70
+        ? Math.max(0, 1 - (elapsed - (STUDIO_DUR - 0.70)) / 0.70)
+        : 1;
+      const masterA = easeOutCubic(fadeIn) * fadeOut;
+      if (masterA <= 0) return;
+
+      ctx!.fillStyle = "#000000";
+      ctx!.fillRect(0, 0, cssW, cssH);
+
+      ctx!.save();
+      ctx!.imageSmoothingEnabled = false;
+
+      // ── Grand "G" pixel-art en or, centré ──────────────────────────────────
+      const GS = getLetterSprite("G", false); // tuile 9×9 en gold
+      if (GS) {
+        const scale = Math.max(4, Math.round(cssW * 0.016)); // ~10 px/cellule à 600
+        const pulse = 1 + 0.055 * Math.sin(elapsed * 3.4);
+        const rotG = Math.sin(elapsed * 0.8) * 0.04; // léger balancement
+        const logoW = GS.cols * scale;
+        const logoH = GS.rows * scale;
+        const lx = Math.round(cssW / 2);
+        const ly = Math.round(cssH * 0.36);
+
+        // Halo derrière le logo
+        ctx!.save();
+        ctx!.globalCompositeOperation = "lighter";
+        ctx!.globalAlpha = masterA * 0.22 * pulse;
+        const hg = ctx!.createRadialGradient(lx, ly, 0, lx, ly, logoW * 0.9);
+        hg.addColorStop(0, "#ffd24a");
+        hg.addColorStop(1, "rgba(255,180,40,0)");
+        ctx!.fillStyle = hg;
+        ctx!.fillRect(lx - logoW, ly - logoH, logoW * 2, logoH * 2);
+        ctx!.restore();
+
+        // Le "G" lui-même
+        ctx!.save();
+        ctx!.globalAlpha = masterA * Math.min(1, elapsed / 0.35);
+        ctx!.translate(lx, ly);
+        ctx!.rotate(rotG);
+        ctx!.scale(scale * pulse, scale * pulse);
+        ctx!.drawImage(GS.cv, -GS.cols / 2, -GS.rows / 2);
+        ctx!.restore();
+
+        // 6 petites étoiles qui orbitent autour du logo
+        ctx!.save();
+        ctx!.globalCompositeOperation = "lighter";
+        for (let i = 0; i < 6; i++) {
+          const a = (i / 6) * Math.PI * 2 + elapsed * 1.3;
+          const r = logoW * 0.72 * (1 + 0.12 * Math.sin(elapsed * 2.1 + i));
+          const sx2 = lx + Math.cos(a) * r;
+          const sy2 = ly + Math.sin(a) * r * 0.65;
+          const twinkle = 0.5 + 0.5 * Math.sin(elapsed * (2.4 + i * 0.7) + i * 1.8);
+          ctx!.globalAlpha = masterA * twinkle * 0.9;
+          ctx!.fillStyle = i % 2 === 0 ? "#fff3b0" : "#ffd24a";
+          const sr = Math.max(1, Math.round(scale * 0.25));
+          ctx!.fillRect(Math.round(sx2) - sr, Math.round(sy2) - sr, sr * 2, sr * 2);
+          // croix 4 branches
+          ctx!.fillRect(Math.round(sx2) - sr * 3, Math.round(sy2), sr * 6, 1);
+          ctx!.fillRect(Math.round(sx2), Math.round(sy2) - sr * 3, 1, sr * 6);
+        }
+        ctx!.restore();
+
+        // Filet de séparation doré sous le G
+        ctx!.save();
+        const sepY = ly + logoH * 0.65 + 6;
+        const sepW = logoW * 1.6;
+        const segG = ctx!.createLinearGradient(lx - sepW / 2, sepY, lx + sepW / 2, sepY);
+        segG.addColorStop(0, "rgba(255,180,40,0)");
+        segG.addColorStop(0.3, "rgba(255,210,80,0.7)");
+        segG.addColorStop(0.7, "rgba(255,210,80,0.7)");
+        segG.addColorStop(1, "rgba(255,180,40,0)");
+        ctx!.globalAlpha = masterA * Math.min(1, (elapsed - 0.4) / 0.3);
+        ctx!.fillStyle = segG;
+        ctx!.fillRect(Math.round(lx - sepW / 2), Math.round(sepY), Math.ceil(sepW), 1);
+        ctx!.restore();
+
+        // ── Textes ────────────────────────────────────────────────────────────
+        const textSize = Math.max(9, Math.round(cssW * 0.036));
+        ctx!.textAlign = "center";
+        ctx!.textBaseline = "middle";
+
+        // "GUNTHER STUDIO"
+        const studioReveal = Math.min(1, Math.max(0, (elapsed - 0.55) / 0.35));
+        if (studioReveal > 0) {
+          ctx!.save();
+          ctx!.globalAlpha = masterA * easeOutCubic(studioReveal);
+          ctx!.font = `bold ${textSize}px "Courier New", monospace`;
+          ctx!.fillStyle = "#c8d4e0";
+          ctx!.fillText("GUNTHER STUDIO", lx, ly + logoH * 0.65 + 20 + textSize * 0.6);
+          ctx!.restore();
+        }
+
+        // "présente"
+        const pResReveal = Math.min(1, Math.max(0, (elapsed - 1.3) / 0.45));
+        if (pResReveal > 0) {
+          ctx!.save();
+          ctx!.globalAlpha = masterA * easeOutCubic(pResReveal);
+          ctx!.font = `${Math.max(7, Math.round(textSize * 0.62))}px "Courier New", monospace`;
+          ctx!.fillStyle = "#a09050";
+          ctx!.fillText("présente", lx, ly + logoH * 0.65 + 20 + textSize * 0.6 + textSize * 0.9);
+          ctx!.restore();
+        }
+      }
+
+      ctx!.restore();
+    }
+
+    // ─── Séquence de peeks — tête d'aigle (eagleFace) ────────────────────────
+    // Crâne toujours orienté vers le centre de l'écran :
+    //   bord GAUCHE  → rotation +π/2   bord DROIT → rotation -π/2
+    //   bord BAS     → rotation 0      bord HAUT  → rotation +π
+    // Bords et positions le long du bord tirés aléatoirement dans _peekConfigs.
+    function drawPigeonSequence(pigElapsed: number) {
+      // Fond noir
+      ctx!.fillStyle = "#000000";
+      ctx!.fillRect(0, 0, cssW, cssH);
+
+      // Quelques étoiles discrètes
+      ctx!.save();
+      for (let si = 0; si < 18; si++) {
+        const st = _stars[si]!;
+        const tw = 0.25 + 0.35 * Math.abs(Math.sin(pigElapsed * st.speed * 0.5 + st.phase));
+        ctx!.fillStyle = st.col;
+        ctx!.globalAlpha = tw * st.bright * 0.45;
+        ctx!.fillRect(Math.round(st.nx * cssW), Math.round(st.ny * cssH * 0.65), st.r, st.r);
+      }
+      ctx!.globalAlpha = 1;
+      ctx!.restore();
+
+      // Échelle : face ≈ 18 % de la largeur de l'écran (boîte ±14 px à 1×)
+      const peekScale = Math.max(2, Math.min(6, Math.round(cssW * 0.18 / 28)));
+      const headR     = 16 * peekScale; // rayon demi-hauteur en px écran
+
+      const easeIn3 = (p: number) => p * p * p;
+
+      // Rotation skull-vers-centre selon le bord d'entrée
+      function rotationForSide(side: PeekSide): number {
+        if (side === "left")   return  Math.PI / 2;   // skull → droite
+        if (side === "right")  return -Math.PI / 2;   // skull → gauche
+        if (side === "top")    return  Math.PI;        // skull → bas (vers centre)
+        return 0;                                      // bottom : skull → haut (normal)
+      }
+
+      // Coordonnée écran de départ (hors-écran) pour un bord donné
+      function offscreenStart(side: PeekSide, pos: number): [number, number] {
+        if (side === "left")   return [-headR, pos * cssH];
+        if (side === "right")  return [cssW + headR, pos * cssH];
+        if (side === "top")    return [pos * cssW, -headR];
+        return [pos * cssW, cssH + headR]; // bottom
+      }
+
+      // Coordonnée de la position "visible" (depth en px depuis le bord)
+      function peekPos(side: PeekSide, pos: number, depth: number): [number, number] {
+        if (side === "left")   return [-headR + depth, pos * cssH];
+        if (side === "right")  return [cssW + headR - depth, pos * cssH];
+        if (side === "top")    return [pos * cssW, -headR + depth];
+        return [pos * cssW, cssH + headR - depth]; // bottom
+      }
+
+      // Helper dessin d'une tête orientée
+      function drawPeekHead(
+        sx: number, sy: number,
+        rotation: number, bob: number,
+        blink: boolean, open: number,
+        brow: "flat" | "angry" | "up",
+        wide: boolean, pop: number,
+      ) {
+        ctx!.save();
+        ctx!.translate(sx, sy);
+        ctx!.rotate(rotation + bob);
+        ctx!.scale(peekScale, peekScale);
+        ctx!.imageSmoothingEnabled = false;
+        eagleFace(ctx!, 0, 0, { blink, open, brow, eyeRed: false, wide, look: 0, pop });
+        ctx!.restore();
+      }
+
+      // Timings des peeks (en s, relatif au début de la phase pigeon)
+      const PEEK_STARTS = [0.08, 1.20, 2.28];
+      const PEEK_IN     = 0.30;
+      const PEEK_HOLD   = 0.54;
+      const PEEK_OUT    = 0.28;
+      // Profondeur d'entrée : le centre de la tête avance de headR*DEPTH_FACTOR
+      // → facteur ≥ 1.5 pour voir vraiment la face (skull + yeux + bec)
+      const DEPTH_FACTOR = 1.65;
+
+      for (let pi = 0; pi < PEEK_COUNT; pi++) {
+        const AT  = PEEK_STARTS[pi]!;
+        const END = AT + PEEK_IN + PEEK_HOLD + PEEK_OUT;
+        const cfg = _peekConfigs[pi]!;
+        const isLast = (pi === PEEK_COUNT - 1);
+
+        if (pigElapsed < AT) continue;
+
+        const ph    = pigElapsed - AT;
+        const depth = headR * DEPTH_FACTOR;
+        const [entryX, entryY] = offscreenStart(cfg.side, cfg.pos);
+        const [tx, ty]         = peekPos(cfg.side, cfg.pos, depth);
+        const [exitX, exitY]   = offscreenStart(cfg.exitSide, cfg.exitPos);
+
+        // Interpolation position courante
+        let cx2: number, cy2: number;
+        if (ph < PEEK_IN) {
+          const fwd = easeOutBack(ph / PEEK_IN);
+          cx2 = entryX + (tx - entryX) * fwd;
+          cy2 = entryY + (ty - entryY) * fwd;
+        } else if (ph < PEEK_IN + PEEK_HOLD) {
+          cx2 = tx; cy2 = ty;
+        } else if (ph < END - AT) {
+          const op = (ph - PEEK_IN - PEEK_HOLD) / PEEK_OUT;
+          const back = easeIn3(op);
+          cx2 = tx + (exitX - tx) * back;
+          cy2 = ty + (exitY - ty) * back;
+        } else {
+          cx2 = exitX; cy2 = exitY;
+        }
+
+        // Pour le dernier peek : suivi de la position pour le départ de l'aigle
+        if (isLast) { lastPigeonX = cx2; lastPigeonY = cy2; }
+
+        if (pigElapsed >= END) continue; // hors écran, ne pas dessiner
+
+        const hf    = Math.max(0, (ph - PEEK_IN) / PEEK_HOLD);
+        const blink = hf > 0.5 && (pigElapsed % 2.8) < 0.11;
+        const bob   = hf > 0 ? Math.sin(pigElapsed * 4.5) * 0.06 : 0;
+        const open  = pi === 1 ? (hf > 0.2 ? 0.45 : 0) : (hf > 0.3 ? 0.15 : 0);
+        const brow  = pi === 1 && hf > 0.1 ? "up" : "flat";
+        const wide  = pi === 1 && hf > 0.1;
+        const pop   = pi === 1 && hf > 0.1 ? 0.12 : 0;
+
+        drawPeekHead(cx2, cy2, rotationForSide(cfg.side), bob, blink, open, brow, wide, pop);
+      }
+    }
+
     function drawVignette() {
       const g = ctx!.createRadialGradient(cssW / 2, cssH * 0.42, cssH * 0.2, cssW / 2, cssH / 2, cssH * 0.75);
       g.addColorStop(0, "rgba(0,0,0,0)");
@@ -1392,14 +1674,35 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact }: Title
     function frame(now: number) {
       syncSize();
       if (!startT) {
-        // Si skipIntro, on démarre directement en état idle (après toutes les animations d'intro)
-        startT = skipIntroRef.current ? now - (MENU_AT + 0.2) * 1000 : now;
+        // skipIntro (retour menu) : saute toute la pré-intro + le générique
+        startT = skipIntroRef.current
+          ? now - (INTRO_OFFSET + MENU_AT + 0.2) * 1000
+          : now;
+        if (skipIntroRef.current) {
+          lastPigeonX = cssW + 40;
+          lastPigeonY = cssH * 0.38;
+        }
         prevMs = now;
       }
       const dt = Math.min(0.05, (now - prevMs) / 1000);
       prevMs = now;
       const elapsed = (now - startT) / 1000;
-      currentElapsed = elapsed;
+
+      // ── Pré-intro (studio + pigeon) ─────────────────────────────────────────
+      if (elapsed < INTRO_OFFSET) {
+        ctx!.clearRect(0, 0, cssW, cssH);
+        if (elapsed < STUDIO_DUR) {
+          drawStudioScreen(elapsed);
+        } else {
+          drawPigeonSequence(elapsed - STUDIO_DUR);
+        }
+        raf = requestAnimationFrame(frame);
+        return;
+      }
+
+      // ── Générique principal ──────────────────────────────────────────────────
+      const mainElapsed = elapsed - INTRO_OFFSET;
+      currentElapsed = mainElapsed;
 
       // shake
       trauma = Math.max(0, trauma - dt * 2.2);
@@ -1412,9 +1715,8 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact }: Title
       ponte = Math.max(0, ponte - dt * 1.8);
 
       // Pendule amorti des pattes : rappel élastique vers 0 + frottement.
-      // Le coup de pied donné à la ponte les fait osciller (effet « rigolo »).
-      legSwingV += -legSwing * 80 * dt;     // raideur du ressort
-      legSwingV *= Math.exp(-3.2 * dt);     // amortissement
+      legSwingV += -legSwing * 80 * dt;
+      legSwingV *= Math.exp(-3.2 * dt);
       legSwing += legSwingV * dt;
 
       // Rebonds différés des lettres voisines (onde qui traverse le mot)
@@ -1430,39 +1732,39 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact }: Title
 
       // Ressorts d'impact des lettres (bonk) + extinction du flash
       for (let i = 0; i < WORD.length; i++) {
-        knockV[i] += (-175 * knock[i] - 8 * knockV[i]) * dt; // ressort rebondissant
+        knockV[i] += (-175 * knock[i] - 8 * knockV[i]) * dt;
         knock[i] += knockV[i] * dt;
         if (flash[i] > 0) flash[i] = Math.max(0, flash[i] - dt * 3.5);
       }
 
-      // Ressort propre au badge "98" (même physique, indépendant)
+      // Ressort propre au badge "98"
       badgeKnockV += (-175 * badgeKnock - 8 * badgeKnockV) * dt;
       badgeKnock += badgeKnockV * dt;
       if (badgeFlash > 0) badgeFlash = Math.max(0, badgeFlash - dt * 3.5);
 
-      // ponte périodique, seulement une fois l'aigle posé en idle
-      if (elapsed > EAGLE_IN + 0.3) {
+      // Ponte périodique, seulement une fois l'aigle posé en idle
+      if (mainElapsed > EAGLE_IN + 0.3) {
         nextEggAt -= dt;
         if (nextEggAt <= 0) {
           layEgg();
-          nextEggAt = 3 + Math.random() * 4; // prochaine ponte dans 3–7 s
+          nextEggAt = 3 + Math.random() * 4;
         }
       }
 
       ctx!.save();
       ctx!.clearRect(0, 0, cssW, cssH);
-      drawBackdrop(elapsed);
-      updateAndDrawShootingStars(elapsed, dt);
-      drawForest(elapsed);
+      drawBackdrop(mainElapsed);
+      updateAndDrawShootingStars(mainElapsed, dt);
+      drawForest(mainElapsed);
       ctx!.translate(sx, sy);
-      drawEagle(elapsed);
+      drawEagle(mainElapsed);
       updateAndDrawEggs(dt);
-      drawTitle(elapsed);
-      updateAndDrawShards(dt);  // éclats de coquille par-dessus le titre
+      drawTitle(mainElapsed);
+      updateAndDrawShards(dt);
       ctx!.restore();
       drawVignette();
 
-      if (!revealedRef.current && elapsed >= MENU_AT) {
+      if (!revealedRef.current && mainElapsed >= MENU_AT) {
         revealedRef.current = true;
         onRevealRef.current();
       }

@@ -82,12 +82,12 @@ export function processBallPhysics(
     if (b.x - s.effectiveBallR < 0) {
       b.vx = Math.abs(b.vx) * WALL_BOUNCE;
       b.x = s.effectiveBallR;
-      if (step === 0) { events.push({ kind: "sound", id: "bip" }); s.trauma = Math.min(1, s.trauma + BALANCE.wall.traumaPerHit); b.squash = Math.max(b.squash, Math.min(0.7, speed * 0.05)); }
+      if (step === 0) { events.push({ kind: "sound", id: "wall-bounce" }); s.trauma = Math.min(1, s.trauma + BALANCE.wall.traumaPerHit); b.squash = Math.max(b.squash, Math.min(0.7, speed * 0.05)); }
     }
     if (b.x + s.effectiveBallR > W) {
       b.vx = -Math.abs(b.vx) * WALL_BOUNCE;
       b.x = W - s.effectiveBallR;
-      if (step === 0) { events.push({ kind: "sound", id: "bip" }); s.trauma = Math.min(1, s.trauma + BALANCE.wall.traumaPerHit); b.squash = Math.max(b.squash, Math.min(0.7, speed * 0.05)); }
+      if (step === 0) { events.push({ kind: "sound", id: "wall-bounce" }); s.trauma = Math.min(1, s.trauma + BALANCE.wall.traumaPerHit); b.squash = Math.max(b.squash, Math.min(0.7, speed * 0.05)); }
     }
 
     // Pegs — comportement piloté par la table data-driven PEG_KINDS.
@@ -180,7 +180,7 @@ export function processBallPhysics(
         pushEagleHype(s, p.x, p.y - 40, comboMult);
       }
 
-      events.push({ kind: "sound", id: def.sound });
+      events.push({ kind: "sound", id: def.sound, x: p.x });
     }
   }
 
@@ -203,7 +203,7 @@ export function processBallPhysics(
       spawnImpactRing(s, b.x, bucketTop, "#ffd700", 1);
       s.floatingTexts.push({ x: W / 2, y: H / 2 - 60, text: "JACKPOT !!!", life: 1, maxLife: 3.5, color: "#ffd700", combo: true, exclaim: true, fontSize: 30, spin: 0 });
       s.floatingTexts.push({ x: W / 2, y: H / 2 - 24, text: `+${bonus.toLocaleString()}  ·  +${BALANCE.score.jackpotBalls} ŒUFS`, life: 1, maxLife: 3, color: "#ffec80", combo: true, fontSize: 16 });
-      events.push({ kind: "sound", id: "victory" });
+      events.push({ kind: "sound", id: "jackpot" });
     } else {
       s.balls += 1;
       s.trauma = Math.min(1, s.trauma + BALANCE.trauma.bucketCatch);

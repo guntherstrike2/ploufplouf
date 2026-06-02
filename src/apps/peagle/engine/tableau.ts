@@ -4,7 +4,7 @@ import { PEG_R } from "./constants";
 // ─── Peg factory ─────────────────────────────────────────────────────────────
 
 export function makePeg(x: number, y: number, kind: PegKind = "normal"): Peg {
-  return { x, y, kind, hit: false, popping: false, popAlpha: 1, scale: 1, cooldown: 0, bump: 0 };
+  return { x, y, kind, hit: false, popping: false, popAlpha: 1, scale: 1, cooldown: 0, bump: 0, revealT: 0 };
 }
 
 type PegOverride = Partial<Pick<Peg, "kind">>;

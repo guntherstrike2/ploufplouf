@@ -24,6 +24,7 @@ export interface Peg {
   // d'impact (0..1) qui décroît chaque frame.
   cooldown: number;
   bump: number;
+  revealT: number;  // animClock au moment où ce peg doit apparaître (intro niveau)
 }
 
 export interface Ball {
@@ -105,7 +106,8 @@ export interface GameState {
   ball: Ball | null;
   balls: number;
   score: number;
-  phase: "aim" | "firing" | "lost" | "won";
+  phase: "intro" | "aim" | "firing" | "lost" | "won";
+  introEndT: number;   // animClock à partir duquel "intro" → "aim"
   bucket: number;
   bucketDir: number;
   bucketFlash: number;
@@ -144,6 +146,9 @@ export interface GameState {
   effectiveFeverThreshold: number;
   effectiveAimSteps: number;
   effectivePegBounce: number;
+
+  // Seed used to generate the procedural forest background (per run, derived from runState.seed)
+  forestSeed: number;
 }
 
 export interface UiState {

@@ -1,10 +1,12 @@
 "use client";
 
+import { useEffect } from "react";
 import "../peagle.css";
 import type { UpgradeId } from "../engine/roguelite";
 import { UPGRADES } from "../engine/roguelite";
 import { PG } from "../styles";
 import { PixelSprite } from "./PixelSprite";
+import { usePeagleSounds } from "../hooks/usePeagleSounds";
 
 // Couleur de bande par upgrade id — donne une identité visuelle à chaque bonus
 const CARD_COLORS: Record<UpgradeId, { band: string; name: string; label: string }> = {
@@ -23,6 +25,10 @@ interface UpgradePickerProps {
 }
 
 export function UpgradePicker({ offers, level, score, onPick, onSkip }: UpgradePickerProps) {
+  const { playUpgradeReveal, playUpgradeHover, playUpgradePick, playUpgradeSkip } = usePeagleSounds();
+
+  useEffect(() => { playUpgradeReveal(); }, [playUpgradeReveal]);
+
   return (
     <div
       className="peagle-root pg-overlay-lux"
@@ -60,7 +66,8 @@ export function UpgradePicker({ offers, level, score, onPick, onSkip }: UpgradeP
               return (
                 <button
                   key={id}
-                  onClick={() => onPick(id)}
+                  onPointerEnter={playUpgradeHover}
+                  onClick={() => { playUpgradePick(); onPick(id); }}
                   className="pg-card-lux"
                   style={{ animationDelay: `${i * 0.09}s` }}
                 >
@@ -116,7 +123,7 @@ export function UpgradePicker({ offers, level, score, onPick, onSkip }: UpgradeP
             </div>
 
             <button
-              onClick={onSkip}
+              onClick={() => { playUpgradeSkip(); onSkip(); }}
               className="pg-btn pg-btn-ghost pg-btn-ghost-warn"
               style={{ fontSize: 7, padding: "8px 14px", letterSpacing: "0.06em" }}
             >

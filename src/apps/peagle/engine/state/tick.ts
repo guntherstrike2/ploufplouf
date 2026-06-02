@@ -34,6 +34,17 @@ export function tick(s: GameState): TickResult {
   // hit-freeze ou le ralenti, pour ne jamais se figer en plein ciel.
   updateBirds(s, 1);
 
+  // Phase d'intro : on laisse tourner l'animClock et l'ambiance, mais aucune
+  // physique ni saisie n'est possible. Transition automatique vers "aim".
+  if (s.phase === "intro") {
+    updateBucket(s, 1); // le panier se déplace pendant l'intro
+    if (s.animClock >= s.introEndT) {
+      s.phase = "aim";
+      return { events, syncUI: true, orangeLeft: s.orangeLeft };
+    }
+    return { events, syncUI: false, orangeLeft: s.orangeLeft };
+  }
+
   // Hit freeze : fige la physique, anime seulement les scales de pegs
   if (s.hitFreezeFrames > 0) {
     s.hitFreezeFrames--;

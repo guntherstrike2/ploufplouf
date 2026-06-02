@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useCallback } from "react";
 import type { RefObject } from "react";
-import { useSoundContext } from "@/lib/contexts/sound-context";
+import { usePeagleSounds } from "./usePeagleSounds";
 import { drawFrame } from "../renderer";
 import { PAUSE_HIT } from "../renderer/hud";
 import { resolveTheme, invalidateTheme } from "../engine/game-theme";
@@ -84,16 +84,35 @@ export function useGameLoop({
     onRequestPauseRef.current = onRequestPause;
   });
 
-  const { playPop, playBip, playVictory, playDelete } = useSoundContext();
+  const {
+    playPegHit, playOrangePegHit, playBumperHit,
+    playWallBounce, playBucketCatch, playJackpot,
+    playLevelClear, playPegClear, playGameOver,
+    playGrab,
+  } = usePeagleSounds();
 
   const handleEvent = useCallback((ev: GameEvent) => {
     switch (ev.kind) {
-      case "sound":
-        if (ev.id === "pop") playPop();
-        else if (ev.id === "bip") playBip();
-        else if (ev.id === "victory") playVictory();
-        else if (ev.id === "delete") playDelete();
+      case "sound": {
+        const combo = stateRef.current.combo;
+        const x     = ev.x;
+        switch (ev.id) {
+          case "peg-hit":     playPegHit(combo, x); break;
+          case "orange-hit":  playOrangePegHit(combo, x); break;
+          case "bumper-hit":  playBumperHit(); break;
+          case "wall-bounce": playWallBounce(); break;
+          case "victory":     playBucketCatch(); break;
+          case "jackpot":     playJackpot(); break;
+          case "level-clear": playLevelClear(); break;
+          case "peg-clear":   playPegClear(); break;
+          case "game-over":   playGameOver(); break;
+          // legacy fallbacks
+          case "pop":   playPegClear(); break;
+          case "bip":   playWallBounce(); break;
+          case "delete": playGameOver(); break;
+        }
         break;
+      }
       case "level-won":
         onLevelWonRef.current();
         break;
@@ -107,7 +126,12 @@ export function useGameLoop({
         onScoreSubmitRef.current(ev.score, ev.won);
         break;
     }
-  }, [playPop, playBip, playVictory, playDelete, onBestScore]);
+  }, [
+    playPegHit, playOrangePegHit, playBumperHit,
+    playWallBounce, playBucketCatch, playJackpot,
+    playLevelClear, playPegClear, playGameOver,
+    onBestScore,
+  ]);
 
   const syncUI = useCallback((orangeLeft?: number) => {
     const s = stateRef.current;
@@ -223,7 +247,7 @@ export function useGameLoop({
         grabOffsetRef.current = s.launcherX - p.x;
         s.launcherDragging = true;
         spawnFeathers(s, s.launcherX, LAUNCHER_Y + 6, 6);
-        playBip();
+        playGrab();
         e.currentTarget.setPointerCapture?.(e.pointerId);
         return;
       }
@@ -231,7 +255,7 @@ export function useGameLoop({
     // Sinon : pression dans la zone de jeu → tir au relâchement
     pressFireRef.current = true;
     mouseRef.current = p;
-  }, [playBip, mouseRef]);
+  }, [mouseRef]);
 
   const handlePointerMove = useCallback((e: {
     currentTarget: { getBoundingClientRect(): DOMRect }; clientX: number; clientY: number;
