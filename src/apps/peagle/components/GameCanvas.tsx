@@ -298,9 +298,9 @@ export function GameCanvas({
                         className="pg-btn"
                         style={{
                           fontSize: 7,
-                          color: "#e0b4ff",
-                          background: "linear-gradient(to bottom, #3a1d4f 0%, #2a1437 100%)",
-                          borderColor: "#7a3fb0",
+                          color: PG.purpleHi,
+                          background: `linear-gradient(to bottom, #3a1d4f 0%, ${PG.purpleSurface} 100%)`,
+                          borderColor: PG.purpleBorder,
                         }}
                       >
                         ⏭ NIVEAU SUIVANT
@@ -311,9 +311,9 @@ export function GameCanvas({
                       className="pg-btn"
                       style={{
                         fontSize: 7,
-                        color: "#e0b4ff",
-                        background: "linear-gradient(to bottom, #3a1d4f 0%, #2a1437 100%)",
-                        borderColor: "#7a3fb0",
+                        color: PG.purpleHi,
+                        background: `linear-gradient(to bottom, #3a1d4f 0%, ${PG.purpleSurface} 100%)`,
+                        borderColor: PG.purpleBorder,
                       }}
                     >
                       ⚙ DEV TOOLS
@@ -437,22 +437,13 @@ export function GameCanvas({
                 {/* Badge seed + copie */}
                 <button
                   onClick={copySeed}
+                  className="pg-btn pg-btn-ghost"
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 6,
                     width: "100%",
-                    padding: "6px 8px",
                     marginBottom: 12,
-                    fontFamily: "var(--pg-font)",
-                    fontSize: 8,
+                    fontSize: 7,
                     letterSpacing: "0.08em",
-                    cursor: "pointer",
-                    background: "rgba(255,255,255,0.04)",
-                    color: seedCopied ? PG.leaf : PG.textMuted,
-                    border: `1px solid ${seedCopied ? PG.leaf + "66" : PG.border}`,
-                    transition: "color 0.2s, border-color 0.2s",
+                    color: seedCopied ? PG.leaf : undefined,
                   }}
                   title="Copier le code seed pour relancer cette partie"
                 >
@@ -497,7 +488,7 @@ export function GameCanvas({
                   <button
                     onClick={onReplaySeed}
                     className="pg-btn pg-btn-ghost"
-                    style={{ fontSize: 7, letterSpacing: "0.06em", width: "100%", color: PG.cyan }}
+                    style={{ fontSize: 7, letterSpacing: "0.06em", width: "100%", color: PG.leaf }}
                   >
                     ↻ REJOUER CE SEED ({seedCode})
                   </button>

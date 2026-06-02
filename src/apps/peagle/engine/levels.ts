@@ -30,7 +30,7 @@ interface Area {
   cx: number;
 }
 
-const AREA: Area = { x0: 44, x1: W - 44, y0: 116, y1: 470, cx: W / 2 };
+const AREA: Area = { x0: 44, x1: W - 44, y0: 150, y1: 470, cx: W / 2 };
 
 // ─── Motifs structurels ───────────────────────────────────────────────────────
 // POINT D'EXTENSION : ajoute un builder (rng, area) => Peg[] et référence-le dans
@@ -299,7 +299,7 @@ function assignKinds(rng: Rng, pegs: Peg[], reachable: Set<Peg>, diff: Difficult
 // ─── Fallback garanti ────────────────────────────────────────────────────────
 
 function fallbackGrid(): Peg[] {
-  return tHexGrid(W / 2 - 7 * 24, 130, 15, 9, 24);
+  return tHexGrid(W / 2 - 7 * 24, 164, 15, 9, 24);
 }
 
 // ─── Builder principal ─────────────────────────────────────────────────────────

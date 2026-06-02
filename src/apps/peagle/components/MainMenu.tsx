@@ -7,10 +7,7 @@ import { DevPanel } from "./DevPanel";
 import type { DevConfig } from "./DevPanel";
 import { TitleCanvas } from "./TitleCanvas";
 import { parseSeed } from "../engine/roguelite";
-
-const NW = {
-  gold: "#88cc44"
-} as const;
+import { PG } from "../styles";
 
 interface MainMenuProps {
   isAdmin: boolean;
@@ -135,9 +132,9 @@ export function MainMenu({
                       fontFamily: "var(--pg-font)",
                       fontSize: 9,
                       padding: "4px 6px",
-                      background: seedError ? "#2a0808" : "#0a120a",
-                      color: seedError ? "#ff6666" : NW.gold,
-                      border: `1px solid ${seedError ? "#aa3333" : "#2a4a2a"}`,
+                      background: seedError ? "#2a0808" : PG.bg,
+                      color: seedError ? PG.red : PG.leaf,
+                      border: `1px solid ${seedError ? "#aa3333" : PG.border}`,
                       outline: "none",
                       letterSpacing: "0.12em",
                       textTransform: "uppercase",
@@ -153,7 +150,7 @@ export function MainMenu({
                   </button>
                 </div>
                 {seedError && (
-                  <span style={{ fontSize: 6, color: "#ff6666", letterSpacing: "0.04em" }}>
+                  <span style={{ fontSize: 6, color: PG.red, letterSpacing: "0.04em" }}>
                     Entre un code valide (A-Z, 0-9)
                   </span>
                 )}
@@ -195,10 +192,10 @@ export function MainMenu({
             textAlign: "center",
             zIndex: 2,
             fontSize: 8,
-            color: NW.gold,
+            color: PG.gold,
             fontFamily: "var(--pg-font)",
             letterSpacing: "0.1em",
-            textShadow: `0 0 8px ${NW.gold}88, 0 2px 4px rgba(0,0,0,0.9)`,
+            textShadow: `0 0 8px ${PG.gold}88, 0 2px 4px rgba(0,0,0,0.9)`,
             animation: "pg-blink 1.1s step-end infinite",
             pointerEvents: "none"
           }}

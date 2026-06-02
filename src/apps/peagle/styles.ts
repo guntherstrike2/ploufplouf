@@ -36,6 +36,10 @@ export const PG = {
   warn:      "#ffc24a",
   red:       "#ff5544",   // game over
   purple:    "#cc66ff",   // rareté epic
+  purpleHi:  "#e0b4ff",   // texte/icône sur surface violette
+  purpleSurface: "#2a1437", // fond violet sombre
+  purpleBorder:  "#7a3fb0", // bordure violette
+  goldDark:  "#604010",   // accent bas des en-têtes lux (amber sombre)
   // En-tête de panneau (bande forêt, 2 tons)
   headFrom:  "#19331042",
   headTo:    "#0c1c08",

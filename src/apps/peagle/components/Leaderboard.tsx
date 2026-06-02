@@ -46,7 +46,7 @@ export function Leaderboard({ entries, loading, currentUserId, onRefresh, showLo
           padding: "11px 14px",
           borderBottom: `2px solid #050d03`,
           background: "linear-gradient(to bottom, #1a3410 0%, #111f0b 55%, #0d1a08 100%)",
-          boxShadow: `inset 0 1px 0 0 ${PG.bevelHi}, inset 0 -2px 0 0 #604010`,
+          boxShadow: `inset 0 1px 0 0 ${PG.bevelHi}, inset 0 -2px 0 0 ${PG.goldDark}`,
           flexShrink: 0,
           zIndex: 1,
         }}
@@ -59,7 +59,7 @@ export function Leaderboard({ entries, loading, currentUserId, onRefresh, showLo
           style={{
             fontSize: 8,
             fontWeight: "bold",
-            color: "#dfc050",
+            color: PG.gold,
             flex: 1,
             letterSpacing: "0.1em",
             display: "flex",
@@ -106,7 +106,7 @@ export function Leaderboard({ entries, loading, currentUserId, onRefresh, showLo
             padding: "10px 16px",
             borderBottom: `2px solid #050d03`,
             background: "linear-gradient(to bottom, #1a3410 0%, #0e1e08 100%)",
-            boxShadow: `inset 0 1px 0 0 ${PG.bevelHi}, inset 0 -2px 0 0 #604010`,
+            boxShadow: `inset 0 1px 0 0 ${PG.bevelHi}, inset 0 -2px 0 0 ${PG.goldDark}`,
             position: "sticky",
             top: 0,
             zIndex: 1,
@@ -117,7 +117,7 @@ export function Leaderboard({ entries, loading, currentUserId, onRefresh, showLo
               key={h}
               style={{
                 fontSize: 7,
-                color: "#7a9060",
+                color: PG.textMuted,
                 letterSpacing: "0.1em",
                 textAlign: i === 3 ? "right" : i === 2 ? "center" : "left",
               }}

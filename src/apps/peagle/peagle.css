@@ -26,6 +26,10 @@
   --pg-gold:        #ffd24a;   /* victoire, records */
   --pg-red:         #ff5544;   /* game over */
   --pg-purple:      #cc66ff;   /* epic rarity */
+  --pg-purple-hi:   #e0b4ff;   /* texte/icône sur surface violette */
+  --pg-purple-surface: #2a1437; /* fond violet sombre */
+  --pg-purple-border:  #7a3fb0; /* bordure violette */
+  --pg-gold-dark:   #604010;   /* accent bas des en-têtes lux */
 
   /* En-tête de panneau (bande forêt sombre) */
   --pg-head-from:   #19331042;
@@ -538,6 +542,12 @@
 .pg-btn-ghost:hover {
   border-color: var(--pg-leaf);
   color: var(--pg-leaf);
+  transform: translate(-1px, -1px);
+}
+
+.pg-btn-ghost.pg-btn-ghost-warn:hover {
+  border-color: var(--pg-orange);
+  color: var(--pg-orange);
   transform: translate(-1px, -1px);
   filter: none;
 }

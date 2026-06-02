@@ -8,7 +8,7 @@ import { PixelSprite } from "./PixelSprite";
 
 // Couleur de bande par upgrade id — donne une identité visuelle à chaque bonus
 const CARD_COLORS: Record<UpgradeId, { band: string; name: string; label: string }> = {
-  extra_ball:  { band: "#7ed13a", name: PG.leaf,   label: "COMMUN"  },
+  extra_ball:  { band: PG.green,  name: PG.leaf,   label: "COMMUN"  },
   heavy_ball:  { band: "#4488ff", name: "#7ab0ff",  label: "RARE"    },
   bigger_ball: { band: "#4488ff", name: "#7ab0ff",  label: "RARE"    },
   sharp_aim:   { band: PG.purple, name: "#d088ff",  label: "ÉPIQUE"  },
@@ -48,17 +48,7 @@ export function UpgradePicker({ offers, level, score, onPick, onSkip }: UpgradeP
             style={{ marginBottom: 16, padding: "10px 18px", display: "flex", alignItems: "center", justifyContent: "space-between" }}
           >
             <span className="pg-hero-score-label" style={{ marginBottom: 0 }}>SCORE</span>
-            <span
-              style={{
-                fontFamily: "var(--pg-font)",
-                fontSize: 16,
-                fontWeight: "bold",
-                color: PG.cream,
-                textShadow: `0 0 10px rgba(242,230,194,0.3), 0 2px 0 #080f04`,
-              }}
-            >
-              {score.toLocaleString()}
-            </span>
+            <span className="pg-hero-score-val">{score.toLocaleString()}</span>
           </div>
 
           {/* Cards */}
@@ -127,10 +117,8 @@ export function UpgradePicker({ offers, level, score, onPick, onSkip }: UpgradeP
 
             <button
               onClick={onSkip}
-              className="pg-btn pg-btn-ghost"
+              className="pg-btn pg-btn-ghost pg-btn-ghost-warn"
               style={{ fontSize: 7, padding: "8px 14px", letterSpacing: "0.06em" }}
-              onMouseEnter={e => { e.currentTarget.style.color = PG.orange; }}
-              onMouseLeave={e => { e.currentTarget.style.color = ""; }}
             >
               PASSER →
             </button>
