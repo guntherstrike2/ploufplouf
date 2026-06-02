@@ -18,6 +18,7 @@ interface MainMenuProps {
   musicMuted: boolean;
   onToggleMusic: () => void;
   skipIntro?: boolean;
+  getBeat?: () => number;
 }
 
 export function MainMenu({
@@ -29,6 +30,7 @@ export function MainMenu({
   musicMuted,
   onToggleMusic,
   skipIntro = false,
+  getBeat,
 }: MainMenuProps) {
   const [showDev, setShowDev] = useState(false);
   // Si skipIntro, le menu est directement visible (l'overlay de transition couvre le reveal)
@@ -82,7 +84,7 @@ export function MainMenu({
       }}
     >
       {/* Intro animée + décor en boucle (canvas, derrière tout) */}
-      <TitleCanvas skipIntro={skipIntro} onMenuReveal={() => { setShowMenu(true); playMenuReveal(); }} onImpact={handleImpact} />
+      <TitleCanvas skipIntro={skipIntro} onMenuReveal={() => { setShowMenu(true); playMenuReveal(); }} onImpact={handleImpact} getBeat={getBeat} />
 
       {showDev && (
         <DevPanel

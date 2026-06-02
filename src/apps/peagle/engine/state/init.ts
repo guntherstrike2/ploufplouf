@@ -76,6 +76,7 @@ export function makeInitialState(
     launcherVx: 0,
     launcherDragging: false,
     launcherGrab: 0,
+    launcherHovered: false,
 
     stars: makeStars(),
     birds: [],

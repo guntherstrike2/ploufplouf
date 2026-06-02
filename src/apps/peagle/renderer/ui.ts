@@ -224,20 +224,26 @@ function drawLauncherRail(ctx: CanvasRenderingContext2D, s: GameState): void {
   ctx.stroke();
   ctx.setLineDash([]);
 
-  // Chevrons clignotants de part et d'autre de l'aigle → invite au drag
-  const hint = (0.25 + 0.55 * pulse) * (1 - s.launcherGrab);
-  if (hint > 0.04) {
-    ctx.strokeStyle = `rgba(255,235,170,${hint.toFixed(3)})`;
-    ctx.lineWidth = 2;
+  // Chevrons au survol : deux flèches bien visibles de part et d'autre de l'aigle.
+  // Apparaissent progressivement au survol, disparaissent à la saisie.
+  const hoverAmt = s.launcherHovered ? (1 - s.launcherGrab) : 0;
+  if (hoverAmt > 0.01) {
+    const alpha = hoverAmt * (0.75 + 0.25 * pulse);
+    ctx.strokeStyle = `rgba(255,240,180,${alpha.toFixed(3)})`;
+    ctx.lineWidth = 3;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
     for (const dir of [-1, 1] as const) {
-      const cx = s.launcherX + dir * (26 + 3 * pulse);
+      const cx = s.launcherX + dir * (42 + 4 * pulse);
+      const arm = 9;
       ctx.beginPath();
-      ctx.moveTo(cx - dir * 4, y - 5);
-      ctx.lineTo(cx + dir * 4, y);
-      ctx.lineTo(cx - dir * 4, y + 5);
+      ctx.moveTo(cx - dir * arm, y - arm);
+      ctx.lineTo(cx + dir * arm, y);
+      ctx.lineTo(cx - dir * arm, y + arm);
       ctx.stroke();
     }
   }
+
   ctx.restore();
 }
 

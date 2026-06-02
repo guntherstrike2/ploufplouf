@@ -7,6 +7,7 @@ import { useMusic } from "./hooks/useMusic";
 import { useGameLoop } from "./hooks/useGameLoop";
 import { GameCanvas } from "./components/GameCanvas";
 import { Leaderboard } from "./components/Leaderboard";
+import { LoadingScreen } from "./components/LoadingScreen";
 import { MainMenu } from "./components/MainMenu";
 import { UpgradePicker } from "./components/UpgradePicker";
 import { SidePanel } from "./components/SidePanel";
@@ -17,7 +18,7 @@ import type { UiState, LeaderboardEntry, UpgradeId } from "./engine/types";
 import type { RunState } from "./engine/roguelite";
 import { makeInitialRunState, makeRunStateWithSeed, generateUpgradeOffer } from "./engine/roguelite";
 
-type Screen = "menu" | "game" | "leaderboard";
+type Screen = "loading" | "menu" | "game" | "leaderboard";
 
 const EMPTY_RUN: RunState = makeInitialRunState();
 
@@ -31,7 +32,7 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
   const [devSessionActive, setDevSessionActive] = useState(false);
   const [showDevPanelInGame, setShowDevPanelInGame] = useState(false);
 
-  const [screen, setScreen] = useState<Screen>("menu");
+  const [screen, setScreen] = useState<Screen>("loading");
   const [paused, setPaused] = useState(false);
   const pausedRef = useRef(paused);
   const [ui, setUi] = useState<UiState>({
@@ -116,7 +117,7 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     });
   }, []);
 
-  const { musicMuted, toggleMusic } = useMusic();
+  const { musicMuted, toggleMusic, fadeOutAndRestart, fadeToGameTrack, getBeat } = useMusic(screen !== "loading");
 
   const handleUiSync = useCallback((uiState: UiState) => setUi(uiState), []);
   const handleOrangeTotalChange = useCallback((total: number) => setUi(u => ({ ...u, orangeTotal: total })), []);
@@ -159,8 +160,9 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     setScoreSubmitted(false);
     setUpgradeOffer(null);
     setPaused(false);
+    fadeToGameTrack();
     transitionTo("game");
-  }, [resetGame, transitionTo]);
+  }, [resetGame, transitionTo, fadeToGameTrack]);
 
   const handleDevLaunch = useCallback((cfg: DevConfig) => {
     setHasSeenIntro(true);
@@ -174,15 +176,17 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     setDevSessionActive(true);
     setShowDevPanelInGame(false);
     setPaused(false);
+    fadeToGameTrack();
     transitionTo("game");
-  }, [resetGame, transitionTo]);
+  }, [resetGame, transitionTo, fadeToGameTrack]);
 
   const handleGoToMenu = useCallback(() => {
+    fadeOutAndRestart();
     transitionTo("menu", () => {
       setUpgradeOffer(null);
       setPaused(false);
     });
-  }, [transitionTo]);
+  }, [transitionTo, fadeOutAndRestart]);
 
   const handleGoToLeaderboard = useCallback(() => {
     setHasSeenIntro(true);
@@ -213,11 +217,19 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     setPaused(false);
   }, [resetGame]);
 
+  const handleAssetsReady = useCallback(() => {
+    transitionTo("menu");
+  }, [transitionTo]);
+
   return (
     <div
       className="flex flex-col h-full select-none"
       style={{ background: "var(--t-bg)", fontFamily: "var(--t-font-display)", position: "relative" }}
     >
+      {screen === "loading" && (
+        <LoadingScreen onReady={handleAssetsReady} />
+      )}
+
       {screen === "menu" && (
         <MainMenu
           isAdmin={isAdmin}
@@ -228,6 +240,7 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
           musicMuted={musicMuted}
           onToggleMusic={toggleMusic}
           skipIntro={hasSeenIntro}
+          getBeat={getBeat}
         />
       )}
 

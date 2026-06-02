@@ -129,8 +129,8 @@ const MENU_AT = 2.35;        // révélation du menu
 const lastLetterLand = LETTERS_START + (WORD.length - 1) * LETTER_STAGGER + LETTER_FALL;
 
 // ─── Timeline pré-intro ────────────────────────────────────────────────────────
-const STUDIO_DUR  = 3.2;                       // "Gunther Studio présente"
-const PIGEON_DUR  = 3.6;                       // séquence pigeon
+const STUDIO_DUR  = 3.8;                       // "Gunther Studio présente"
+const PIGEON_DUR  = 3.8;                       // séquence pigeon
 const INTRO_OFFSET = STUDIO_DUR + PIGEON_DUR;  // 6.8 s avant le vrai générique
 
 // ─── Forêt animée — positions précalculées (stables entre renders) ────────────
@@ -357,15 +357,19 @@ interface TitleCanvasProps {
   /** Émis à chaque fois qu'un œuf percute le titre ou le badge (force 0..1).
       Le menu s'en sert pour faire trembloter son texte — onde de choc lointaine. */
   onImpact?: (force: number) => void;
+  /** Retourne l'énergie basse fréquence de la musique [0..1] — grooves le décor au rythme. */
+  getBeat?: () => number;
 }
 
-export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact }: TitleCanvasProps) {
+export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, getBeat }: TitleCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const revealedRef = useRef(false);
   const onRevealRef = useRef(onMenuReveal);
   onRevealRef.current = onMenuReveal;
   const onImpactRef = useRef(onImpact);
   onImpactRef.current = onImpact;
+  const getBeatRef = useRef(getBeat);
+  getBeatRef.current = getBeat;
   // Capturé à la création de l'effet — détermine l'état initial, ne change pas.
   const skipIntroRef = useRef(skipIntro);
 
@@ -462,7 +466,8 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact }: Title
           // Rafale décalée par position x → vague qui traverse la forêt
           const gustPhase = elapsed * 2.8 + tree.nx * 4.8;
           const windSway = (windBase + gustStr * Math.sin(gustPhase)) * tree.swayAmp * 0.85;
-          const sway = Math.sin(elapsed * tree.swaySpeed + tree.swayPhase) * tree.swayAmp * 2.4 + windSway;
+          const swayBoost = 1 + beat * 1.4;
+          const sway = Math.sin(elapsed * tree.swaySpeed + tree.swayPhase) * tree.swayAmp * 2.4 * swayBoost + windSway;
 
           ctx!.save();
           ctx!.translate(0, ySlide);
@@ -559,13 +564,14 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact }: Title
     let badgeKnock = 0;   // déplacement vertical (px)
     let badgeKnockV = 0;  // vitesse du ressort
     let badgeFlash = 0;   // 0..1 éclat à l'impact
+    let beat = 0;         // énergie basse fréquence courante [0..1] — synchronisation musicale
 
     // ─── Œufs lâchés par l'aigle (gag idle) ──────────────────────────────────
     // De temps en temps, une fois posé en vol stationnaire, l'aigle « pond »
     // un œuf qui tombe en tournoyant et sort de l'écran par le bas. xD
     interface Egg { x: number; y: number; vx: number; vy: number; rot: number; vr: number; r: number; }
     const eggs: Egg[] = [];
-    let nextEggAt = 1.4 + Math.random() * 1.6; // délai (s) avant le 1er œuf après l'intro
+    let nextEggAt = 0; // pond dès l'atterrissage
     let recoil = 0;          // sursaut de l'aigle au moment de la ponte
     let ponte = 0;           // 0 = repos, 1 = ponte (pattes écartées + aigle penché)
     let aimAngle = Math.PI / 2; // direction de tir courante (radians, +y = bas)
@@ -599,9 +605,11 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact }: Title
         const s = randSide(prev);
         prev = s;
         const isLast = i === PEEK_COUNT - 1;
-        // Dernier peek : sort par un bord aléatoire différent de son entrée
-        const exitSide = isLast ? randSide(s) : s;
-        out.push({ side: s, pos: 0.25 + Math.random() * 0.50, exitSide, exitPos: 0.25 + Math.random() * 0.50 });
+        const pos = 0.25 + Math.random() * 0.50;
+        // Dernier peek : repart du même bord/position → l'aigle entre exactement là
+        const exitSide = s;
+        const exitPos = isLast ? pos : 0.25 + Math.random() * 0.50;
+        out.push({ side: s, pos, exitSide, exitPos });
       }
       return out;
     })();
@@ -691,10 +699,10 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact }: Title
       } else {
         const idle = elapsed - EAGLE_IN;
         ex = restX;
-        ey = restY + Math.sin(idle * 2.2) * 5 - recoil; // plane doucement (+ recul ponte)
+        ey = restY + Math.sin(idle * 2.2) * 5 * (1 + beat * 0.7) - recoil; // plane (bob amplifié par le beat)
         scl = targetScale;
         flapSpeed = recoil > 0.3 ? 22 : 6.5; // bat plus fort juste après la ponte
-        flapAmp = recoil > 0.3 ? 0.5 : 0.3;
+        flapAmp = (recoil > 0.3 ? 0.5 : 0.3) * (1 + beat * 0.5);
       }
 
       const phase = elapsed * flapSpeed;
@@ -953,7 +961,7 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact }: Title
       const letterW = GW * u;
       const totalW = WORD.length * letterW + (WORD.length - 1) * gap;
       const baseX = Math.round((cssW - totalW) / 2);
-      const baseY = Math.round(cssH * 0.46);
+      const baseY = Math.round(cssH * 0.46 + beat * 5);
 
       // pulse global après intro
       const settledFor = elapsed - lastLetterLand;
@@ -1317,7 +1325,7 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact }: Title
       {
         const moonRevealP = bgP(elapsed, 0.14, 0.72); // plus long = rebonds visibles
         if (moonRevealP > 0) {
-          const moonScale = easeOutElastic(moonRevealP); // 0→1.25→0.87→1.03→1.0
+          const moonScale = easeOutElastic(moonRevealP) * (1 + beat * 0.14); // pulse sur le beat
           const moonAlpha = Math.min(1, moonRevealP * 6.0); // alpha rapide
           // Bloom intense calé sur le premier pic d'overshoot (~p=0.10 = t+0.07s)
           const bloom = Math.sin(bgP(elapsed, 0.14, 0.24) * Math.PI) * 1.1;
@@ -1350,7 +1358,7 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact }: Title
           // Halo permanent (carrés concentriques décroissants)
           for (let k = 0; k < 5; k++) {
             const hr = Math.round(R * (1.5 + k * 0.7));
-            ctx!.globalAlpha = moonAlpha * (0.15 - k * 0.024);
+            ctx!.globalAlpha = moonAlpha * (0.15 - k * 0.024) * (1 + beat * 1.2);
             ctx!.fillStyle = "#c0d4f8";
             ctx!.fillRect(Math.round(moonX - hr), Math.round(moonY - hr), hr * 2, hr * 2);
           }
@@ -1508,33 +1516,144 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact }: Title
 
         // ── Textes ────────────────────────────────────────────────────────────
         const textSize = Math.max(9, Math.round(cssW * 0.036));
-        ctx!.textAlign = "center";
-        ctx!.textBaseline = "middle";
+        const studioY = ly + logoH * 0.65 + 20 + textSize * 0.6;
+        const STUDIO_TEXT = "GUNTHER STUDIO";
+        const LETTER_REVEAL_START = 0.55;
+        const LETTER_DELAY = 0.07;
+        const LETTER_DUR = 0.22;
 
-        // "GUNTHER STUDIO"
-        const studioReveal = Math.min(1, Math.max(0, (elapsed - 0.55) / 0.35));
-        if (studioReveal > 0) {
-          ctx!.save();
-          ctx!.globalAlpha = masterA * easeOutCubic(studioReveal);
-          ctx!.font = `bold ${textSize}px "Courier New", monospace`;
+        // Measure full text width for centering + sweep
+        ctx!.font = `bold ${textSize}px "Courier New", monospace`;
+        ctx!.textAlign = "left";
+        ctx!.textBaseline = "middle";
+        const fullTextW = ctx!.measureText(STUDIO_TEXT).width;
+        const textStartX = lx - fullTextW / 2;
+        const textRevealEnd = LETTER_REVEAL_START + (STUDIO_TEXT.length - 1) * LETTER_DELAY + LETTER_DUR;
+
+        // Pre-compute char x positions (1 measureText per char instead of O(ci²))
+        const charXPositions: number[] = [];
+        {
+          let cumW = 0;
+          for (let ci = 0; ci < STUDIO_TEXT.length; ci++) {
+            charXPositions.push(textStartX + cumW);
+            cumW += ctx!.measureText(STUDIO_TEXT[ci]!).width;
+          }
+        }
+
+        // "GUNTHER STUDIO" — reveal lettre par lettre avec flash + slide-up
+        ctx!.save();
+        for (let ci = 0; ci < STUDIO_TEXT.length; ci++) {
+          const revStart = LETTER_REVEAL_START + ci * LETTER_DELAY;
+          const revP = Math.max(0, Math.min(1, (elapsed - revStart) / LETTER_DUR));
+          if (revP <= 0) continue;
+          const charA = easeOutCubic(revP);
+          const charY = studioY + (1 - charA) * 9; // glisse vers le haut
+          const charX = charXPositions[ci]!;
+          // flash doré au pop
+          const flashA = Math.max(0, 1 - (elapsed - revStart) / 0.28);
+          if (flashA > 0.01) {
+            ctx!.save();
+            ctx!.globalCompositeOperation = "lighter";
+            ctx!.globalAlpha = masterA * flashA * 0.75;
+            ctx!.fillStyle = "#ffd24a";
+            ctx!.fillText(STUDIO_TEXT[ci]!, charX, charY);
+            ctx!.restore();
+          }
+          ctx!.globalAlpha = masterA * charA;
           ctx!.fillStyle = "#c8d4e0";
-          ctx!.fillText("GUNTHER STUDIO", lx, ly + logoH * 0.65 + 20 + textSize * 0.6);
+          ctx!.fillText(STUDIO_TEXT[ci]!, charX, charY);
+        }
+        ctx!.restore();
+
+        // Sweeps lumineux (deux passages — après le reveal complet, puis vers la fin)
+        const SWEEP_DUR = 0.52;
+        for (const sweepAt of [textRevealEnd + 0.12, 3.6] as const) {
+          const tt = elapsed - sweepAt;
+          if (tt < 0 || tt >= SWEEP_DUR) continue;
+          const sp = tt / SWEEP_DUR;
+          const sm = sp * sp * (3 - 2 * sp); // smoothstep
+          ctx!.save();
+          ctx!.beginPath();
+          ctx!.rect(
+            Math.floor(textStartX) - 2,
+            Math.floor(studioY - textSize * 0.8),
+            Math.ceil(fullTextW) + 4,
+            Math.ceil(textSize * 1.6),
+          );
+          ctx!.clip();
+          ctx!.globalCompositeOperation = "lighter";
+          const band = fullTextW * 0.32;
+          const sweepX = textStartX - band + sm * (fullTextW + band * 2);
+          const sweepGrad = ctx!.createLinearGradient(sweepX - band, 0, sweepX + band, 0);
+          sweepGrad.addColorStop(0, "rgba(255,220,140,0)");
+          sweepGrad.addColorStop(0.5, `rgba(255,248,220,${(0.65 * Math.sin(sp * Math.PI)).toFixed(3)})`);
+          sweepGrad.addColorStop(1, "rgba(255,220,140,0)");
+          ctx!.fillStyle = sweepGrad;
+          ctx!.globalAlpha = masterA;
+          ctx!.fillRect(sweepX - band, studioY - textSize, band * 2, textSize * 2);
           ctx!.restore();
         }
 
-        // "présente"
-        const pResReveal = Math.min(1, Math.max(0, (elapsed - 1.3) / 0.45));
+        // "présente" — italic, légère dérive horizontale en entrée
+        const pResReveal = Math.min(1, Math.max(0, (elapsed - 1.6) / 0.50));
         if (pResReveal > 0) {
           ctx!.save();
-          ctx!.globalAlpha = masterA * easeOutCubic(pResReveal);
-          ctx!.font = `${Math.max(7, Math.round(textSize * 0.62))}px "Courier New", monospace`;
+          const presA = easeOutCubic(pResReveal);
+          ctx!.globalAlpha = masterA * presA;
+          const presSize = Math.max(7, Math.round(textSize * 0.62));
+          ctx!.font = `italic ${presSize}px "Courier New", monospace`;
           ctx!.fillStyle = "#a09050";
-          ctx!.fillText("présente", lx, ly + logoH * 0.65 + 20 + textSize * 0.6 + textSize * 0.9);
+          ctx!.textAlign = "center";
+          ctx!.textBaseline = "middle";
+          const presX = lx + (1 - presA) * 18; // drift depuis la droite
+          ctx!.fillText("présente", presX, studioY + textSize * 1.0);
+          ctx!.restore();
+        }
+
+        // Ornements pixel — petites étoiles 4 branches qui scintillent
+        const ornReveal = Math.min(1, Math.max(0, (elapsed - 2.2) / 0.5));
+        if (ornReveal > 0) {
+          ctx!.save();
+          ctx!.globalCompositeOperation = "lighter";
+          for (const side of [-1, 1] as const) {
+            const margin = fullTextW / 2 + textSize * 1.05;
+            const ox = Math.round(lx + side * margin);
+            const oy = Math.round(studioY);
+            const tw = 0.55 + 0.45 * Math.abs(Math.sin(elapsed * 2.8 + (side > 0 ? 0 : 2.1)));
+            ctx!.globalAlpha = masterA * easeOutCubic(ornReveal) * tw;
+            ctx!.fillStyle = "#c8a830";
+            ctx!.fillRect(ox - 3, oy, 7, 1);
+            ctx!.fillRect(ox, oy - 3, 1, 7);
+            ctx!.fillRect(ox - 1, oy - 1, 3, 3);
+          }
           ctx!.restore();
         }
       }
 
       ctx!.restore();
+
+      // ── Letterbox cinématographique (dessiné après restore, par-dessus tout) ─
+      {
+        const LB_IN_END = 0.55;
+        const LB_OUT_START = STUDIO_DUR - 0.85;
+        let lbP: number;
+        if (elapsed < LB_IN_END) {
+          lbP = easeOutCubic(elapsed / LB_IN_END);
+        } else if (elapsed > LB_OUT_START) {
+          lbP = Math.max(0, 1 - easeOutCubic(Math.min(1, (elapsed - LB_OUT_START) / 0.55)));
+        } else {
+          lbP = 1;
+        }
+        if (lbP > 0.005) {
+          const barH = Math.round(cssH * 0.082 * lbP);
+          ctx!.save();
+          ctx!.globalAlpha = 1;
+          ctx!.fillStyle = "#000000";
+          ctx!.fillRect(0, 0, cssW, barH);
+          ctx!.fillRect(0, cssH - barH, cssW, barH);
+          ctx!.restore();
+        }
+      }
     }
 
     // ─── Séquence de peeks — tête d'aigle (eagleFace) ────────────────────────
@@ -1607,9 +1726,9 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact }: Title
       }
 
       // Timings des peeks (en s, relatif au début de la phase pigeon)
-      const PEEK_STARTS = [0.08, 1.20, 2.28];
+      const PEEK_STARTS = [0.08, 1.70, 3.32];
       const PEEK_IN     = 0.30;
-      const PEEK_HOLD   = 0.54;
+      const PEEK_HOLD   = 1.04;
       const PEEK_OUT    = 0.28;
       // Profondeur d'entrée : le centre de la tête avance de headR*DEPTH_FACTOR
       // → facteur ≥ 1.5 pour voir vraiment la face (skull + yeux + bec)
@@ -1750,6 +1869,9 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact }: Title
           nextEggAt = 3 + Math.random() * 4;
         }
       }
+
+      // Échantillon musical — toutes les draw functions accèdent à `beat` en closure
+      beat = getBeatRef.current?.() ?? 0;
 
       ctx!.save();
       ctx!.clearRect(0, 0, cssW, cssH);

@@ -350,6 +350,7 @@ export function useGameLoop({
       const dgx = mp.x - s.launcherX, dgy = mp.y - LAUNCHER_Y;
       const overBird = s.phase === "aim" && !s.ball &&
         dgx * dgx + dgy * dgy <= LAUNCHER_GRAB_R * LAUNCHER_GRAB_R;
+      s.launcherHovered = overBird;
       canvas!.style.cursor = s.launcherDragging
         ? "grabbing"
         : overBird

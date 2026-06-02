@@ -134,6 +134,7 @@ export interface GameState {
   launcherVx: number;       // vélocité du ressort → lean / squash juicy
   launcherDragging: boolean;
   launcherGrab: number;     // 0..1 anim de saisie (pop + lueur)
+  launcherHovered: boolean; // souris dans le rayon de saisie (mis à jour par le game loop)
 
   stars: Star[];
   birds: BgBird[];

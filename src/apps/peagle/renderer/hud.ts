@@ -1,4 +1,4 @@
-import { W, HUD_H } from "../engine/constants";
+import { W, H, HUD_H } from "../engine/constants";
 import { getActiveBall } from "../engine/assets";
 import type { BallStyle } from "../engine/assets";
 import type { GameState } from "../engine/types";
@@ -109,6 +109,17 @@ export function drawHud(
   ctx.save();
   ctx.imageSmoothingEnabled = false;
 
+  // ── Vignette danger : bords rouges pulsants quand il reste 1 ou 2 œufs ──
+  if (lowBalls) {
+    const vPulse = 0.5 + 0.5 * Math.sin(s.animClock * 7);
+    const vAlpha = 0.22 + 0.18 * vPulse;
+    const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.28, W / 2, H / 2, H * 0.82);
+    vig.addColorStop(0, "rgba(180,20,20,0)");
+    vig.addColorStop(1, `rgba(200,30,10,${vAlpha.toFixed(3)})`);
+    ctx.fillStyle = vig;
+    ctx.fillRect(0, 0, W, H);
+  }
+
   // ── Ombrage : dégradé sans bord qui se fond dans le ciel (pas de panneau) ──
   const shade = ctx.createLinearGradient(0, 0, 0, HUD_H + 8);
   shade.addColorStop(0, "rgba(6,12,4,0.62)");
@@ -146,6 +157,15 @@ export function drawHud(
 
   // ── ŒUFS (icône œuf + compteur) ──
   label(ctx, "ŒUFS", HX + 346, LABEL_Y);
+  if (lowBalls) {
+    // Fond rouge pulsant derrière le compteur d'œufs
+    const bgA = 0.28 + 0.22 * pulse;
+    ctx.fillStyle = `rgba(180,30,10,${bgA.toFixed(3)})`;
+    ctx.fillRect(HX + 342, 4, 72, HUD_H - 8);
+    // Liseret warn : bord bas du pavé
+    ctx.fillStyle = `rgba(255,80,40,${(0.55 + 0.35 * pulse).toFixed(3)})`;
+    ctx.fillRect(HX + 342, 4 + HUD_H - 9, 72, 1);
+  }
   ctx.save();
   if (lowBalls) ctx.globalAlpha = 0.55 + 0.45 * pulse;   // clignote quand il en reste peu
   eggSprite(ctx, HX + 351, VALUE_Y, egg, 4);
