@@ -1,14 +1,45 @@
 import {
   PEG_R, BUCKET_H, BUCKET_W, WALL_BOUNCE, GRAVITY, FRICTION,
-  LAUNCH_SPEED, HIT_FREEZE_NORMAL, HIT_FREEZE_ORANGE, SLOW_MO_DURATION,
-  W, H, BONUS_BUCKET_XS,
+  SLOW_MO_DURATION, W, H,
 } from "../constants";
 import { BALANCE } from "../balance";
 import type { GameState, Ball } from "../types";
 import type { GameEvent } from "../events";
-import { circleCollide, capsuleCollide, arcCollide, spikeCollide, closestOnSeg } from "../physics";
-import { spawnParticles } from "./effects";
-import { triggerBomb } from "./bomb";
+import { PEG_KINDS } from "../peg-kinds";
+import { circleCollide } from "../physics";
+import { spawnParticles, spawnImpactRing, spawnLeafBurst } from "./effects";
+import { spawnBirds } from "./birds";
+
+// ─── Exclamations « hype » à thème aigle / œuf ───────────────────────────────
+// Escalade par paliers de combo : plus la chaîne est longue, plus le mot est
+// gros, coloré et exalté. Mélange de classiques juicy (JUICY!, TASTY!) et de
+// jeux de mots aigle/œuf (ŒUFTASTIQUE!, AIGLE ROYAL!, ENVERGURE!…).
+const EAGLE_HYPE: readonly (readonly string[])[] = [
+  ["JUICY!", "BEAU VOL!", "PIQUÉ NET!", "MIAM!"],
+  ["TASTY!", "ŒUFTASTIQUE!", "EN PLEIN VOL!", "BEC EN OR!"],
+  ["RAPACE!", "SERRES D'ACIER!", "SUPER VOL!", "ŒUF EN OR!"],
+  ["AIGLE ROYAL!", "ENVERGURE!", "MAJESTUEUX!", "ŒUFTRAGEUX!"],
+  ["PRÉDATEUR!", "FRAPPE AÉRIENNE!", "OVATION!", "ROI DU CIEL!"],
+  ["LÉGENDE AILÉE!", "MAÎTRE DES CIEUX!", "INTOUCHABLE!", "PONTE PARFAITE!"],
+];
+
+const HYPE_COLORS = ["#ffe06a", "#ffb43a", "#ff7a2e", "#ff4d6b", "#d06bff", "#7fe0ff"] as const;
+
+function pushEagleHype(s: GameState, x: number, y: number, mult: number): void {
+  const tier = Math.max(0, Math.min(EAGLE_HYPE.length - 1, mult - 1));
+  const words = EAGLE_HYPE[tier]!;
+  s.floatingTexts.push({
+    x, y,
+    text: words[Math.floor(Math.random() * words.length)]!,
+    life: 1,
+    maxLife: 1.7,
+    color: HYPE_COLORS[tier]!,
+    combo: true,
+    exclaim: true,
+    fontSize: Math.min(26, 15 + tier * 2),
+    spin: (Math.random() - 0.5) * 2,
+  });
+}
 
 export function processBallPhysics(
   b: Ball,
@@ -18,7 +49,10 @@ export function processBallPhysics(
 ): void {
   const speed = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
 
-  // Ring buffer trail — avoids O(n) Array.shift() and per-frame object allocation
+  // Le squash d'impact se résorbe vite (rebond élastique de l'œuf)
+  if (b.squash > 0) b.squash = Math.max(0, b.squash - 0.14 * timeScale);
+
+  // Ring buffer trail — évite Array.shift() O(n) et l'alloc d'objets par frame
   const TRAIL_MAX = 32;
   if (b.trail.length < TRAIL_MAX) {
     b.trail.push({ x: b.x, y: b.y, speed });
@@ -28,358 +62,158 @@ export function processBallPhysics(
     b.trailHead = (b.trailHead + 1) % TRAIL_MAX;
   }
 
+  // Finale : étincelles dorées qui s'égrènent derrière l'œuf en pleine plongée
+  // vers le panier → traînée scintillante bien satisfaisante.
+  if (s.orangeLeft === 0 && Math.random() < 0.65) {
+    spawnParticles(s, b.x, b.y, true, 1);
+  }
+
   const substeps = Math.max(1, Math.ceil(speed / (PEG_R * 0.8)));
   const dt = timeScale / substeps;
-  const frictionDt = Math.pow(FRICTION, dt); // hoisted — same value every substep
-  const wallBounce = WALL_BOUNCE * (s.runRelics.includes("boomerang") ? 1.4 : 1);
-
-  // Cache orange pegs for magnet — avoids repeated filter per substep
-  const orangePegsForMagnet = s.magnetFrames > 0
-    ? s.pegs.filter(p => p.orange && !p.hit && p.hitCooldown === 0)
-    : [];
+  const frictionDt = Math.pow(FRICTION, dt);
 
   for (let step = 0; step < substeps; step++) {
-    // Magnet: attract toward nearest orange peg
-    if (s.magnetFrames > 0 && orangePegsForMagnet.length > 0) {
-      let nearest = orangePegsForMagnet[0]!;
-      let ndx = b.x - nearest.x, ndy = b.y - nearest.y;
-      let nearDistSq = ndx * ndx + ndy * ndy;
-      for (const op of orangePegsForMagnet) {
-        const odx = b.x - op.x, ody = b.y - op.y;
-        const dSq = odx * odx + ody * ody;
-        if (dSq < nearDistSq) { nearest = op; nearDistSq = dSq; ndx = odx; ndy = ody; }
-      }
-      if (nearDistSq > 0) {
-        const nearDist = Math.sqrt(nearDistSq);
-        const force = BALANCE.magnet.force * dt;
-        b.vx += ((nearest.x - b.x) / nearDist) * force;
-        b.vy += ((nearest.y - b.y) / nearDist) * force;
-      }
-    }
-
     b.x += b.vx * dt;
     b.y += b.vy * dt;
     b.vy += GRAVITY * dt;
     b.vx *= frictionDt;
 
+    // Murs
     if (b.x - s.effectiveBallR < 0) {
-      b.vx = Math.abs(b.vx) * wallBounce;
+      b.vx = Math.abs(b.vx) * WALL_BOUNCE;
       b.x = s.effectiveBallR;
-      if (step === 0) { events.push({ kind: "sound", id: "bip" }); s.trauma = Math.min(1, s.trauma + BALANCE.wall.traumaPerHit); }
+      events.push({ kind: "sound", id: "wall-bounce" }); s.trauma = Math.min(1, s.trauma + BALANCE.wall.traumaPerHit); b.squash = Math.max(b.squash, Math.min(0.7, speed * 0.05));
     }
     if (b.x + s.effectiveBallR > W) {
-      b.vx = -Math.abs(b.vx) * wallBounce;
+      b.vx = -Math.abs(b.vx) * WALL_BOUNCE;
       b.x = W - s.effectiveBallR;
-      if (step === 0) { events.push({ kind: "sound", id: "bip" }); s.trauma = Math.min(1, s.trauma + BALANCE.wall.traumaPerHit); }
+      events.push({ kind: "sound", id: "wall-bounce" }); s.trauma = Math.min(1, s.trauma + BALANCE.wall.traumaPerHit); b.squash = Math.max(b.squash, Math.min(0.7, speed * 0.05));
     }
 
+    // Pegs — comportement piloté par la table data-driven PEG_KINDS.
     for (const p of s.pegs) {
-      if (p.hit || p.hitCooldown > 0) continue;
-      const result = circleCollide(b.x, b.y, b.vx, b.vy, s.effectiveBallR, p.x, p.y, PEG_R, s.effectivePegBounce);
+      if (p.hit) continue;
+      if (p.cooldown > 0) continue; // obstacle permanent en cooldown : transparent
+      const def = PEG_KINDS[p.kind];
+      const result = circleCollide(b.x, b.y, b.vx, b.vy, s.effectiveBallR, p.x, p.y, PEG_R, s.effectivePegBounce * def.bounceMult);
       if (!result) continue;
 
-      // Ghost ball: pass through first peg this shot — ball doesn't bounce but peg still pops
-      if (s.ghostBallActive && b === s.ball) {
-        s.ghostBallActive = false;
-        p.hit = true; p.popping = true; p.popAlpha = BALANCE.peg.popStartAlpha; p.scale = BALANCE.peg.popStartScale;
-        if (p.orange) s.orangeLeft = Math.max(0, s.orangeLeft - 1);
-        s.combo += 1;
-        s.cursedLuckHits += 1;
-        const basePoints = p.orange ? BALANCE.score.orangeBase : p.green ? BALANCE.score.greenBase : BALANCE.score.normalBase;
-        s.score += Math.round(basePoints * s.scoreMultiplier);
-        if (p.bomb) triggerBomb(s, p, events);
-        spawnParticles(s, p.x, p.y, p.orange, p.orange ? 20 : 8);
-        s.floatingTexts.push({ x: p.x, y: p.y - 12, text: ">> PASSAGE FANTÔME!", life: 1, maxLife: 1.2, color: "#cc88ff", combo: false, fontSize: 11 });
-        events.push({ kind: "sound", id: p.orange ? "pop" : "bip" });
-        continue;
-      }
-
+      // Réflexion + correction de chevauchement
       b.vx = result.vx; b.vy = result.vy;
       const dx = b.x - p.x, dy = b.y - p.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      const nx = dx / dist, ny = dy / dist;
       const overlap = s.effectiveBallR + PEG_R - dist + 0.5;
-      b.x += (dx / dist) * overlap;
-      b.y += (dy / dist) * overlap;
+      b.x += nx * overlap;
+      b.y += ny * overlap;
 
-      // Boss armor hit (not final kill)
-      if (p.boss && p.armorHits > 0) {
-        p.armorHits--;
-        p.hitCooldown = BALANCE.peg.armorCooldown;
-        p.scale = BALANCE.peg.bossArmorScale;
-        s.trauma = Math.min(1, s.trauma + BALANCE.trauma.bossArmorPeg);
-        s.flashWhite = Math.max(s.flashWhite, BALANCE.flash.bossArmorPeg);
-        s.hitFreezeFrames = Math.max(s.hitFreezeFrames, HIT_FREEZE_ORANGE);
-        spawnParticles(s, p.x, p.y, true, 12);
-        const hpLeft = p.armorHits + 1;
-        s.floatingTexts.push({ x: p.x, y: p.y - 18, text: `[BOSS] ${hpLeft}/5`, life: 1, maxLife: 1.2, color: "#ffd700", combo: true, fontSize: 14 });
-        events.push({ kind: "sound", id: "bip" });
-        continue;
-      }
+      // Kick d'un bumper : impulsion le long de la normale.
+      if (def.impulse > 0) { b.vx += nx * def.impulse; b.vy += ny * def.impulse; }
 
-      // Armor peg hit
-      if (p.armorHits > 0) {
-        p.armorHits--;
-        p.hitCooldown = BALANCE.peg.armorCooldown;
-        p.scale = BALANCE.peg.armorScale;
-        s.trauma = Math.min(1, s.trauma + BALANCE.trauma.armorPeg);
-        s.hitFreezeFrames = Math.max(s.hitFreezeFrames, HIT_FREEZE_NORMAL);
-        spawnParticles(s, p.x, p.y, false, 8);
-        s.floatingTexts.push({ x: p.x, y: p.y - 12, text: "CRACK!", life: 1, maxLife: 0.9, color: "#aaccff", combo: false, fontSize: 11 });
-        events.push({ kind: "sound", id: "bip" });
-        continue;
-      }
-
-      // Warp peg
-      if (p.warpId !== undefined) {
-        const partner = s.pegs.find(pp => pp.warpId === p.warpId && pp !== p && !pp.hit);
-        if (partner) {
-          b.x = partner.x + (dx / dist) * (s.effectiveBallR + PEG_R + 2);
-          b.y = partner.y + (dy / dist) * (s.effectiveBallR + PEG_R + 2);
-          spawnParticles(s, p.x, p.y, false, 14);
-          spawnParticles(s, partner.x, partner.y, false, 14);
-          s.flashWhite = Math.max(s.flashWhite, BALANCE.flash.warpPeg);
-          s.floatingTexts.push({ x: partner.x, y: partner.y - 14, text: "✦ WARP!", life: 1, maxLife: 1.2, color: "#cc88ff", combo: true, fontSize: 13 });
-          partner.hitCooldown = BALANCE.peg.warpCooldown;
-        }
-        if (p.orange) s.orangeLeft = Math.max(0, s.orangeLeft - 1);
-        p.hit = true; p.popping = true; p.popAlpha = BALANCE.peg.popStartAlpha; p.scale = BALANCE.peg.popStartScale;
-        s.score += BALANCE.score.warpBase * s.scoreMultiplier;
-        events.push({ kind: "sound", id: "pop" });
-        continue;
-      }
-
-      // Normal peg pop
-      p.hit = true; p.popping = true; p.popAlpha = BALANCE.peg.popStartAlpha; p.scale = BALANCE.peg.popStartScale;
-      if (p.orange) s.orangeLeft = Math.max(0, s.orangeLeft - 1);
       s.combo += 1;
-      s.cursedLuckHits += 1;
 
-      // Boss final kill
-      if (p.boss) {
-        s.bossKilledThisLevel = true;
-        s.score += BALANCE.score.bossKill * s.scoreMultiplier;
-        s.balls += BALANCE.score.bossBallBonus;
-        s.trauma = Math.min(1, s.trauma + BALANCE.trauma.bossPeg);
-        s.flashWhite = BALANCE.flash.bossPeg;
-        s.floatingTexts.push({ x: p.x, y: p.y - 30, text: `!! BOSS VAINCU! +${BALANCE.score.bossKill}`, life: 1, maxLife: 3, color: "#ffd700", combo: true, fontSize: 15 });
-        s.floatingTexts.push({ x: p.x, y: p.y - 48, text: `+${BALANCE.score.bossBallBonus} ŒUFS`, life: 1, maxLife: 2.5, color: "#00ffcc", combo: true, fontSize: 13 });
-        spawnParticles(s, p.x, p.y, true, 60, true);
-        events.push({ kind: "sound", id: "victory" });
-      }
-
-      // Green peg power-up
-      if (p.green) {
-        s.flashWhite = Math.max(s.flashWhite, BALANCE.flash.greenPeg);
-        switch (p.greenPowerup) {
-          case "multiball": {
-            const spd = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
-            const baseA = Math.atan2(b.vy, b.vx);
-            const spread = BALANCE.multiball.spreadAngle;
-            s.extraBalls.push({ x: b.x, y: b.y, vx: Math.cos(baseA - spread) * spd, vy: Math.sin(baseA - spread) * spd, active: true, trail: [], trailHead: 0, tint: "#ffdd88" });
-            s.extraBalls.push({ x: b.x, y: b.y, vx: Math.cos(baseA + spread) * spd, vy: Math.sin(baseA + spread) * spd, active: true, trail: [], trailHead: 0, tint: "#88ffcc" });
-            s.floatingTexts.push({ x: p.x, y: p.y - 22, text: ">> DOUBLE PONTE!", life: 1, maxLife: 2, color: "#ffcc44", combo: true, fontSize: 15 });
-            break;
-          }
-          case "spooky":
-            s.spookyActive = true;
-            s.floatingTexts.push({ x: p.x, y: p.y - 22, text: ">> ŒUF FANTÔME!", life: 1, maxLife: 2, color: "#cc88ff", combo: true, fontSize: 15 });
-            break;
-          case "extraball":
-            s.balls += 1;
-            s.floatingTexts.push({ x: p.x, y: p.y - 22, text: "+1 ŒUF!", life: 1, maxLife: 2, color: "#00ffcc", combo: true, fontSize: 15 });
-            break;
-          case "magnet":
-            s.magnetFrames = BALANCE.magnet.duration;
-            s.floatingTexts.push({ x: p.x, y: p.y - 22, text: ">> AIMANT!", life: 1, maxLife: 2, color: "#4488ff", combo: true, fontSize: 15 });
-            break;
-          default:
-            s.scoreMultiplier = 2;
-            s.floatingTexts.push({ x: p.x, y: p.y - 14, text: "×2 BONUS!", life: 1, maxLife: 1.6, color: "#44ff88", combo: true, fontSize: 14 });
-        }
-      }
-
-      if (p.orange) {
-        if (s.orangeLeft === 0) {
-          s.slowMoFrames = SLOW_MO_DURATION;
-          s.flashWhite = 1.0;
-          s.floatingTexts.push({ x: W / 2, y: H / 2 - 30, text: "DERNIÈRE FENÊTRE !", life: 1, maxLife: 2.5, color: "#88ccff", combo: true, fontSize: 16 });
-        }
-      }
-
-      // Cursed luck relic
-      let cursedMult = 1;
-      if (s.runRelics.includes("cursed_luck") && s.cursedLuckHits % BALANCE.cursedLuck.hitInterval === 0) {
-        cursedMult = BALANCE.cursedLuck.multiplier;
-        s.floatingTexts.push({ x: p.x, y: p.y - 30, text: `?? ×${BALANCE.cursedLuck.multiplier} MALCHANCE!`, life: 1, maxLife: 1.8, color: "#cc44ff", combo: true, fontSize: 13 });
-      }
-
-      // Combo_hungry upgrade
-      let hungryMult = 1;
-      if (p.orange && s.runUpgrades.includes("combo_hungry") && s.lastHitWasOrange) {
-        hungryMult = 1.5;
-      }
-      s.lastHitWasOrange = p.orange;
-
+      // Score : base × multiplicateur de combo
       const comboMult = Math.max(1, Math.floor(s.combo / BALANCE.combo.interval));
-      const totalMult = comboMult * s.scoreMultiplier * cursedMult * hungryMult;
-      const basePoints = p.orange ? BALANCE.score.orangeBase : p.green ? BALANCE.score.greenBase : p.boss ? 0 : BALANCE.score.normalBase;
-      const earned = Math.round(basePoints * totalMult);
-      if (!p.boss) s.score += earned;
+      const totalMult = comboMult * s.scoreMultiplier;
+      const earned = Math.round(def.baseScore * totalMult);
+      s.score += earned;
 
-      const freeze = p.orange ? HIT_FREEZE_ORANGE : HIT_FREEZE_NORMAL;
-      s.hitFreezeFrames = Math.max(s.hitFreezeFrames, freeze);
+      // Intensité visuelle qui monte avec le combo : 1.0 au premier peg → ~2.5 à combo 10+.
+      // Cela amplifie progressivement les particules, l'onde de choc et le screenshake
+      // pour rendre la montée en puissance tangible sans changer le gameplay.
+      const comboBoost = Math.min(1, (s.combo - 1) / 10); // 0..1
+      const visualMult = 1 + comboBoost * 1.5;            // 1..2.5
 
-      if (p.orange) { s.trauma = Math.min(1, s.trauma + BALANCE.trauma.orangePeg); s.flashWhite = Math.max(s.flashWhite, BALANCE.flash.orangePeg); }
-      else { s.trauma = Math.min(1, s.trauma + BALANCE.trauma.normalPeg); }
+      // Feedback (freeze, shake, flash, particules) — valeurs de la table.
+      s.hitFreezeFrames = Math.max(s.hitFreezeFrames, def.freezeFrames);
+      if (def.trauma > 0) s.trauma = Math.min(1, s.trauma + def.trauma * visualMult);
+      if (def.flash > 0) s.flashWhite = Math.max(s.flashWhite, def.flash);
+      spawnParticles(s, p.x, p.y, def.hotParticles, Math.round(def.particles * visualMult));
+      spawnLeafBurst(s, p.x, p.y, 3 + Math.round(comboBoost * 5));
 
-      if (p.bomb && !p.green) {
-        triggerBomb(s, p, events);
-      } else if (!p.boss) {
-        spawnParticles(s, p.x, p.y, p.orange, p.orange ? 20 : p.green ? 14 : 8);
+      // Bounce & juice : l'œuf s'écrase à l'impact, une onde de choc se propage
+      // dans le décor et le fond pulse (cible orange = réaction la plus forte).
+      b.squash = Math.max(b.squash, Math.min(1, 0.5 + speed * 0.04));
+      const baseRingIntensity = def.isTarget ? 1 : p.kind === "bumper" ? 0.6 : 0.28;
+      const ringIntensity = Math.min(1, baseRingIntensity + comboBoost * (1 - baseRingIntensity) * 0.7);
+      const ringColor = def.isTarget ? "#ffbb44" : p.kind === "bumper" ? "#ffdd55" : "#9fb8ff";
+      spawnImpactRing(s, p.x, p.y, ringColor, ringIntensity);
+
+      if (def.destructible) {
+        // Pop : le peg disparaît.
+        p.hit = true; p.popping = true; p.popAlpha = BALANCE.peg.popStartAlpha; p.scale = BALANCE.peg.popStartScale;
+        // Easter egg « peagle » : chaque peg éclaté envoie un oiseau dans le ciel.
+        spawnBirds(s);
+        if (def.isTarget) {
+          s.orangeLeft = Math.max(0, s.orangeLeft - 1);
+          // Dernière cible → punch (freeze d'impact appuyé) puis ralenti dramatique
+          if (s.orangeLeft === 0) {
+            s.hitFreezeFrames = Math.max(s.hitFreezeFrames, 14);
+            s.slowMoFrames = SLOW_MO_DURATION;
+            s.flashWhite = 1.0;
+            s.floatingTexts.push({ x: W / 2, y: H / 2 - 30, text: "DERNIÈRE PROIE !", life: 1, maxLife: 2.5, color: "#88ccff", combo: true, exclaim: true, fontSize: 20, spin: 0 });
+          }
+        }
+      } else {
+        // Obstacle permanent (bumper) : reste en place, flash + cooldown anti-spam.
+        p.cooldown = def.cooldownFrames;
+        p.bump = 1;
+        p.scale = 1.5;
       }
 
+      // Texte de score flottant
       const comboBonus = s.combo >= BALANCE.combo.interval && s.combo % BALANCE.combo.interval === 0;
-      if (!p.boss && earned > 0) {
-        const popFontSize = Math.min(18, 11 + Math.floor(totalMult * 1.5));
-        const label = totalMult > 1 ? `+${earned} ×${Math.round(totalMult)}` : `+${earned}`;
-        s.floatingTexts.push({
-          x: p.x + (Math.random() - 0.5) * 20,
-          y: p.y,
-          text: label, life: 1, maxLife: 1,
-          color: p.orange ? "#88ccff" : p.green ? "#44ff88" : "#ffffff",
-          combo: comboBonus,
-          fontSize: comboBonus ? popFontSize + 2 : popFontSize,
-        });
-      }
-
+      const popFontSize = Math.min(18, 11 + Math.floor(totalMult * 1.5));
+      const textColor = def.isTarget ? "#88ccff" : p.kind === "bumper" ? "#ffcc44" : "#ffffff";
+      s.floatingTexts.push({
+        x: p.x + (Math.random() - 0.5) * 20,
+        y: p.y,
+        text: totalMult > 1 ? `+${earned} ×${comboMult}` : `+${earned}`,
+        life: 1, maxLife: 1,
+        color: textColor,
+        combo: comboBonus,
+        fontSize: comboBonus ? popFontSize + 2 : popFontSize,
+      });
       if (comboBonus) {
-        s.floatingTexts.push({ x: p.x, y: p.y - 22, text: `COMBO ×${comboMult}!`, life: 1, maxLife: 1.6, color: "#ffcc44", combo: true, fontSize: Math.min(20, 13 + comboMult * 2) });
+        // Petit "×N" doré juste au-dessus du score, puis l'exclamation hype.
+        s.floatingTexts.push({ x: p.x, y: p.y - 18, text: `COMBO ×${comboMult}`, life: 1, maxLife: 1.4, color: "#ffcc44", combo: true, fontSize: Math.min(18, 12 + comboMult) });
+        pushEagleHype(s, p.x, p.y - 40, comboMult);
       }
 
-      events.push({ kind: "sound", id: p.orange || p.boss ? "pop" : "bip" });
-    }
-
-    // Decor collisions (bumpers, planks, arcs, spikes) — inside substep loop
-    for (const d of s.decors) {
-      if (d.kind === "bumper") {
-        const dx = b.x - d.x, dy = b.y - d.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const rc = circleCollide(b.x, b.y, b.vx, b.vy, s.effectiveBallR, d.x, d.y, d.r, 0.9);
-        if (rc && dist > 0.001) {
-          b.vx = rc.vx + (dx / dist) * 1.5;
-          b.vy = rc.vy + (dy / dist) * 1.5;
-          const overlap = s.effectiveBallR + d.r - dist + 0.5;
-          b.x += (dx / dist) * overlap;
-          b.y += (dy / dist) * overlap;
-          d.flashFrames = 14;
-          if (step === 0) events.push({ kind: "sound", id: "bip" });
-        }
-      } else if (d.kind === "plank") {
-        const ax = d.ax ?? d.x + Math.cos(d.angle) * d.len;
-        const ay = d.ay ?? d.y + Math.sin(d.angle) * d.len;
-        const ex = d.ex ?? d.x - Math.cos(d.angle) * d.len;
-        const ey = d.ey ?? d.y - Math.sin(d.angle) * d.len;
-        const rc = capsuleCollide(b.x, b.y, b.vx, b.vy, s.effectiveBallR, ax, ay, ex, ey, d.thickness, 0.72);
-        if (rc) {
-          b.vx = rc.vx; b.vy = rc.vy;
-          const cp = closestOnSeg(ax, ay, ex, ey, b.x, b.y);
-          const ddx = b.x - cp.x, ddy = b.y - cp.y;
-          const ddd = Math.sqrt(ddx * ddx + ddy * ddy);
-          if (ddd > 0.001) {
-            const ov = s.effectiveBallR + d.thickness - ddd + 0.5;
-            b.x += (ddx / ddd) * ov; b.y += (ddy / ddd) * ov;
-          }
-          d.flashFrames = 10;
-          if (step === 0) events.push({ kind: "sound", id: "bip" });
-        }
-      } else if (d.kind === "arc") {
-        const rc = arcCollide(b.x, b.y, b.vx, b.vy, s.effectiveBallR, d.x, d.y, d.r, d.startAngle, d.endAngle, d.thickness, 0.72);
-        if (rc) {
-          b.vx = rc.vx; b.vy = rc.vy;
-          const dx = b.x - d.x, dy = b.y - d.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist > 0.001) {
-            const signed = dist - d.r;
-            const minReq = s.effectiveBallR + d.thickness / 2;
-            if (Math.abs(signed) < minReq) {
-              const ov = minReq - Math.abs(signed) + 0.5;
-              const sn = signed >= 0 ? 1 : -1;
-              b.x += (dx / dist) * sn * ov; b.y += (dy / dist) * sn * ov;
-            }
-          }
-          d.flashFrames = 10;
-          if (step === 0) events.push({ kind: "sound", id: "bip" });
-        }
-      } else if (d.kind === "spike") {
-        const rc = spikeCollide(b.x, b.y, b.vx, b.vy, s.effectiveBallR, d.x, d.y, d.size, d.angle, 0.72);
-        if (rc) {
-          b.vx = rc.vx; b.vy = rc.vy;
-          d.flashFrames = 10;
-          if (step === 0) events.push({ kind: "sound", id: "bip" });
-        }
-      }
+      events.push({ kind: "sound", id: def.sound, x: p.x });
     }
   }
 
-  // Bucket catch
+  // Rattrapage par le panier
   const bucketTop = H - BUCKET_H - 4;
-  const isLastBall = s.balls === 0;
+  if (b.y + s.effectiveBallR >= bucketTop && b.x >= s.bucket && b.x <= s.bucket + BUCKET_W) {
+    s.bucketFlash = 1;
+    b.active = false;
 
-  if (isLastBall) {
-    for (let i = 0; i < BONUS_BUCKET_XS.length; i++) {
-      const bx = BONUS_BUCKET_XS[i]!;
-      if (b.y + s.effectiveBallR >= bucketTop && b.x >= bx && b.x <= bx + BUCKET_W) {
-        const mult = s.bonusBucketMults[i] ?? 1;
-        const turnScore = Math.max(0, s.score - s.turnScoreStart);
-        const bonus = (mult - 1) * turnScore;
-        s.balls += 1;
-        s.bonusBucketFlash[i] = 1;
-        s.trauma = Math.min(1, s.trauma + BALANCE.trauma.bonusBucketCatch);
-        if (bonus > 0) {
-          s.score += bonus;
-          s.floatingTexts.push({ x: bx + BUCKET_W / 2, y: bucketTop - 14, text: `×${mult} BONUS +${bonus.toLocaleString()}`, life: 1, maxLife: 2.2, color: mult === 5 ? "#ffcc00" : "#cc44ff", combo: true, fontSize: 15 });
-        } else {
-          s.floatingTexts.push({ x: bx + BUCKET_W / 2, y: bucketTop - 14, text: mult > 1 ? `×${mult} ŒUF RÉCUPÉRÉ!` : "ŒUF RÉCUPÉRÉ!", life: 1, maxLife: 1.8, color: mult === 5 ? "#ffcc00" : mult === 3 ? "#cc44ff" : "#00ffcc", combo: mult > 1, fontSize: 14 });
-        }
-        events.push({ kind: "sound", id: "victory" });
-        b.active = false;
-        break;
-      }
-    }
-  } else {
-    if (b.y + s.effectiveBallR >= bucketTop && b.x >= s.bucket && b.x <= s.bucket + BUCKET_W) {
+    // JACKPOT : la dernière proie est déjà tombée et l'œuf retombe pile dans le
+    // panier pendant le ralenti final → récompense maximale.
+    if (s.orangeLeft === 0) {
+      const bonus = BALANCE.score.jackpotBase * s.level;
+      s.score += bonus;
+      s.balls += BALANCE.score.jackpotBalls;
+      s.flashWhite = 1;
+      s.trauma = 1;
+      s.slowMoFrames = Math.max(s.slowMoFrames, SLOW_MO_DURATION);
+      spawnParticles(s, b.x, bucketTop, true, 28);
+      spawnImpactRing(s, b.x, bucketTop, "#ffd700", 1);
+      s.floatingTexts.push({ x: W / 2, y: H / 2 - 60, text: "JACKPOT !!!", life: 1, maxLife: 3.5, color: "#ffd700", combo: true, exclaim: true, fontSize: 30, spin: 0 });
+      s.floatingTexts.push({ x: W / 2, y: H / 2 - 24, text: `+${bonus.toLocaleString()}  ·  +${BALANCE.score.jackpotBalls} ŒUFS`, life: 1, maxLife: 3, color: "#ffec80", combo: true, fontSize: 16 });
+      events.push({ kind: "sound", id: "jackpot" });
+    } else {
       s.balls += 1;
-      s.bucketFlash = 1;
       s.trauma = Math.min(1, s.trauma + BALANCE.trauma.bucketCatch);
-      s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 14, text: "ŒUF RÉCUPÉRÉ!", life: 1, maxLife: 1.8, color: "#00ffcc", combo: true, fontSize: 14 });
+      s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 14, text: "ŒUF SAUVÉ !", life: 1, maxLife: 1.8, color: "#00ffcc", combo: true, exclaim: true, fontSize: 16, spin: (Math.random() - 0.5) * 1.5 });
       events.push({ kind: "sound", id: "victory" });
-      b.active = false;
     }
   }
 
-  // Ball falls off screen
+  // L'œuf sort de l'écran
   if (b.active && b.y > H + 40) {
-    const isMain = b === s.ball;
-    if (isMain && s.spookyActive) {
-      s.spookyActive = false;
-      b.x = Math.max(s.effectiveBallR, Math.min(W - s.effectiveBallR, b.x));
-      b.y = BALANCE.spooky.yReset;
-      b.vy = -LAUNCH_SPEED * BALANCE.spooky.reboundSpeed;
-      b.vx *= BALANCE.spooky.vxDamp;
-      s.flashWhite = Math.max(s.flashWhite, BALANCE.flash.spookySave);
-      s.floatingTexts.push({ x: b.x, y: 78, text: ">> L'AIGLE A RATTRAPÉ L'ŒUF!", life: 1, maxLife: 2, color: "#cc88ff", combo: true, fontSize: 14 });
-    } else if (isMain && s.phoenixAvailable) {
-      s.phoenixAvailable = false;
-      b.x = Math.max(s.effectiveBallR, Math.min(W - s.effectiveBallR, b.x));
-      b.y = BALANCE.phoenix.yReset;
-      b.vy = -LAUNCH_SPEED * BALANCE.phoenix.reboundSpeed;
-      b.vx *= BALANCE.phoenix.vxDamp;
-      s.flashWhite = Math.max(s.flashWhite, BALANCE.flash.phoenixSave);
-      s.trauma = Math.min(1, s.trauma + BALANCE.trauma.phoenixSave);
-      s.floatingTexts.push({ x: b.x, y: 78, text: "!! PHÉNIX SAVE!", life: 1, maxLife: 2, color: "#ff8800", combo: true, fontSize: 14 });
-    } else {
-      if (isMain) s.ballsLostThisLevel++;
-      b.active = false;
-    }
+    b.active = false;
   }
 }

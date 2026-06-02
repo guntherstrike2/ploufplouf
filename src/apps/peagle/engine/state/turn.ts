@@ -1,65 +1,57 @@
 import { W, H } from "../constants";
+import { BALANCE } from "../balance";
+import { isTarget } from "../peg-kinds";
 import type { GameState } from "../types";
 import type { GameEvent } from "../events";
+import { spawnParticles, spawnImpactRing } from "./effects";
 
-export function endOfTurn(s: GameState, ironWillUsed: boolean, events: GameEvent[]): void {
+export function endOfTurn(s: GameState, events: GameEvent[]): void {
+  // Disparition juicy : les pegs touchés ce tour-ci éclatent vraiment (gerbe de
+  // particules + onde de choc) au moment où ils quittent le tableau, au lieu de
+  // s'effacer silencieusement. C'est LE moment « pop » satisfaisant.
+  const cleared = s.pegs.filter(p => p.hit);
+  for (const p of cleared) {
+    const orange = p.kind === "orange";
+    spawnParticles(s, p.x, p.y, orange, orange ? 12 : 7);
+    spawnImpactRing(s, p.x, p.y, orange ? "#ffbb44" : "#9fb8ff", orange ? 0.7 : 0.32);
+  }
+  if (cleared.length > 0) {
+    s.trauma = Math.min(1, s.trauma + Math.min(0.35, cleared.length * 0.03));
+  }
+
   s.pegs = s.pegs.filter(p => !p.hit);
   s.combo = 0;
   s.scoreMultiplier = 1;
-  s.lastHitWasOrange = false;
 
-  const remainingOrange = s.pegs.filter(p => p.orange).length;
+  const remainingOrange = s.pegs.filter(isTarget).length;
 
   if (remainingOrange === 0) {
-    if (s.runRelics.includes("trophy") && s.ballsLostThisLevel === 0) {
-      s.balls += 2;
-      s.floatingTexts.push({ x: W / 2, y: H / 3, text: "!! TROPHÉE +2 ŒUFS!", life: 1, maxLife: 2.5, color: "#ffd700", combo: true, fontSize: 14 });
-    }
-
-    if (s.runUpgrades.includes("recovery") && s.balls > 3) {
-      s.balls += 1;
-      s.floatingTexts.push({ x: W / 2, y: H / 3 + 20, text: ">> PONTE BONUS +1", life: 1, maxLife: 2, color: "#44ff88", combo: true, fontSize: 12 });
-    }
-
-    const ballBonus = s.balls * 1000;
+    // Niveau gagné : bonus pour les œufs restants
+    const ballBonus = s.balls * BALANCE.score.ballBonus;
     s.score += ballBonus;
     if (ballBonus > 0) {
       s.floatingTexts.push({ x: W / 2, y: H / 2, text: `+${ballBonus.toLocaleString()} BONUS ŒUFS!`, life: 1, maxLife: 3, color: "#00ffcc", combo: true, fontSize: 16 });
     }
 
-    const saved = parseInt(localStorage.getItem("peagle98_best") ?? "0", 10);
-    if (s.score > saved) {
-      localStorage.setItem("peagle98_best", String(s.score));
-      events.push({ kind: "best-score", score: s.score });
-    }
+    // Score candidat en fin de niveau : le moteur reste une sim pure, c'est la
+    // couche React (hôte) qui compare au record et persiste dans localStorage.
+    events.push({ kind: "best-score", score: s.score });
 
     s.phase = "won";
     s.message = `NIVEAU ${s.level} TERMINÉ !`;
-    events.push({ kind: "sound", id: "victory" });
-    events.push({ kind: "level-won", bossKilled: s.bossKilledThisLevel });
+    events.push({ kind: "sound", id: "level-clear" });
+    events.push({ kind: "level-won" });
 
   } else if (s.balls <= 0) {
-    if (s.runUpgrades.includes("iron_will") && !ironWillUsed) {
-      s.balls = 2;
-      s.flashWhite = 0.8;
-      s.trauma = Math.min(1, s.trauma + 0.5);
-      s.floatingTexts.push({ x: W / 2, y: H / 2 - 20, text: "[] SERRES D'ACIER!", life: 1, maxLife: 2.5, color: "#4488ff", combo: true, fontSize: 15 });
-      s.phase = "aim";
-      events.push({ kind: "iron-will" });
-    } else {
-      const saved = parseInt(localStorage.getItem("peagle98_best") ?? "0", 10);
-      if (s.score > saved) {
-        localStorage.setItem("peagle98_best", String(s.score));
-        events.push({ kind: "best-score", score: s.score });
-      }
-      s.phase = "lost";
-      s.message = "GAME OVER";
-      events.push({ kind: "sound", id: "delete" });
-      events.push({ kind: "level-lost", score: s.score });
-    }
+    // Plus d'œufs : game over
+    events.push({ kind: "best-score", score: s.score });
+    s.phase = "lost";
+    s.message = "GAME OVER";
+    events.push({ kind: "sound", id: "game-over" });
+    events.push({ kind: "level-lost", score: s.score });
 
   } else {
-    s.phoenixAvailable = s.runRelics.includes("phoenix");
     s.phase = "aim";
+    if (cleared.length > 0) events.push({ kind: "sound", id: "peg-clear" });
   }
 }

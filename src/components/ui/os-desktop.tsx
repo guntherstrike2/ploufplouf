@@ -126,22 +126,24 @@ export function OsDesktop() {
   }, [openNamedWindow]);
 
   const icons: IconDef[] = [
-    ...LAUNCHER_APPS.map((app) => ({
-      id: app.slug,
-      emoji: <OsIcon slug={app.slug} size={46} />,
-      label: app.name,
-      badge:
-        app.slug === "msn" && totalUnread > 0
-          ? String(totalUnread > 9 ? "9+" : totalUnread)
-          : isNewVersion(app.slug, app.version)
-          ? "NEW"
-          : app.badge && !seen.has(app.slug)
-          ? app.badge
-          : undefined,
-      hot: app.hot,
-      locked: app.requiresAuth && !isPending && !user,
-      onOpen: () => handleOpenApp(app.slug),
-    })),
+    ...LAUNCHER_APPS
+      .filter((app) => app.slug !== "gunthrank")
+      .map((app) => ({
+        id: app.slug,
+        emoji: <OsIcon slug={app.slug} size={46} />,
+        label: app.name,
+        badge:
+          app.slug === "msn" && totalUnread > 0
+            ? String(totalUnread > 9 ? "9+" : totalUnread)
+            : isNewVersion(app.slug, app.version)
+            ? "NEW"
+            : app.badge && !seen.has(app.slug)
+            ? app.badge
+            : undefined,
+        hot: app.hot,
+        locked: app.requiresAuth && !isPending && !user,
+        onOpen: () => handleOpenApp(app.slug),
+      })),
     {
       id: "my-computer",
       emoji: <OsIcon slug="my-computer" size={46} />,
@@ -161,7 +163,7 @@ export function OsDesktop() {
       onOpen: () => openNamedWindow("trash", "Corbeille", "🗑️"),
     },
     {
-      id: "gunthrank-gunthos",
+      id: "gunthrank",
       emoji: <OsIcon slug="gunthrank" size={46} />,
       label: "Classement du Kiff",
       hot: true,

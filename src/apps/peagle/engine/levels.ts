@@ -1,622 +1,329 @@
-import { W, PEG_R } from "./constants";
-import type { Peg, GreenPowerupId, Decor } from "./types";
-import type { RunState } from "./roguelite";
-import { CLASSES, isBossLevel } from "./roguelite";
-import {
-  tPixelArt, tArc, tCircle, tLine, tHexGrid, dedup,
-  mkBumper, mkPlank, mkArc, mkSpike,
-} from "./tableau";
-import type { TableauResult } from "./tableau";
+import { W, PEG_R, LAUNCHER_X, LAUNCHER_Y } from "./constants";
+import type { Peg } from "./types";
+import { tHexGrid, tCircle, tArc, tGrid, dedup, makePeg } from "./tableau";
+import { mulberry32, hashSeed, randRange, randInt, shuffle, type Rng } from "./rng";
+import { difficultyFor, type DifficultyParams } from "./difficulty";
+import { computeAimLine } from "./physics";
 
-// ─── Boss peg ─────────────────────────────────────────────────────────────────
+// ─── Génération de niveaux : aléatoire seedé, structuré et validé ────────────
+//
+// Pipeline « en béton » :
+//   1. RNG SEEDÉ      seed = f(niveau) → déterministe, reproductible, debuggable.
+//   2. MOTIFS         1-2 structures piochées (grille hex, anneaux, arches…) →
+//                     un squelette « qui a l'air voulu ».
+//   3. REMPLISSAGE    Poisson-disk (blue noise) miroir → des pegs en plus,
+//                     répartis naturellement, jamais collés, jamais en paquets.
+//   4. DIFFICULTÉ     densité / % oranges / bumpers / jitter pilotés par
+//                     difficultyFor(level) (voir difficulty.ts).
+//   5. ASSIGNATION    types de pegs posés via le système data-driven (peg-kinds).
+//   6. VALIDATION     on simule la ligne de visée (generate-and-test) : si trop
+//                     peu de pegs sont atteignables, on re-roll le seed. Garantie
+//                     qu'au moins une cible est accessible. Fallback grille sûre.
 
-function makeBossPeg(cx: number): Peg {
-  return {
-    x: cx, y: 320,
-    hit: false, orange: false, green: false, bomb: false, boss: true,
-    armorHits: 4, hitCooldown: 0,
-    popping: false, popAlpha: 1, scale: 1,
-  };
+const clamp = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, v));
+
+interface Area {
+  x0: number;
+  x1: number;
+  y0: number;
+  y1: number;
+  cx: number;
 }
 
-// ─── Layout builders ──────────────────────────────────────────────────────────
+const AREA: Area = { x0: 44, x1: W - 44, y0: 180, y1: 490, cx: W / 2 };
 
-function layout1(cx: number): TableauResult {
-  // 😄 Visage souriant pixel art + champ hexagonal en bas
-  const face = [
-    "011111110",
-    "100000001",
-    "101000101",
-    "100000001",
-    "100100001",
-    "101001101",
-    "011111110",
-  ];
-  return {
-    pegs: dedup([
-      ...tPixelArt(face, 26, 24, cx - 104, 108),
-      ...tHexGrid(24, 367, 17, 5, 26),
-    ]),
-    decors: [
-      mkBumper(cx - 50, 516, 13, "#cc44ff"),
-      mkBumper(cx + 50, 516, 13, "#cc44ff"),
-      mkBumper(cx, 566, 15, "#ff44ff"),
-    ],
-  };
+// ─── Motifs structurels ───────────────────────────────────────────────────────
+// POINT D'EXTENSION : ajoute un builder (rng, area) => Peg[] et référence-le dans
+// MOTIFS. Reste symétrique/centré quand tu peux : ça « a l'air dessiné ».
+
+function motifHexField(rng: Rng, a: Area): Peg[] {
+  const spacing = randInt(rng, 22, 28);
+  const cols = Math.floor((a.x1 - a.x0) / spacing);
+  const rows = randInt(rng, 10, 16);
+  const originX = a.cx - ((cols - 1) * spacing) / 2;
+  const originY = a.y0 + randInt(rng, 0, 16);
+  return tHexGrid(originX, originY, cols, rows, spacing);
 }
 
-function layout2(cx: number): TableauResult {
-  // 👾 Space Invader pixel art + terrain hexagonal
-  const invader = [
-    "00100100",
-    "00011000",
-    "01111110",
-    "11011011",
-    "11111111",
-    "01111110",
-    "01001010",
-    "10001001",
-  ];
-  return {
-    pegs: dedup([
-      ...tPixelArt(invader, 24, 22, cx - 96, 105),
-      ...tHexGrid(28, 357, 15, 6, 28),
-    ]),
-    decors: [
-      mkBumper(70, 449, 14, "#cc44ff"),
-      mkBumper(410, 449, 14, "#cc44ff"),
-      mkBumper(cx, 560, 13, "#ff44ff"),
-      mkPlank(cx - 90, 322, 48, Math.PI / 4),
-      mkPlank(cx + 90, 322, 48, -Math.PI / 4),
-    ],
-  };
-}
-
-function layout3(cx: number): TableauResult {
-  // 🟡 Pac-Man + ligne de points + terrain + bumpers fantômes
-  const pacBody = tArc(150, 246, 80, 0.45, Math.PI * 2 - 0.45, 20);
-  const dots = tLine(242, 246, 450, 246, 28);
-  const field = tHexGrid(28, 381, 16, 5, 27);
-  return {
-    pegs: dedup([...pacBody, ...dots, ...field]),
-    decors: [
-      mkBumper(385, 191, 11, "#cc44ff"),
-      mkBumper(420, 166, 9, "#ff44ff"),
-      mkBumper(355, 197, 10, "#cc44ff"),
-      mkArc(cx, 603, 95, Math.PI, 0, "#cc44ff"),
-    ],
-  };
-}
-
-function layout4(cx: number): TableauResult {
-  // 🧬 Double hélice ADN — deux brins sinusoïdaux + barreaux
-  const pegs: Peg[] = [];
-  const mk = (x: number, y: number): Peg => ({
-    x, y, hit: false, orange: false, green: false, bomb: false, boss: false,
-    armorHits: 0, hitCooldown: 0, popping: false, popAlpha: 1, scale: 1,
-  });
-  for (let i = 0; i < 24; i++) {
-    const y = 98 + i * 22;
-    const x1 = cx + Math.cos(i * 0.56) * 115;
-    const x2 = cx - Math.cos(i * 0.56) * 115;
-    pegs.push(mk(x1, y), mk(x2, y));
-    if (i % 3 === 1) pegs.push(...tLine(x1, y, x2, y, 30));
+function motifRings(rng: Rng, a: Area): Peg[] {
+  const cy = (a.y0 + a.y1) / 2;
+  const n = randInt(rng, 2, 3);
+  const out: Peg[] = [];
+  for (let i = 0; i < n; i++) {
+    const r = 50 + i * 48;
+    out.push(...tCircle(a.cx, cy, r, Math.round(8 + r / 8)));
   }
-  return {
-    pegs: dedup(pegs),
-    decors: [
-      mkBumper(cx, 246, 11, "#cc44ff"),
-      mkBumper(cx, 455, 11, "#cc44ff"),
-      mkPlank(cx - 130, 135, 30, 0.4),
-      mkPlank(cx + 130, 135, 30, -0.4),
-    ],
-  };
+  return out;
 }
 
-function layout5(cx: number): TableauResult {
-  // 🎱 Triangle de billard — 9 rangées + bumpers
-  const spacing = 32;
-  const pegs: Peg[] = [];
-  const mk = (x: number, y: number): Peg => ({
-    x, y, hit: false, orange: false, green: false, bomb: false, boss: false,
-    armorHits: 0, hitCooldown: 0, popping: false, popAlpha: 1, scale: 1,
-  });
-  for (let row = 0; row < 9; row++) {
-    const y = 108 + row * spacing;
-    const count = row + 1;
-    for (let col = 0; col < count; col++) {
-      pegs.push(mk(cx - (count - 1) * spacing * 0.5 + col * spacing, y));
+function motifArches(rng: Rng, a: Area): Peg[] {
+  const cy = a.y0 + 30;
+  const n = randInt(rng, 2, 4);
+  const out: Peg[] = [];
+  for (let i = 0; i < n; i++) {
+    const r = 70 + i * 42;
+    out.push(...tArc(a.cx, cy, r, Math.PI * 0.12, Math.PI * 0.88, Math.round(6 + r / 14)));
+  }
+  return out;
+}
+
+function motifDiamond(rng: Rng, a: Area): Peg[] {
+  const rows = randInt(rng, 9, 13);
+  const spacing = randInt(rng, 26, 32);
+  const y0 = a.y0 + 10;
+  const out: Peg[] = [];
+  const half = (rows - 1) / 2;
+  for (let r = 0; r < rows; r++) {
+    const y = y0 + r * spacing * 0.9;
+    const count = r <= half ? r + 1 : rows - r;
+    for (let c = 0; c < count; c++) {
+      out.push(makePeg(a.cx - (count - 1) * spacing * 0.5 + c * spacing, y));
     }
   }
-  pegs.push(...tHexGrid(30, 486, 13, 3, 31));
-  return {
-    pegs: dedup(pegs),
-    decors: [
-      mkBumper(78, 326, 15, "#ff44ff"),
-      mkBumper(402, 326, 15, "#cc44ff"),
-      mkBumper(cx, 418, 15, "#ff44ff"),
-      mkSpike(cx - 40, 470, 18, Math.PI / 2),
-      mkSpike(cx + 40, 470, 18, Math.PI / 2),
-    ],
-  };
+  return out;
 }
 
-function layout6(cx: number): TableauResult {
-  // 🦋 Papillon — deux ailes en arc symétriques + corps central
-  return {
-    pegs: dedup([
-      ...tArc(cx - 80, 258, 130, Math.PI * 0.52, Math.PI * 1.9, 20),
-      ...tArc(cx + 80, 258, 130, -Math.PI * 0.9, Math.PI * 0.48, 20),
-      ...tArc(cx - 70, 443, 85, Math.PI * 0.6, Math.PI * 1.85, 14),
-      ...tArc(cx + 70, 443, 85, -Math.PI * 0.85, Math.PI * 0.4, 14),
-      ...tLine(cx, 123, cx, 566, 22),
-    ]),
-    decors: [
-      mkBumper(cx - 80, 258, 14, "#cc44ff"),
-      mkBumper(cx + 80, 258, 14, "#cc44ff"),
-      mkBumper(cx - 70, 443, 11, "#ff44ff"),
-      mkBumper(cx + 70, 443, 11, "#ff44ff"),
-    ],
-  };
+function motifColumns(rng: Rng, a: Area): Peg[] {
+  const rows = randInt(rng, 8, 12);
+  const cols = randInt(rng, 2, 3);
+  const sx = randInt(rng, 30, 40);
+  const sy = randInt(rng, 38, 52);
+  const y0 = a.y0 + 6;
+  const left = tGrid(a.x0 + 12, y0, cols, rows, sx, sy);
+  const right = left.map(p => makePeg(2 * a.cx - p.x, p.y));
+  const center = tCircle(a.cx, (a.y0 + a.y1) / 2, randInt(rng, 46, 70), randInt(rng, 10, 16));
+  return [...left, ...right, ...center];
 }
 
-function layout7(cx: number): TableauResult {
-  // 🌪 Tornade — entonnoir qui rétrécit vers le bas
-  const pegs: Peg[] = [];
-  const mk = (x: number, y: number): Peg => ({
-    x, y, hit: false, orange: false, green: false, bomb: false, boss: false,
-    armorHits: 0, hitCooldown: 0, popping: false, popAlpha: 1, scale: 1,
-  });
-  for (let row = 0; row < 19; row++) {
-    const y = 98 + row * 27;
-    const halfSpread = Math.max(18, 200 - row * 9);
-    const step = Math.max(18, 30 - row);
-    for (let x = cx - halfSpread; x <= cx + halfSpread; x += step) {
-      pegs.push(mk(Math.round(x), y));
+function motifWave(rng: Rng, a: Area): Peg[] {
+  const out: Peg[] = [];
+  const rows = randInt(rng, 3, 5);
+  const amp = randInt(rng, 18, 34);
+  const period = randRange(rng, 90, 150);
+  const phase = rng() * Math.PI * 2;
+  const sx = randInt(rng, 26, 34);
+  const rowGap = randInt(rng, 46, 62);
+  for (let r = 0; r < rows; r++) {
+    const baseY = a.y0 + 30 + r * rowGap;
+    for (let x = a.x0 + 10; x <= a.x1 - 10; x += sx) {
+      const y = baseY + Math.sin((x / period) * Math.PI * 2 + phase + r * 0.6) * amp;
+      out.push(makePeg(x, y));
     }
   }
-  return {
-    pegs: dedup(pegs),
-    decors: [
-      mkArc(cx, 92, 205, Math.PI, 0, "#cc44ff"),
-      mkBumper(cx, 566, 17, "#ff44ff"),
-      mkPlank(cx - 65, 480, 42, 0.62),
-      mkPlank(cx + 65, 480, 42, -0.62),
-    ],
-  };
+  return out;
 }
 
-function layout8(cx: number): TableauResult {
-  // 🌵 Cactus pixel art + champ de pegs + épines latérales
-  const cactus = [
-    "001000000",
-    "001000000",
-    "011100000",
-    "111000100",
-    "001001110",
-    "001111000",
-    "001000000",
-    "011100000",
-    "001000000",
-    "011111110",
-  ];
-  return {
-    pegs: dedup([
-      ...tPixelArt(cactus, 26, 24, cx - 100, 98),
-      ...tHexGrid(26, 406, 16, 5, 28),
-    ]),
-    decors: [
-      mkSpike(72, 283, 18, 0),
-      mkSpike(408, 283, 18, Math.PI),
-      mkBumper(cx + 148, 207, 11, "#cc44ff"),
-      mkBumper(cx - 100, 372, 11, "#cc44ff"),
-      mkArc(cx, 609, 80, Math.PI, 0, "#cc44ff"),
-    ],
-  };
-}
-
-function layout9(cx: number): TableauResult {
-  // 🎆 Feu d'artifice — 12 rayons radiaux depuis le centre
-  const pegs: Peg[] = [];
-  const cy = 310;
-  const rayCount = 12;
-  for (let i = 0; i < rayCount; i++) {
-    const angle = (i / rayCount) * Math.PI * 2;
-    const ex = Math.max(22, Math.min(W - 22, cx + Math.cos(angle) * 178));
-    const ey = Math.max(101, Math.min(597, cy + Math.sin(angle) * 190));
-    pegs.push(...tLine(cx, cy, ex, ey, 28));
-  }
-  pegs.push(...tCircle(cx, cy, 72, 16));
-  return {
-    pegs: dedup(pegs),
-    decors: [
-      mkBumper(cx, cy, 16, "#cc44ff"),
-      mkBumper(cx - 82, cy - 76, 10, "#cc44ff"),
-      mkBumper(cx + 82, cy - 76, 10, "#cc44ff"),
-      mkBumper(cx - 82, cy + 76, 10, "#cc44ff"),
-      mkBumper(cx + 82, cy + 76, 10, "#cc44ff"),
-    ],
-  };
-}
-
-function layout10(cx: number): TableauResult {
-  // 🎉 Délire de bumpers — chaos total façon flipper
-  return {
-    pegs: dedup([
-      ...tCircle(cx, 228, 105, 16),
-      ...tCircle(cx, 228, 52, 9),
-      ...tCircle(cx, 437, 85, 13),
-      ...tCircle(cx, 437, 42, 7),
-    ]),
-    decors: [
-      mkBumper(75,  157, 15, "#cc44ff"),
-      mkBumper(405, 157, 15, "#cc44ff"),
-      mkBumper(55,  344, 13, "#ff44ff"),
-      mkBumper(425, 344, 13, "#ff44ff"),
-      mkBumper(cx - 105, 252, 12, "#cc44ff"),
-      mkBumper(cx + 105, 252, 12, "#cc44ff"),
-      mkBumper(78,  523, 14, "#cc44ff"),
-      mkBumper(402, 523, 14, "#cc44ff"),
-      mkBumper(cx - 58, 461, 12, "#cc44ff"),
-      mkBumper(cx + 58, 461, 12, "#cc44ff"),
-      mkBumper(cx, 566, 16, "#ff44ff"),
-      mkArc(cx, 634, 150, Math.PI * 1.1, Math.PI * 1.9, "#cc44ff"),
-      mkArc(cx, 117, 105, 0.1, Math.PI - 0.1, "#cc44ff"),
-      mkPlank(cx - 82, 359, 62, Math.PI / 4),
-      mkPlank(cx + 82, 359, 62, -Math.PI / 4),
-    ],
-  };
-}
-
-function layout11(cx: number): TableauResult {
-  // 💀 Tête de mort pixel art + terrain hanté
-  const skull = [
-    "001111100",
-    "011111110",
-    "111011101",
-    "111111111",
-    "011111110",
-    "001111100",
-    "001010100",
-    "001111100",
-  ];
-  return {
-    pegs: dedup([
-      ...tPixelArt(skull, 24, 22, cx - 96, 108),
-      ...tHexGrid(26, 369, 16, 5, 28),
-    ]),
-    decors: [
-      mkBumper(cx - 72, 465, 13, "#cc44ff"),
-      mkBumper(cx + 72, 465, 13, "#cc44ff"),
-      mkBumper(cx, 560, 15, "#9933cc"),
-      mkArc(cx, 108, 105, 0.2, Math.PI - 0.2, "#cc44ff"),
-    ],
-  };
-}
-
-function layout12(cx: number): TableauResult {
-  // 🍄 Champignon Mario pixel art + terrain
-  const shroom = [
-    "001111100",
-    "011111110",
-    "110101011",
-    "111111111",
-    "011111110",
-    "001111100",
-    "000111000",
-    "001111100",
-    "000111000",
-  ];
-  return {
-    pegs: dedup([
-      ...tPixelArt(shroom, 24, 22, cx - 96, 105),
-      ...tHexGrid(28, 381, 15, 5, 28),
-    ]),
-    decors: [
-      mkBumper(cx - 90, 437, 12, "#cc44ff"),
-      mkBumper(cx + 90, 437, 12, "#cc44ff"),
-      mkBumper(cx, 566, 15, "#ff44ff"),
-      mkSpike(50, 197, 16, 0),
-      mkSpike(430, 197, 16, Math.PI),
-    ],
-  };
-}
-
-function layout13(cx: number): TableauResult {
-  // ⚓ Ancre — anneau + mât + traverse + courbe du bas + flukes
-  return {
-    pegs: dedup([
-      ...tCircle(cx, 157, 28, 10),
-      ...tLine(cx, 123, cx, 510, 22),
-      ...tLine(cx - 90, 182, cx + 90, 182, 22),
-      ...tArc(cx, 480, 78, Math.PI, Math.PI * 2, 13),
-      ...tLine(cx - 78, 480, cx - 58, 418, 18),
-      ...tLine(cx + 78, 480, cx + 58, 418, 18),
-    ]),
-    decors: [
-      mkBumper(cx - 90, 182, 10, "#cc44ff"),
-      mkBumper(cx + 90, 182, 10, "#cc44ff"),
-      mkBumper(cx, 480, 12, "#9933cc"),
-      mkBumper(cx - 58, 418, 9, "#ff44ff"),
-      mkBumper(cx + 58, 418, 9, "#ff44ff"),
-    ],
-  };
-}
-
-function layout14(cx: number): TableauResult {
-  // ⏳ Sablier — large en haut et en bas, étroit au centre
-  const pegs: Peg[] = [];
-  const mk = (x: number, y: number): Peg => ({
-    x, y, hit: false, orange: false, green: false, bomb: false, boss: false,
-    armorHits: 0, hitCooldown: 0, popping: false, popAlpha: 1, scale: 1,
-  });
-  for (let row = 0; row < 20; row++) {
-    const y = 92 + row * 26;
-    const d = Math.abs(row - 9.5);
-    const halfWidth = Math.max(20, Math.round(20 + d * 18));
-    for (let x = cx - halfWidth; x <= cx + halfWidth; x += 22) {
-      pegs.push(mk(Math.round(x), y));
-    }
-  }
-  return {
-    pegs: dedup(pegs),
-    decors: [
-      mkBumper(cx, 351, 10, "#cc44ff"),
-      mkPlank(cx - 42, 351, 52, Math.PI / 5),
-      mkPlank(cx + 42, 351, 52, -Math.PI / 5),
-      mkArc(cx, 86, 120, Math.PI * 1.1, Math.PI * 1.9, "#cc44ff"),
-    ],
-  };
-}
-
-function layout15(cx: number): TableauResult {
-  // 🎯 Cible — 4 cercles concentriques + bullseye
-  return {
-    pegs: dedup([
-      ...tCircle(cx, 338, 160, 26),
-      ...tCircle(cx, 338, 115, 20),
-      ...tCircle(cx, 338, 72, 13),
-      ...tCircle(cx, 338, 36, 7),
-    ]),
-    decors: [
-      mkBumper(cx, 338, 14, "#cc44ff"),
-      mkSpike(50, 160, 16, Math.PI * 0.25),
-      mkSpike(430, 160, 16, Math.PI * 0.75),
-      mkSpike(50, 517, 16, -Math.PI * 0.25),
-      mkSpike(430, 517, 16, -Math.PI * 0.75),
-    ],
-  };
-}
-
-function layout16(cx: number): TableauResult {
-  // ☯ Yin-Yang — cercle extérieur + diviseur en S + deux petits cercles
-  return {
-    pegs: dedup([
-      ...tCircle(cx, 344, 140, 22),
-      ...tArc(cx, 258, 70, -Math.PI / 2, Math.PI / 2, 10),
-      ...tArc(cx, 430, 70, Math.PI / 2, Math.PI * 1.5, 10),
-      ...tCircle(cx, 258, 28, 6),
-      ...tCircle(cx, 430, 28, 6),
-    ]),
-    decors: [
-      mkBumper(cx - 65, 344, 11, "#cc44ff"),
-      mkBumper(cx + 65, 344, 11, "#9933cc"),
-      mkBumper(cx, 344, 9, "#ff44ff"),
-      mkArc(cx, 344, 145, Math.PI, Math.PI * 2, "#cc44ff"),
-    ],
-  };
-}
-
-function layout17(cx: number): TableauResult {
-  // 🐛 Chenille — chaîne de cercles serpentant + tête
-  const segments: [number, number][] = [
-    [155, 160], [315, 228], [155, 314], [315, 400], [155, 486], [315, 566],
-  ];
-  const pegs: Peg[] = [
-    ...tCircle(155, 96, 35, 9),
-    ...segments.flatMap(([sx, sy]) => tCircle(sx, sy, 42, 10)),
-  ];
-  for (let i = 0; i < segments.length - 1; i++) {
-    const [sx, sy] = segments[i]!;
-    const [ex, ey] = segments[i + 1]!;
-    pegs.push(...tLine(sx, sy, ex, ey, 26));
-  }
-  return {
-    pegs: dedup(pegs),
-    decors: [
-      ...segments.map(([sx, sy]) => mkBumper(sx, sy, 11, "#cc44ff")),
-      mkBumper(155, 96, 12, "#ff44ff"),
-    ],
-  };
-}
-
-function layout18(cx: number): TableauResult {
-  // ⚡ Éclair pixel art + terrain électrisé
-  const bolt = [
-    "011110000",
-    "011110000",
-    "001111000",
-    "001111000",
-    "000011110",
-    "000011110",
-    "000001111",
-    "000001111",
-    "000000110",
-  ];
-  return {
-    pegs: dedup([
-      ...tPixelArt(bolt, 22, 24, cx - 88, 98),
-      ...tHexGrid(28, 381, 15, 5, 28),
-    ]),
-    decors: [
-      mkBumper(cx - 60, 443, 13, "#cc44ff"),
-      mkBumper(cx + 60, 443, 13, "#cc44ff"),
-      mkBumper(cx, 535, 15, "#cc44ff"),
-      mkPlank(cx - 20, 326, 40, Math.PI / 4),
-    ],
-  };
-}
-
-function layout19(cx: number): TableauResult {
-  // 🌈 Arc-en-ciel — 7 arcs de rayon décroissant depuis la base
-  const radii = [190, 162, 135, 108, 82, 58, 38];
-  const counts = [26, 22, 18, 14, 11, 8, 6];
-  const pegs: Peg[] = [
-    ...tHexGrid(28, 101, 15, 3, 30),
-  ];
-  for (let i = 0; i < radii.length; i++) {
-    pegs.push(...tArc(cx, 603, radii[i]!, Math.PI, Math.PI * 2, counts[i]!));
-  }
-  return {
-    pegs: dedup(pegs),
-    decors: [
-      mkBumper(cx - 100, 492, 12, "#cc44ff"),
-      mkBumper(cx, 391, 12, "#cc44ff"),
-      mkBumper(cx + 100, 492, 12, "#ff44ff"),
-      mkArc(cx, 603, 210, Math.PI, Math.PI * 2, "#cc44ff"),
-    ],
-  };
-}
-
-function layout20(cx: number): TableauResult {
-  // 🌌 Galaxie — deux bras spiralés + champ d'étoiles
-  const pegs: Peg[] = [];
-  const mk = (x: number, y: number): Peg => ({
-    x, y, hit: false, orange: false, green: false, bomb: false, boss: false,
-    armorHits: 0, hitCooldown: 0, popping: false, popAlpha: 1, scale: 1,
-  });
-  for (let i = 0; i < 28; i++) {
-    const t = i / 28;
-    const a = t * Math.PI * 2 * 2;
-    const r = 12 + t * 162;
-    pegs.push(mk(cx + Math.cos(a) * r * 0.9, 332 + Math.sin(a) * r * 0.64));
-    pegs.push(mk(cx + Math.cos(a + Math.PI) * r * 0.9, 332 + Math.sin(a + Math.PI) * r * 0.64));
-  }
-  const stars: [number, number][] = [
-    [55, 113], [415, 108], [32, 289], [448, 344], [68, 517], [412, 532],
-    [158, 96], [338, 101], [28, 194], [450, 207], [85, 585], [395, 578],
-  ];
-  for (const [sx, sy] of stars) {
-    pegs.push(mk(sx, sy));
-  }
-  return {
-    pegs: dedup(pegs),
-    decors: [
-      mkBumper(cx, 332, 16, "#cc44ff"),
-      mkBumper(cx - 100, 240, 10, "#ff44ff"),
-      mkBumper(cx + 100, 424, 10, "#ff44ff"),
-      mkPlank(cx - 58, 215, 36, Math.PI / 6),
-      mkPlank(cx + 58, 449, 36, Math.PI / 6),
-    ],
-  };
-}
-
-// ─── Main builder ──────────────────────────────────────────────────────────────
-
-export function buildLevel(level: number, runState?: RunState): { pegs: Peg[]; decors: Decor[] } {
-  const cx = W / 2;
-  const layout = ((level - 1) % 20) + 1;
-  const isBoss = isBossLevel(level);
-
-  const builders = [layout1, layout2, layout3, layout4, layout5, layout6, layout7, layout8, layout9, layout10, layout11, layout12, layout13, layout14, layout15, layout16, layout17, layout18, layout19, layout20];
-  const { pegs: rawPegs, decors } = (builders[layout - 1] ?? layout1)(cx);
-
-  // Deduplicate pegs that are too close
-  const deduped = dedup(rawPegs, PEG_R * 2.8);
-
-  // Remove pegs that overlap non-poppable decors
-  const filtered = deduped.filter(p => {
-    for (const d of decors) {
-      if (d.kind === "bumper" && Math.hypot(p.x - d.x, p.y - d.y) < d.r + PEG_R + 4) return false;
-      if (d.kind === "spike" && Math.hypot(p.x - d.x, p.y - d.y) < d.size * 0.8 + PEG_R) return false;
-      if (d.kind === "plank") {
-        // project peg onto plank axis, check distance to segment
-        const cos = Math.cos(d.angle), sin = Math.sin(d.angle);
-        const dx = p.x - d.x, dy = p.y - d.y;
-        const along = dx * cos + dy * sin;
-        const perp = Math.abs(-dx * sin + dy * cos);
-        if (Math.abs(along) <= d.len + PEG_R && perp < d.thickness + PEG_R + 3) return false;
+// Lignes décalées (staggered) couvrant toute la hauteur jouable — style Peggle/pachinko.
+// Génère ~200-300 pegs sur une grille hex dense ; compose() taille ensuite au budget.
+function motifPachinko(rng: Rng, a: Area): Peg[] {
+  const hSpacing = randInt(rng, 24, 30);
+  const vGap = Math.round(hSpacing * 0.86); // ≈ √3/2 pour un packing hexagonal
+  const cols = Math.ceil((a.x1 - a.x0) / hSpacing) + 1;
+  const rows = Math.ceil((a.y1 - a.y0) / vGap) + 1;
+  const startX = a.cx - ((cols - 1) * hSpacing) / 2;
+  const startY = a.y0 + randInt(rng, 0, 8);
+  const out: Peg[] = [];
+  for (let r = 0; r < rows; r++) {
+    const y = startY + r * vGap;
+    const offset = (r % 2) * (hSpacing / 2);
+    for (let c = 0; c < cols; c++) {
+      const x = startX + c * hSpacing + offset;
+      if (x >= a.x0 - 2 && x <= a.x1 + 2) {
+        out.push(makePeg(x, clamp(y, a.y0, a.y1)));
       }
-      if (d.kind === "arc") {
-        // distance from peg to arc curve
-        const dist = Math.hypot(p.x - d.x, p.y - d.y);
-        if (Math.abs(dist - d.r) < d.thickness + PEG_R + 3) {
-          // check angle is within arc span
-          const a = Math.atan2(p.y - d.y, p.x - d.x);
-          const start = d.startAngle % (Math.PI * 2);
-          const end = d.endAngle % (Math.PI * 2);
-          const norm = ((a - start) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
-          const span = ((end - start) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
-          if (norm <= span) return false;
+    }
+  }
+  return out;
+}
+
+// Poids élevé pour motifPachinko → style dense par défaut, variété assurée par les autres.
+const MOTIFS = [motifPachinko, motifPachinko, motifPachinko, motifHexField, motifHexField, motifRings, motifArches, motifDiamond, motifWave];
+
+// ─── Remplissage Poisson-disk (Bridson) ──────────────────────────────────────
+// Blue noise : points aléatoires, jamais plus proches que `minDist`, sans paquets
+// ni trous. On l'échantillonne sur la MOITIÉ gauche puis on miroir → symétrie.
+
+function poissonHalf(rng: Rng, a: Area, minDist: number, k = 18): { x: number; y: number }[] {
+  const x0 = a.x0, y0 = a.y0, x1 = a.cx, y1 = a.y1;
+  const cell = minDist / Math.SQRT2;
+  const cols = Math.max(1, Math.ceil((x1 - x0) / cell));
+  const rows = Math.max(1, Math.ceil((y1 - y0) / cell));
+  const grid = new Array<number>(cols * rows).fill(-1);
+  const pts: { x: number; y: number }[] = [];
+  const active: number[] = [];
+  const gridIndex = (x: number, y: number) =>
+    Math.floor((x - x0) / cell) + Math.floor((y - y0) / cell) * cols;
+  const addPoint = (x: number, y: number) => {
+    const id = pts.length;
+    pts.push({ x, y });
+    grid[gridIndex(x, y)] = id;
+    active.push(id);
+  };
+
+  addPoint(randRange(rng, x0, x1), randRange(rng, y0, y1));
+
+  while (active.length > 0) {
+    const ai = Math.floor(rng() * active.length);
+    const p = pts[active[ai]!]!;
+    let found = false;
+    for (let i = 0; i < k; i++) {
+      const ang = rng() * Math.PI * 2;
+      const rad = minDist * (1 + rng());
+      const nx = p.x + Math.cos(ang) * rad;
+      const ny = p.y + Math.sin(ang) * rad;
+      if (nx < x0 || nx >= x1 || ny < y0 || ny >= y1) continue;
+      const cx = Math.floor((nx - x0) / cell);
+      const cy = Math.floor((ny - y0) / cell);
+      let ok = true;
+      for (let gx = Math.max(0, cx - 2); gx <= Math.min(cols - 1, cx + 2) && ok; gx++) {
+        for (let gy = Math.max(0, cy - 2); gy <= Math.min(rows - 1, cy + 2) && ok; gy++) {
+          const id = grid[gx + gy * cols]!;
+          if (id >= 0) {
+            const q = pts[id]!;
+            if ((q.x - nx) ** 2 + (q.y - ny) ** 2 < minDist * minDist) ok = false;
+          }
         }
       }
+      if (ok) {
+        addPoint(nx, ny);
+        found = true;
+        break;
+      }
     }
-    return true;
-  });
+    if (!found) active.splice(ai, 1);
+  }
+  return pts;
+}
 
-  // Clear boss area + add boss peg
-  const result = isBoss
-    ? filtered.filter(p => Math.hypot(p.x - cx, p.y - 320) > 40)
-    : filtered;
-  if (isBoss) result.push(makeBossPeg(cx));
+// ─── Composition d'un tableau (avant assignation des types) ──────────────────
 
-  // Assign orange pegs
-  const orangePct = Math.min(0.40, 0.25 + (level - 1) * 0.03);
-  const nonBoss = result.filter(p => !p.boss);
-  const orangeCount = Math.floor(nonBoss.length * orangePct);
-  const shuffled = [...Array(nonBoss.length).keys()].sort(() => Math.random() - 0.5);
+function compose(rng: Rng, diff: DifficultyParams): Peg[] {
+  const motifs = shuffle(rng, [...MOTIFS]).slice(0, diff.motifCount);
+  let pegs: Peg[] = [];
+  for (const m of motifs) pegs.push(...m(rng, AREA));
 
-  for (let i = 0; i < orangeCount; i++) {
-    const idx = shuffled[i];
-    if (idx !== undefined && nonBoss[idx]) nonBoss[idx]!.orange = true;
+  // Jitter (casse la régularité) + maintien dans la zone jouable.
+  for (const p of pegs) {
+    if (diff.jitter > 0) {
+      p.x += randRange(rng, -diff.jitter, diff.jitter);
+      p.y += randRange(rng, -diff.jitter, diff.jitter);
+    }
+    p.x = clamp(p.x, AREA.x0, AREA.x1);
+    p.y = clamp(p.y, AREA.y0, AREA.y1);
   }
 
-  const nonOrange = shuffled.filter(i => nonBoss[i] && !nonBoss[i]!.orange);
-
-  const greenPowerupPool: GreenPowerupId[] = runState
-    ? (CLASSES[runState.classId]?.greenPowerupPool ?? (["multiball", "spooky", "extraball", "magnet"] as GreenPowerupId[]))
-    : (["multiball", "spooky", "extraball", "magnet"] as GreenPowerupId[]);
-
-  for (let i = 0; i < 5; i++) {
-    const idx = nonOrange[i];
-    if (idx !== undefined && nonBoss[idx]) {
-      nonBoss[idx]!.green = true;
-      nonBoss[idx]!.greenPowerup = greenPowerupPool[i % greenPowerupPool.length];
-    }
-  }
-
-  const noBombs = runState ? CLASSES[runState.classId]?.noBombs ?? false : false;
-
-  if (level >= 3 && !noBombs) {
-    const bombCount = Math.min(3, 1 + Math.floor((level - 3) / 2));
-    const bombCandidates = nonOrange.filter(i => nonBoss[i] && !nonBoss[i]!.orange && !nonBoss[i]!.green);
-    for (let i = 0; i < Math.min(bombCount, bombCandidates.length); i++) {
-      const idx = bombCandidates[i];
-      if (idx !== undefined && nonBoss[idx]) nonBoss[idx]!.bomb = true;
-    }
-  }
-
-  if (level >= 5) {
-    const armorCount = Math.min(5, 2 + Math.floor((level - 5) / 2));
-    const armorCandidates = nonOrange.filter(i => nonBoss[i] && !nonBoss[i]!.orange && !nonBoss[i]!.green && !nonBoss[i]!.bomb);
-    for (let i = 0; i < Math.min(armorCount, armorCandidates.length); i++) {
-      const idx = armorCandidates[i];
-      if (idx !== undefined && nonBoss[idx]) nonBoss[idx]!.armorHits = 1;
-    }
-  }
-
-  if (level >= 7) {
-    const pairCount = 1 + Math.floor((level - 7) / 3);
-    const warpCandidates = nonOrange.filter(i => nonBoss[i] && !nonBoss[i]!.orange && !nonBoss[i]!.green && !nonBoss[i]!.bomb && nonBoss[i]!.armorHits === 0);
-    for (let pair = 0; pair < Math.min(pairCount, Math.floor(warpCandidates.length / 2)); pair++) {
-      const a = warpCandidates[pair * 2];
-      const b = warpCandidates[pair * 2 + 1];
-      if (a !== undefined && b !== undefined && nonBoss[a] && nonBoss[b]) {
-        nonBoss[a]!.warpId = pair + 1;
-        nonBoss[b]!.warpId = pair + 1;
+  // Remplissage Poisson miroir jusqu'au budget.
+  if (pegs.length < diff.pegBudget) {
+    const half = shuffle(rng, poissonHalf(rng, AREA, diff.fillSpacing));
+    for (const pt of half) {
+      if (pegs.length >= diff.pegBudget) break;
+      pegs.push(makePeg(pt.x, pt.y));
+      const mx = 2 * AREA.cx - pt.x;
+      if (mx >= AREA.x0 && mx <= AREA.x1 && pegs.length < diff.pegBudget) {
+        pegs.push(makePeg(mx, pt.y));
       }
     }
   }
 
-  return { pegs: result, decors };
+  // Les motifs sont en tête → dedup les conserve face au remplissage.
+  pegs = dedup(pegs, PEG_R * 2.8);
+  if (pegs.length > diff.pegBudget) {
+    pegs = shuffle(rng, pegs).slice(0, diff.pegBudget);
+  }
+  return pegs;
+}
+
+// ─── Validation : quels pegs sont directement atteignables au tir ? ──────────
+// On lance un éventail de rayons depuis le lanceur (la même simulation que la
+// ligne de visée du jeu) et on note le premier peg touché par chacun.
+
+function directlyReachable(pegs: Peg[]): Set<Peg> {
+  const set = new Set<Peg>();
+  const N = 48;
+  const reachSq = (PEG_R * 3) ** 2;
+  for (let i = 0; i < N; i++) {
+    const angle = 0.42 + (Math.PI - 0.84) * (i / (N - 1)); // ~24°..156°
+    const line = computeAimLine(LAUNCHER_X, LAUNCHER_Y, angle, pegs);
+    const last = line[line.length - 1];
+    if (!last) continue;
+    let best: Peg | null = null;
+    let bd = Infinity;
+    for (const p of pegs) {
+      const d = (p.x - last.x) ** 2 + (p.y - last.y) ** 2;
+      if (d < bd) {
+        bd = d;
+        best = p;
+      }
+    }
+    if (best && bd < reachSq) set.add(best);
+  }
+  return set;
+}
+
+// ─── Assignation des types de pegs (data-driven, voir peg-kinds.ts) ──────────
+
+function assignKinds(rng: Rng, pegs: Peg[], reachable: Set<Peg>, diff: DifficultyParams): void {
+  const n = pegs.length;
+  for (const p of pegs) p.kind = "normal";
+
+  const order = shuffle(rng, [...pegs.keys()]);
+
+  // Cibles oranges.
+  const targetCount = Math.max(1, Math.min(n - 1, Math.round(n * diff.orangePct)));
+  let assigned = 0;
+  for (const i of order) {
+    if (assigned >= targetCount) break;
+    pegs[i]!.kind = "orange";
+    assigned++;
+  }
+
+  // Garantie de jouabilité : au moins une cible atteignable directement.
+  const hasReachableTarget = pegs.some(p => p.kind === "orange" && reachable.has(p));
+  if (!hasReachableTarget && reachable.size > 0) {
+    const r = [...reachable];
+    r[Math.floor(rng() * r.length)]!.kind = "orange";
+  }
+
+  // Bumpers (obstacles permanents) parmi les pegs normaux restants.
+  let placed = 0;
+  for (const i of order) {
+    if (placed >= diff.bumperCount) break;
+    const p = pegs[i]!;
+    if (p.kind !== "normal" || p.y < 150) continue;
+    p.kind = "bumper";
+    placed++;
+  }
+
+}
+
+// ─── Fallback garanti ────────────────────────────────────────────────────────
+
+function fallbackGrid(): Peg[] {
+  return tHexGrid(W / 2 - 7 * 24, 194, 15, 9, 24);
+}
+
+// ─── Builder principal ─────────────────────────────────────────────────────────
+
+export function buildLevel(level: number, runSeed = 0): Peg[] {
+  const diff = difficultyFor(level);
+  // Graine = f(niveau, partie) : tableaux distincts par niveau ET par partie.
+  const baseSeed = hashSeed(hashSeed(level, runSeed), 0x9e3a91e);
+
+  let best: Peg[] | null = null;
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const rng = mulberry32(hashSeed(baseSeed, attempt + 1));
+    const pegs = compose(rng, diff);
+    const reachable = directlyReachable(pegs);
+    if (pegs.length >= 12 && reachable.size >= 4) {
+      assignKinds(rng, pegs, reachable, diff);
+      return pegs;
+    }
+    if (!best || pegs.length > best.length) best = pegs;
+  }
+
+  // Aucun candidat validé : prend le meilleur, ou une grille garantie.
+  const pegs = best && best.length >= 12 ? best : fallbackGrid();
+  const rng = mulberry32(hashSeed(baseSeed, 11));
+  assignKinds(rng, pegs, directlyReachable(pegs), diff);
+  return pegs;
 }

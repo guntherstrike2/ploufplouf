@@ -38,15 +38,46 @@ export async function POST(req: NextRequest) {
     genres?: string[] | null;
     releaseDate?: number | null;
     summary?: string | null;
+    videos?: Array<{ videoId: string; name: string | null }> | null;
   };
 
-  // Check for existing game by igdbId or name
+  // Backfill helper: if a game has an English summary but no French translation, try to translate
+  const backfillSummaryFr = async (game: typeof gunthrankGames.$inferSelect) => {
+    if (!game.summary || game.summaryFr) return game;
+    const summaryFr = await translateToFrench(game.summary);
+    if (summaryFr) {
+      db().update(gunthrankGames).set({ summaryFr }).where(eq(gunthrankGames.id, game.id)).run();
+      return { ...game, summaryFr };
+    }
+    return game;
+  };
+
+  // Check for existing game by igdbId or name — update videos & backfill summaryFr if needed
   if (body.igdbId) {
     const existing = db().select().from(gunthrankGames).where(eq(gunthrankGames.igdbId, body.igdbId)).get();
-    if (existing) return NextResponse.json({ game: existing });
+    if (existing) {
+      let updated = existing;
+      // Merge in videos if the existing record doesn't have them yet
+      if (body.videos?.length && !existing.videos) {
+        db().update(gunthrankGames).set({ videos: JSON.stringify(body.videos) }).where(eq(gunthrankGames.id, existing.id)).run();
+        updated = { ...updated, videos: JSON.stringify(body.videos) };
+      }
+      // Backfill French summary if missing
+      updated = await backfillSummaryFr(updated);
+      return NextResponse.json({ game: updated });
+    }
   }
   const byName = db().select().from(gunthrankGames).where(eq(gunthrankGames.name, body.name)).get();
-  if (byName) return NextResponse.json({ game: byName });
+  if (byName) {
+    let updated = byName;
+    if (body.videos?.length && !byName.videos) {
+      db().update(gunthrankGames).set({ videos: JSON.stringify(body.videos) }).where(eq(gunthrankGames.id, byName.id)).run();
+      updated = { ...updated, videos: JSON.stringify(body.videos) };
+    }
+    // Backfill French summary if missing
+    updated = await backfillSummaryFr(updated);
+    return NextResponse.json({ game: updated });
+  }
 
   // Translate summary to French
   const summaryFr = body.summary ? await translateToFrench(body.summary) : null;
@@ -63,6 +94,7 @@ export async function POST(req: NextRequest) {
       releaseDate: body.releaseDate ?? null,
       summary: body.summary ?? null,
       summaryFr,
+      videos: body.videos ? JSON.stringify(body.videos) : null,
     })
     .returning()
     .get();

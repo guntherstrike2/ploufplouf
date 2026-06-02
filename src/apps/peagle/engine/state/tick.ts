@@ -1,9 +1,10 @@
-import { TRAUMA_DECAY, MAX_SHAKE, ZOOM_SCALE } from "../constants";
+import { TRAUMA_DECAY, MAX_SHAKE, H, BUCKET_H } from "../constants";
 import type { GameState } from "../types";
 import type { GameEvent } from "../events";
 import { updateBucket } from "./bucket";
 import { updatePegAnimations } from "./pegs";
 import { updateParticles } from "./particles";
+import { updateBirds } from "./birds";
 import { processBallPhysics } from "./ball";
 import { endOfTurn } from "./turn";
 
@@ -13,32 +14,76 @@ export interface TickResult {
   orangeLeft: number;
 }
 
-export function tick(s: GameState, ironWillUsed: boolean): TickResult {
+export function tick(s: GameState): TickResult {
   const events: GameEvent[] = [];
 
   s.animClock += 0.03;
 
-  // Hit freeze: pause physics, only animate peg scales/cooldowns
+  // Lanceur : ressort vers la cible de drag, avec léger dépassement → juicy.
+  // Toujours mis à jour (même en hit-freeze) pour rester réactif au doigt.
+  const lx = s.launcherTargetX - s.launcherX;
+  s.launcherVx = (s.launcherVx + lx * 0.45) * 0.6;
+  s.launcherX += s.launcherVx;
+  if (Math.abs(lx) < 0.05 && Math.abs(s.launcherVx) < 0.05) {
+    s.launcherX = s.launcherTargetX;
+    s.launcherVx = 0;
+  }
+  s.launcherGrab += ((s.launcherDragging ? 1 : 0) - s.launcherGrab) * 0.2;
+
+  // Oiseaux easter egg : ambiance décorative — volent toujours, même pendant le
+  // hit-freeze ou le ralenti, pour ne jamais se figer en plein ciel.
+  updateBirds(s, 1);
+
+  // Phase d'intro : on laisse tourner l'animClock et l'ambiance, mais aucune
+  // physique ni saisie n'est possible. Transition automatique vers "aim".
+  if (s.phase === "intro") {
+    updateBucket(s, 1); // le panier se déplace pendant l'intro
+    if (s.animClock >= s.introEndT) {
+      s.phase = "aim";
+      return { events, syncUI: true, orangeLeft: s.orangeLeft };
+    }
+    return { events, syncUI: false, orangeLeft: s.orangeLeft };
+  }
+
+  // Hit freeze : fige la physique, anime seulement les scales de pegs
   if (s.hitFreezeFrames > 0) {
     s.hitFreezeFrames--;
     updatePegAnimations(s);
     return { events, syncUI: false, orangeLeft: s.orangeLeft };
   }
 
-  const inSlowMo = s.slowMoFrames > 0;
-  const timeScale = inSlowMo ? 0.25 : 1;
+  // Burst de ralenti au moment où la dernière proie casse (déclenché ailleurs),
+  // puis revient vers la normale tout seul.
+  const burstSlow = s.slowMoFrames > 0;
   if (s.slowMoFrames > 0) s.slowMoFrames--;
 
-  const targetZoom = s.slowMoFrames > 0 && s.ball?.active ? ZOOM_SCALE : 1.0;
-  s.zoomLevel += (targetZoom - s.zoomLevel) * 0.1;
-  if (Math.abs(s.zoomLevel - 1) < 0.004) s.zoomLevel = 1;
+  // Cible de vitesse du temps.
+  let targetScale = burstSlow ? 0.22 : 1;
+
+  // Finale : la descente reste quasi normale au milieu, puis le temps se fige
+  // SURTOUT à l'approche du panier → le rattrapage / jackpot tombe pile au plus
+  // lent. On prend le plus lent entre le burst de cassure et la proximité.
+  if (s.orangeLeft === 0 && s.ball?.active) {
+    const bucketTop = H - BUCKET_H - 4;
+    const start = H * 0.5;
+    const approach = Math.max(0, Math.min(1, (s.ball.y - start) / (bucketTop - start)));
+    const eased = approach * approach * approach; // ne mord vraiment que tout près du panier
+    const proximityScale = 1 - eased * 0.94;       // 1 loin → 0.06 au ras du panier
+    targetScale = Math.min(targetScale, proximityScale);
+  }
+
+  // Ease in/out du ralenti : entrée franche mais pas brutale, retour bien doux.
+  // → la bascule de vitesse devient soyeuse au lieu de claquer d'un coup.
+  const ramp = targetScale < s.timeWarp ? 0.4 : 0.1;
+  s.timeWarp += (targetScale - s.timeWarp) * ramp;
+  if (Math.abs(s.timeWarp - targetScale) < 0.004) s.timeWarp = targetScale;
+  const timeScale = s.timeWarp;
 
   updateBucket(s, timeScale);
-  if (s.magnetFrames > 0) s.magnetFrames--;
 
-  // Fever pulse — use pre-tracked count instead of re-filtering
+  // Pulsation "fièvre" quand il reste peu d'œufs à tirer
   const orangeLeft = s.orangeLeft;
-  const inFever = orangeLeft <= s.effectiveFeverThreshold && orangeLeft > 0;
+  const inFever = s.balls > 0 && s.balls <= s.effectiveFeverThreshold;
   if (inFever) s.feverPulse = (s.feverPulse + 0.08) % (Math.PI * 2);
   else s.feverPulse = 0;
 
@@ -52,21 +97,10 @@ export function tick(s: GameState, ironWillUsed: boolean): TickResult {
 
   updatePegAnimations(s);
 
-  // Decay decor flash
-  for (const d of s.decors) {
-    if (d.flashFrames > 0) d.flashFrames--;
-  }
-
-  // Ball physics (main + extra balls)
+  // Physique de l'œuf
   if (s.ball?.active) processBallPhysics(s.ball, s, timeScale, events);
 
-  const extraCount = s.extraBalls.length;
-  for (let i = 0; i < extraCount; i++) {
-    const eb = s.extraBalls[i]!;
-    if (eb.active) processBallPhysics(eb, s, timeScale, events);
-  }
-
-  // Pop animations
+  // Animations de pop
   for (const p of s.pegs) {
     if (p.popping) {
       p.popAlpha -= 0.07;
@@ -77,13 +111,14 @@ export function tick(s: GameState, ironWillUsed: boolean): TickResult {
   updateParticles(s, timeScale);
 
   if (s.ball && !s.ball.active) s.ball = null;
-  s.extraBalls = s.extraBalls.filter(eb => eb.active);
 
-  // End of turn
-  const anyBallActive = s.ball?.active === true || s.extraBalls.length > 0;
-  if (s.phase === "firing" && !anyBallActive) {
-    endOfTurn(s, ironWillUsed, events);
-    return { events, syncUI: true, orangeLeft };
+  // Fin de tour
+  if (s.phase === "firing" && !s.ball) {
+    endOfTurn(s, events);
+    // Utilise s.orangeLeft (mis à jour par la physique) plutôt que la variable
+    // capturée avant processBallPhysics — évite un décalage d'1 quand la balle
+    // touche un peg et sort du terrain dans le même tick.
+    return { events, syncUI: true, orangeLeft: s.orangeLeft };
   }
 
   return { events, syncUI: false, orangeLeft };

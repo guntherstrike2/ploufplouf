@@ -1,72 +1,38 @@
+// Valeurs d'équilibrage centralisées — ajuste librement pour régler le feeling.
 export const BALANCE = {
-  magnet: {
-    force: 0.06,
-    duration: 300,
-  },
-  multiball: {
-    spreadAngle: 0.22,
-    launchSpread: 0.13,
-  },
   combo: {
-    interval: 3,
+    interval: 3,        // 1 palier de multiplicateur tous les 3 pegs touchés
   },
   wall: {
-    traumaPerHit: 0.06,
+    traumaPerHit: 0.06, // screenshake quand l'œuf tape un mur
   },
   peg: {
-    ghostCooldown: 20,
-    armorCooldown: 12,
-    warpCooldown: 20,
-    armorScale: 1.5,
-    bossArmorScale: 1.6,
     popStartAlpha: 0.25,
-    popStartScale: 1.7,
+    popStartScale: 2.1,   // burst de pop plus généreux → plus juicy
+  },
+  impact: {
+    maxRings: 24,         // plafond d'ondes de choc simultanées
   },
   score: {
-    warpBase: 30,
     orangeBase: 100,
-    greenBase: 50,
     normalBase: 10,
-    bossKill: 5000,
-    bossBallBonus: 2,
-    ballBonus: 1000,
+    ballBonus: 1000,    // points par œuf restant en fin de niveau
+    // JACKPOT : l'œuf retombe dans le panier juste après la dernière proie.
+    jackpotBase: 5000,  // bonus de score = jackpotBase × niveau
+    jackpotBalls: 3,    // œufs bonus offerts par un jackpot
   },
   trauma: {
-    wall: 0.06,
-    armorPeg: 0.12,
-    bossArmorPeg: 0.22,
     normalPeg: 0.08,
     orangePeg: 0.35,
-    bossPeg: 0.9,
     bucketCatch: 0.15,
-    bonusBucketCatch: 0.2,
-    phoenixSave: 0.3,
   },
   flash: {
-    warpPeg: 0.3,
-    bossArmorPeg: 0.35,
-    orangePeg: 0.5,
-    bossPeg: 1.0,
-    greenPeg: 0.4,
-    spookySave: 0.45,
-    phoenixSave: 0.6,
-    ironWill: 0.8,
-  },
-  cursedLuck: {
-    hitInterval: 5,
-    multiplier: 3,
+    // Plus de flash plein écran à chaque cible : le feedback passe par le bloom
+    // localisé + les particules. Le flash écran reste réservé au moment fort
+    // (dernière cible → slow-mo) déclenché directement dans state/ball.ts.
+    orangePeg: 0,
   },
   particles: {
     maxCount: 200,
-  },
-  phoenix: {
-    reboundSpeed: 0.65,
-    vxDamp: 0.5,
-    yReset: 58,
-  },
-  spooky: {
-    reboundSpeed: 0.65,
-    vxDamp: 0.5,
-    yReset: 58,
   },
 } as const;

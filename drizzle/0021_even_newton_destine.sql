@@ -1,0 +1,1 @@
+ALTER TABLE `gunthrank_games` ADD `videos` text;

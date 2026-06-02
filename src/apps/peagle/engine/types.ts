@@ -1,35 +1,30 @@
-import type { GreenPowerupId, RelicId, ClassId, UpgradeId } from "./roguelite";
+import type { UpgradeId } from "./roguelite";
+import type { PegKind } from "./peg-kinds";
 
-export type { GreenPowerupId, RelicId, ClassId, UpgradeId };
+export type { UpgradeId, PegKind };
 
-// Ordered by rendering priority (first match wins in drawPegs)
-export type PegType = "warp" | "boss" | "bomb" | "armor" | "orange" | "green" | "normal";
+// PegType = catégorie VISUELLE (couleur d'anneau d'explosion). Le bumper, non
+// destructible, ne « pop » jamais : il est mappé sur "normal" par défaut.
+// La catégorie GAMEPLAY d'un peg est son `kind` (voir peg-kinds.ts).
+export type PegType = "orange" | "normal";
 
-export function getPegType(p: { warpId?: number; boss: boolean; bomb: boolean; armorHits: number; orange: boolean; green: boolean }): PegType {
-  if (p.warpId !== undefined) return "warp";
-  if (p.boss) return "boss";
-  if (p.bomb) return "bomb";
-  if (p.armorHits > 0) return "armor";
-  if (p.orange) return "orange";
-  if (p.green) return "green";
-  return "normal";
+export function getPegType(p: { kind: PegKind }): PegType {
+  return p.kind === "orange" ? "orange" : "normal";
 }
 
 export interface Peg {
   x: number;
   y: number;
+  kind: PegKind;
   hit: boolean;
-  orange: boolean;
-  green: boolean;
-  bomb: boolean;
-  boss: boolean;
-  armorHits: number;
-  hitCooldown: number;
-  warpId?: number;
-  greenPowerup?: GreenPowerupId;
   popping: boolean;
   popAlpha: number;
   scale: number;
+  // Obstacles permanents (bumper) : frames avant de pouvoir re-toucher + flash
+  // d'impact (0..1) qui décroît chaque frame.
+  cooldown: number;
+  bump: number;
+  revealT: number;  // animClock au moment où ce peg doit apparaître (intro niveau)
 }
 
 export interface Ball {
@@ -41,6 +36,9 @@ export interface Ball {
   trail: { x: number; y: number; speed: number }[];
   trailHead: number; // ring buffer write pointer (oldest slot)
   tint?: string;
+  // Squash d'impact (0..1) : pulse déclenché à chaque collision, décroît chaque
+  // frame. Le rendu écrase l'œuf perpendiculairement à sa trajectoire → bounce juicy.
+  squash: number;
 }
 
 export interface Particle {
@@ -63,6 +61,10 @@ export interface FloatingText {
   color: string;
   combo: boolean;
   fontSize?: number;
+  // Exclamation « hype » (JUICY!, AIGLE ROYAL!…) : rendu spécial avec contour
+  // pixel, glow et pop élastique. `spin` = graine d'inclinaison/oscillation.
+  exclaim?: boolean;
+  spin?: number;
 }
 
 export interface Star {
@@ -73,104 +75,84 @@ export interface Star {
   phase: number;
 }
 
-// ─── Décor (éléments non-poppables) ─────────────────────────────────────────
-
-export interface DecorBumper {
-  kind: "bumper";
-  x: number; y: number; r: number;
-  flashFrames: number;
-  color: string;
+// Easter egg « peagle » : chaque peg touché peut faire surgir un oiseau qui
+// traverse le ciel en battant des ailes. Transient — vit le temps d'une
+// traversée d'écran, puis est retiré.
+export interface BgBird {
+  x: number;
+  y: number;
+  vx: number;        // px/frame ; le signe donne la direction de vol
+  wingPhase: number;
+  flap: number;      // vitesse de battement d'ailes
+  scale: number;
+  tint: string;
 }
 
-export interface DecorPlank {
-  kind: "plank";
-  x: number; y: number;
-  len: number;
-  thickness: number;
-  angle: number;
-  flashFrames: number;
-  color: string;
-  // Precomputed endpoints — set once by makeInitialState, avoids cos/sin every substep
-  ax?: number; ay?: number; ex?: number; ey?: number;
-}
-
-export interface DecorArc {
-  kind: "arc";
-  x: number; y: number; r: number;
-  startAngle: number; endAngle: number;
-  thickness: number;
-  flashFrames: number;
+// Onde de choc dessinée par-dessus le décor à chaque impact de peg : un anneau
+// carré pixel-art qui se propage vers l'extérieur en s'estompant → le décor
+// « ressent » l'impact.
+export interface ImpactRing {
+  x: number;
+  y: number;
+  life: number;       // 1 → 0
+  maxLife: number;    // durée totale en frames
+  maxRadius: number;  // rayon atteint en fin de vie
+  intensity: number;  // 0..1 — module la lueur localisée (bloom) au point d'impact
   color: string;
 }
-
-export interface DecorSpike {
-  kind: "spike";
-  x: number; y: number;
-  size: number;
-  angle: number;
-  flashFrames: number;
-  color: string;
-}
-
-export type Decor = DecorBumper | DecorPlank | DecorArc | DecorSpike;
 
 export interface GameState {
   pegs: Peg[];
   ball: Ball | null;
-  extraBalls: Ball[];
   balls: number;
   score: number;
-  phase: "aim" | "firing" | "lost" | "won";
+  phase: "intro" | "aim" | "firing" | "lost" | "won";
+  introEndT: number;   // animClock à partir duquel "intro" → "aim"
   bucket: number;
   bucketDir: number;
+  bucketFlash: number;
   message: string;
   combo: number;
+  scoreMultiplier: number;
   particles: Particle[];
   floatingTexts: FloatingText[];
+  impactRings: ImpactRing[];
   feverPulse: number;
   animClock: number;
-  bucketFlash: number;
   trauma: number;
   shakeX: number;
   shakeY: number;
-  scoreMultiplier: number;
   flashWhite: number;
   slowMoFrames: number;
-  zoomLevel: number;
+  timeWarp: number;   // vitesse du temps lissée (1 = normal, →0 = ralenti) pour un ease juicy
   level: number;
   hitFreezeFrames: number;
+
+  // Lanceur (aigle) déplaçable horizontalement par drag
+  launcherX: number;        // position rendue (où l'œuf apparaît)
+  launcherTargetX: number;  // cible suivie par ressort (mise à jour au drag)
+  launcherVx: number;       // vélocité du ressort → lean / squash juicy
+  launcherDragging: boolean;
+  launcherGrab: number;     // 0..1 anim de saisie (pop + lueur)
+  launcherHovered: boolean; // souris dans le rayon de saisie (mis à jour par le game loop)
+
   stars: Star[];
-  multiballReady: boolean;
-  multiballPending: boolean;
-  multiballUsed: boolean;
+  birds: BgBird[];
   turnScoreStart: number;
-  bonusBucketFlash: number[];
-  bonusBucketMults: number[];
   orangeLeft: number;
-  warpPairs: [Peg, Peg][];
 
-  runRelics: RelicId[];
+  // Nombre d'œufs au départ du niveau (pour la progression pré-fever)
+  startBalls: number;
+
+  // Run modifiers (dérivés des upgrades par makeInitialState)
   runUpgrades: UpgradeId[];
-  runClassId: ClassId;
-
   effectiveBallR: number;
-  effectiveBombR: number;
   effectiveFeverThreshold: number;
   effectiveAimSteps: number;
   effectivePegBounce: number;
-  effectiveBucketSpeed: number;
 
-  spookyActive: boolean;
-  magnetFrames: number;
-  ghostBallActive: boolean;
-  phoenixAvailable: boolean;
-  lastHitWasOrange: boolean;
-  cursedLuckHits: number;
-  ballsLostThisLevel: number;
-
-  bossKilledThisLevel: boolean;
-
-  decors: Decor[];
+  // Seed used to generate the procedural forest background (per run, derived from runState.seed)
+  forestSeed: number;
 }
 
 export interface UiState {
@@ -182,13 +164,6 @@ export interface UiState {
   message: string;
   combo: number;
   level: number;
-  multiballReady: boolean;
-  multiballPending: boolean;
-  multiballUsed: boolean;
-  relics: RelicId[];
-  spookyActive: boolean;
-  magnetFrames: number;
-  bossLevel: boolean;
   stars: number;
 }
 

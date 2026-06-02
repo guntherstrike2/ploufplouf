@@ -1,37 +1,6 @@
 "use client";
 
 import "../peagle.css";
-import type { UiState } from "../engine/types";
-
-// ─── Aigle pixel-art SVG ──────────────────────────────────────────────────────
-
-function PixelEagle({ size = 40 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 40 40" style={{ imageRendering: "pixelated", display: "block" }}>
-      <rect x="14" y="16" width="12" height="10" fill="#884400" />
-      <rect x="15" y="19" width="6" height="6" fill="#eeeecc" />
-      <rect x="18" y="10" width="8" height="8" fill="#eeeecc" />
-      <rect x="25" y="14" width="4" height="2" fill="#ffcc00" />
-      <rect x="26" y="16" width="3" height="1" fill="#ddaa00" />
-      <rect x="23" y="12" width="2" height="2" fill="#111" />
-      <rect x="24" y="12" width="1" height="1" fill="#ffff44" />
-      <g style={{ transformOrigin: "14px 18px", animation: "pg-wing-l 0.9s ease-in-out infinite" }}>
-        <rect x="4" y="15" width="12" height="4" fill="#663300" />
-        <rect x="2" y="17" width="6" height="3" fill="#552200" />
-        <rect x="6" y="19" width="8" height="2" fill="#441800" />
-      </g>
-      <g style={{ transformOrigin: "26px 18px", animation: "pg-wing-r 0.9s ease-in-out infinite", animationDelay: "-0.45s" }}>
-        <rect x="26" y="15" width="10" height="4" fill="#663300" />
-        <rect x="30" y="17" width="6" height="3" fill="#552200" />
-        <rect x="26" y="19" width="8" height="2" fill="#441800" />
-      </g>
-      <rect x="17" y="26" width="2" height="4" fill="#884400" />
-      <rect x="15" y="29" width="5" height="1" fill="#ffcc00" />
-      <rect x="21" y="26" width="2" height="4" fill="#884400" />
-      <rect x="19" y="29" width="5" height="1" fill="#ffcc00" />
-    </svg>
-  );
-}
 
 // ─── Petit oiseau pixel-art SVG ───────────────────────────────────────────────
 
@@ -84,39 +53,6 @@ function PixelTree({
   );
 }
 
-// ─── Stat verticale ───────────────────────────────────────────────────────────
-
-function SideStat({ label, value, accent, urgent }: { label: string; value: string | number; accent?: boolean; urgent?: boolean }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "5px 4px", gap: 3 }}>
-      <span style={{ fontSize: 5, color: "#3a6a2a", letterSpacing: "0.06em", fontFamily: "var(--pg-font)", whiteSpace: "nowrap", lineHeight: 1 }}>
-        {label}
-      </span>
-      <span style={{
-        fontSize: 9, fontWeight: "bold",
-        color: urgent ? "#ff6b35" : accent ? "#88cc44" : "#c8e8b0",
-        fontFamily: "var(--pg-font)", lineHeight: 1,
-        textShadow: urgent ? "0 0 6px #ff6b35" : accent ? "0 0 4px #88cc4488" : undefined,
-        animation: urgent ? "pg-stat-glow 0.8s ease-in-out infinite" : undefined,
-        whiteSpace: "nowrap",
-      }}>
-        {value}
-      </span>
-    </div>
-  );
-}
-
-function WoodSep() {
-  return (
-    <div style={{
-      height: 1, margin: "3px 12px", alignSelf: "stretch",
-      background: "linear-gradient(to right, transparent, #3a2810, #4a3818, #3a2810, transparent)",
-      outline: "none", border: "none",
-      boxShadow: "0 1px 0 #1a0c05",
-    }} />
-  );
-}
-
 // ─── Configurations des arbres — calibrées pour panneau 160px ─────────────────
 
 const TREES_LEFT = [
@@ -157,16 +93,12 @@ const FIREFLIES_RIGHT = [
 
 interface SidePanelProps {
   side: "left" | "right";
-  ui: UiState;
-  bestScore: number;
   feverMode?: boolean;
 }
 
-export function SidePanel({ side, ui, bestScore, feverMode = false }: SidePanelProps) {
+export function SidePanel({ side, feverMode = false }: SidePanelProps) {
   const trees = side === "left" ? TREES_LEFT : TREES_RIGHT;
   const fireflies = side === "left" ? FIREFLIES_LEFT : FIREFLIES_RIGHT;
-  const inFever = ui.orangeLeft > 0 && ui.orangeLeft <= 3;
-  const lowBalls = ui.balls <= 2 && ui.balls > 0;
 
   const skyTop = feverMode ? "#08061e" : "#122010";
   const skyBot = feverMode ? "#120840" : "#1c3412";
@@ -238,11 +170,7 @@ export function SidePanel({ side, ui, bestScore, feverMode = false }: SidePanelP
       }}>
         {/* Soleil ou lune en haut */}
         <div style={{ paddingTop: 18, paddingBottom: 8, flexShrink: 0, display: "flex", justifyContent: "center" }}>
-          {side === "left" ? (
-            <div className="pg-side-eagle">
-              <PixelEagle size={34} />
-            </div>
-          ) : feverMode ? (
+          {feverMode ? (
             /* Lune */
             <div style={{
               width: 18, height: 18, position: "relative",
@@ -269,54 +197,11 @@ export function SidePanel({ side, ui, bestScore, feverMode = false }: SidePanelP
           )}
         </div>
 
-        {/* Stats centrales */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", gap: 0, width: "100%", padding: "0 4px", overflow: "hidden" }}>
-          {side === "left" ? (
-            <>
-              <SideStat label="NID" value={ui.level} accent />
-              <WoodSep />
-              <SideStat label="SCORE" value={ui.score >= 10000 ? `${Math.floor(ui.score / 1000)}k` : ui.score.toLocaleString()} />
-              <WoodSep />
-              <SideStat label="PROIES" value={`${ui.orangeLeft}/${ui.orangeTotal}`} accent={!inFever} urgent={inFever} />
-              <WoodSep />
-              <SideStat label="ŒUFS" value={ui.balls} urgent={lowBalls} accent={!lowBalls} />
-              {ui.bossLevel && (
-                <>
-                  <WoodSep />
-                  <div style={{ fontSize: 5, color: "#ff6b35", fontFamily: "var(--pg-font)", animation: "pg-record-flash 1s ease-in-out infinite", textAlign: "center", padding: "2px 4px" }}>
-                    ⚠ BOSS
-                  </div>
-                </>
-              )}
-            </>
-          ) : (
-            <>
-              {bestScore > 0 && (
-                <>
-                  <SideStat label="RECORD" value={bestScore >= 10000 ? `${Math.floor(bestScore / 1000)}k` : bestScore.toLocaleString()} />
-                  <WoodSep />
-                </>
-              )}
-              {ui.combo >= 3 && (
-                <>
-                  <SideStat label="ENVOL" value={`×${Math.max(1, Math.floor(ui.combo / 3))}`} urgent />
-                  <WoodSep />
-                </>
-              )}
-              <div style={{ padding: "8px 0", opacity: 0.75 }}>
-                <PixelBird size={22} color="#38a832" />
-              </div>
-              <WoodSep />
-              <div style={{
-                fontSize: 5,
-                color: ui.phase === "aim" ? "#88cc44" : ui.phase === "firing" ? "#ffaa44" : ui.phase === "won" ? "#ffd700" : "#ff6b35",
-                fontFamily: "var(--pg-font)", letterSpacing: "0.04em", textAlign: "center", padding: "2px 4px",
-                animation: ui.phase === "firing" ? "pg-stat-glow 0.5s ease-in-out infinite" : undefined,
-              }}>
-                {ui.phase === "aim" ? "EN\nATTENTE" : ui.phase === "firing" ? "EN VOL" : ui.phase === "won" ? "VICTOIRE" : ui.phase === "lost" ? "GAME\nOVER" : ""}
-              </div>
-            </>
-          )}
+        {/* Zone centrale — décor (les stats vivent désormais dans le canvas) */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", width: "100%", padding: "0 4px", overflow: "hidden" }}>
+          <div style={{ padding: "8px 0", opacity: 0.7 }}>
+            <PixelBird size={20} color="#38a832" flipped={side === "right"} />
+          </div>
         </div>
 
         {/* Oiseau qui traverse (décoration, haut du panneau) */}

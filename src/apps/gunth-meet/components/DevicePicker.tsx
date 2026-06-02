@@ -187,7 +187,7 @@ export function DevicePicker({
       </div>
 
       <div style={{ fontSize: "var(--t-text-xs)", color: "var(--t-text-muted)", fontFamily: "var(--t-font-display)", borderTop: "1px solid var(--t-border-dark)", paddingTop: 8 }}>
-        💡 Les options audio se prennent en compte au rechargement du micro.
+        💡 Les options audio sont appliquées immédiatement au rechargement du track micro.
       </div>
     </div>
   );

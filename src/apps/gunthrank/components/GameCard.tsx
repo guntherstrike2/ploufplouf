@@ -90,7 +90,7 @@ export function GameCard({ ranking, readOnly, isNew, onRemove, onUpdateNote, onD
     >
       {/* Cover image + name overlay */}
       <div
-        className="relative w-full"
+        className="relative w-full cursor-pointer"
         style={{ aspectRatio: "2/3" }}
         onClick={() => { if (readOnly) { onDetailClick?.(ranking); } else { setExpanded(!expanded); } }}
       >
@@ -195,7 +195,7 @@ export function GameCard({ ranking, readOnly, isNew, onRemove, onUpdateNote, onD
           </div>
         )}
         <button
-          className="absolute top-0.5 left-0.5 px-1 py-0.5 rounded opacity-70 hover:opacity-100"
+          className="absolute top-0.5 left-0.5 w-7 h-7 flex items-center justify-center rounded opacity-60 hover:opacity-100"
           style={{
             fontSize: "calc(var(--t-text-xs) * 0.9)",
             background: "rgba(0,0,0,0.55)",

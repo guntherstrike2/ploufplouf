@@ -3,8 +3,6 @@ import { Fredoka, VT323, Press_Start_2P, Orbitron, Exo_2, Righteous, Nunito, Sha
 import "./globals.css";
 import { SettingsProvider } from "@/lib/contexts/settings-context";
 import { AuthProvider } from "@/lib/contexts/auth-context";
-import { IconThemeProvider } from "@/lib/contexts/icon-theme-context";
-import { SiteShell } from "@/components/ui/site-shell";
 
 const fredoka = Fredoka({
   subsets: ["latin"],
@@ -131,9 +129,7 @@ export default function RootLayout({
       <body className={`${fredoka.variable} ${vt323.variable} ${pressStart.variable} ${orbitron.variable} ${exo2.variable} ${righteous.variable} ${nunito.variable} ${shareTechMono.variable} ${ubuntuMono.variable} ${audiowide.variable} ${rajdhani.variable} ${playfairDisplay.variable} ${lora.variable} ${bungee.variable} ${ibmPlexMono.variable}`}>
         <AuthProvider>
           <SettingsProvider>
-            <IconThemeProvider>
-              <SiteShell>{children}</SiteShell>
-            </IconThemeProvider>
+            {children}
           </SettingsProvider>
         </AuthProvider>
       </body>

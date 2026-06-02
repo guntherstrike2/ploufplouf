@@ -1,4 +1,4 @@
-import { W, H, ZOOM_SCALE } from "../engine/constants";
+import { W, H } from "../engine/constants";
 import { FACE, HI, DARK } from "./theme";
 import type { GameState } from "../engine/types";
 import type { GameTheme } from "../engine/game-theme";
@@ -20,20 +20,89 @@ export function drawParticles(ctx: CanvasRenderingContext2D, s: GameState): void
   ctx.globalAlpha = 1;
 }
 
+// Feedback localisé d'impact : une lueur (bloom) qui illumine le décor autour
+// du point de contact + un anneau carré pixel-art qui se propage en s'estompant.
+// Tout est en blend additif et confiné autour de l'impact — pas de flash écran.
+export function drawImpactRings(ctx: CanvasRenderingContext2D, s: GameState): void {
+  const n = s.impactRings.length;
+  if (n === 0) return;
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  ctx.lineWidth = 1;
+  for (let i = 0; i < n; i++) {
+    const r = s.impactRings[i]!;
+    ctx.fillStyle = r.color;
+    ctx.strokeStyle = r.color;
+
+    // ① Bloom : plus vif à l'instant de l'impact, se résorbe vite. Quelques
+    // carrés concentriques pleins → halo de lumière doux dans le décor.
+    const bloom = r.life * r.life;
+    if (bloom > 0.02) {
+      const bloomR = (5 + r.intensity * 13) * (0.55 + 0.45 * r.life);
+      const b1 = Math.round(bloomR);
+      const b2 = Math.round(bloomR * 1.8);
+      ctx.globalAlpha = bloom * 0.45;
+      ctx.fillRect(Math.round(r.x - b1), Math.round(r.y - b1), b1 * 2, b1 * 2);
+      ctx.globalAlpha = bloom * 0.18;
+      ctx.fillRect(Math.round(r.x - b2), Math.round(r.y - b2), b2 * 2, b2 * 2);
+    }
+
+    // ② Anneau qui se propage (easeOut → départ rapide puis ralentit)
+    const prog = 1 - r.life;
+    const ease = 1 - (1 - prog) * (1 - prog);
+    const radius = Math.round(r.maxRadius * ease);
+    if (radius >= 1) {
+      const alpha = r.life * r.life * 0.55;
+      const rs = radius * 2;
+      ctx.globalAlpha = alpha;
+      ctx.strokeRect(Math.round(r.x - radius), Math.round(r.y - radius), rs, rs);
+      if (radius > 4) {
+        const r2 = radius - 3;
+        ctx.globalAlpha = alpha * 0.5;
+        ctx.strokeRect(Math.round(r.x - r2), Math.round(r.y - r2), r2 * 2, r2 * 2);
+      }
+    }
+  }
+  ctx.restore();
+}
+
+// easeOutBack — dépassement élastique : démarre au-delà de 1 puis se cale.
+function easeOutBack(x: number): number {
+  const c1 = 2.4, c3 = c1 + 1;
+  const p = x - 1;
+  return 1 + c3 * p * p * p + c1 * p * p;
+}
+
 export function drawFloatingTexts(ctx: CanvasRenderingContext2D, s: GameState): void {
   for (const t of s.floatingTexts) {
     if (t.y < -20 || t.y > H + 20) continue;
-    const lifeRatio = Math.min(1, t.life * 2);
+    const age = 1 - t.life;                       // 0 à l'apparition
+    const lifeRatio = Math.min(1, t.life * 2);    // fondu en fin de vie
     const fontSize = t.fontSize ?? (t.combo ? 13 : 11);
+
+    // Entrée élastique : pop avec dépassement (plus marqué pour les exclamations)
+    const appear = Math.min(1, age / (t.exclaim ? 0.24 : 0.18));
+    const eb = easeOutBack(appear);
+    let popScale = t.exclaim ? 0.35 + eb * 0.78 : 0.6 + eb * 0.45;
+
     ctx.save();
     ctx.globalAlpha = lifeRatio;
-    const popScale = 1 + Math.max(0, 1 - t.life * 4) * 0.12;
     ctx.translate(t.x, t.y);
+
+    if (t.exclaim) {
+      // Inclinaison + petit battement vivant tant que le texte est jeune
+      const wobble = Math.sin(age * 16 + (t.spin ?? 0) * 3) * 0.05 * t.life;
+      ctx.rotate((t.spin ?? 0) * 0.05 + wobble);
+      popScale *= 1 + Math.sin(age * 20) * 0.05 * t.life;
+    }
+
     ctx.scale(popScale, popScale);
     ctx.font = `bold ${fontSize}px "MS Sans Serif", monospace`;
     ctx.textAlign = "center";
 
-    if (t.combo && fontSize >= 13) {
+    if (t.exclaim) {
+      drawExclaimText(ctx, t.text, t.color, fontSize, lifeRatio);
+    } else if (t.combo && fontSize >= 13) {
       const tw = ctx.measureText(t.text).width;
       const ph = 6, pv = 3;
       const bx = -tw / 2 - ph;
@@ -53,15 +122,92 @@ export function drawFloatingTexts(ctx: CanvasRenderingContext2D, s: GameState): 
       ctx.fillRect(bx + bw - 1, by, 1, bh);
 
       ctx.fillStyle = t.color;
+      ctx.fillText(t.text, 0, 0);
     } else {
       ctx.fillStyle = "rgba(0,0,0,0.55)";
       ctx.fillText(t.text, 1, 1);
       ctx.fillStyle = t.color;
+      ctx.fillText(t.text, 0, 0);
     }
 
-    ctx.fillText(t.text, 0, 0);
     ctx.restore();
   }
+}
+
+// Exclamation hype : glow additif + contour pixel noir + corps coloré + reflet
+// blanc sur la moitié haute. Le texte respire grâce au pop/wobble de l'appelant.
+function drawExclaimText(
+  ctx: CanvasRenderingContext2D, text: string, color: string, fontSize: number, lifeRatio: number,
+): void {
+  // ① Glow additif derrière (deux passes pour intensifier)
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  ctx.globalAlpha = lifeRatio * 0.32;
+  ctx.fillStyle = color;
+  ctx.fillText(text, 0, 0);
+  ctx.fillText(text, 0, 0);
+  ctx.restore();
+
+  // ② Contour pixel noir (8 directions)
+  ctx.fillStyle = "rgba(0,0,0,0.85)";
+  for (let dx = -1; dx <= 1; dx++) {
+    for (let dy = -1; dy <= 1; dy++) {
+      if (dx || dy) ctx.fillText(text, dx, dy);
+    }
+  }
+
+  // ③ Corps coloré
+  ctx.fillStyle = color;
+  ctx.fillText(text, 0, 0);
+
+  // ④ Reflet blanc clippé sur la moitié supérieure
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(-300, -fontSize, 600, fontSize * 0.58);
+  ctx.clip();
+  ctx.fillStyle = "rgba(255,255,255,0.55)";
+  ctx.fillText(text, 0, 0);
+  ctx.restore();
+}
+
+// Overlay de ralenti : teinte bleue glacée + vignette froide qui respire +
+// scanlines lentes. L'intensité suit la profondeur du slow-mo (0..1) → le rendu
+// se fige visuellement pile quand le temps se fige, surtout près du panier.
+let _smGradient: CanvasGradient | null = null;
+let _smGradientAlpha = -1;
+
+export function drawSlowMoOverlay(ctx: CanvasRenderingContext2D, s: GameState, intensity: number): void {
+  if (intensity <= 0.02) return;
+  const a = Math.min(1, intensity);
+  // Respiration lente pour que l'écran "vibre" doucement pendant le ralenti.
+  const pulse = 0.85 + 0.15 * Math.sin(s.animClock * 2.4);
+
+  ctx.save();
+
+  // ① Teinte bleue froide sur tout le plateau.
+  ctx.globalAlpha = a * 0.13 * pulse;
+  ctx.fillStyle = "#3a5cff";
+  ctx.fillRect(0, 0, W, H);
+
+  // ② Vignette froide qui assombrit les bords (gradient caché par alpha arrondi).
+  const vigA = Math.round(a * pulse * 20) / 20;
+  if (_smGradient === null || vigA !== _smGradientAlpha) {
+    _smGradient = ctx.createRadialGradient(W / 2, H / 2, H * 0.22, W / 2, H / 2, H * 0.8);
+    _smGradient.addColorStop(0, "transparent");
+    _smGradient.addColorStop(1, `rgba(0,4,40,${vigA * 0.5})`);
+    _smGradientAlpha = vigA;
+  }
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = _smGradient;
+  ctx.fillRect(0, 0, W, H);
+
+  // ③ Scanlines lentes qui défilent → sensation de temps étiré.
+  ctx.globalAlpha = a * 0.1;
+  ctx.fillStyle = "#000018";
+  const off = Math.floor(s.animClock * 14) % 4;
+  for (let y = off; y < H; y += 4) ctx.fillRect(0, y, W, 1);
+
+  ctx.restore();
 }
 
 export function drawScreenFlash(ctx: CanvasRenderingContext2D, s: GameState, inFever: boolean, theme: GameTheme): void {
@@ -74,23 +220,6 @@ export function drawScreenFlash(ctx: CanvasRenderingContext2D, s: GameState, inF
 }
 
 // createRadialGradient is expensive — cache it, rebuild only when alpha changes noticeably
-let _vigGradient: CanvasGradient | null = null;
-let _vigAlphaCached = -1;
-
-export function drawVignette(ctx: CanvasRenderingContext2D, s: GameState): void {
-  if (s.zoomLevel <= 1.05) return;
-  const vigAlpha = Math.min(0.45, (s.zoomLevel - 1) / (ZOOM_SCALE - 1) * 0.45);
-  const vigAlphaRounded = Math.round(vigAlpha * 50) / 50; // 0.02 steps
-  if (_vigGradient === null || vigAlphaRounded !== _vigAlphaCached) {
-    _vigGradient = ctx.createRadialGradient(W / 2, H / 2, H * 0.25, W / 2, H / 2, H * 0.85);
-    _vigGradient.addColorStop(0, "transparent");
-    _vigGradient.addColorStop(1, `rgba(0,0,80,${vigAlphaRounded})`);
-    _vigAlphaCached = vigAlphaRounded;
-  }
-  ctx.fillStyle = _vigGradient;
-  ctx.fillRect(0, 0, W, H);
-}
-
 export function drawBezel(ctx: CanvasRenderingContext2D): void {
   const W_canvas = 480;
   const H_canvas = 640;

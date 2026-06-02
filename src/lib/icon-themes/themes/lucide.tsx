@@ -1,5 +1,5 @@
+import { PeagleIcon } from "@/components/ui/peagle-icon";
 import {
-  Target,
   Droplets,
   User,
   Users,
@@ -29,6 +29,9 @@ import type { IconTheme, IconRenderer } from "../types";
 const MsnIcon: IconRenderer = ({ size }) => <MsnLogo size={size} />;
 MsnIcon.displayName = "MsnIcon";
 
+const EagleIcon: IconRenderer = ({ size }) => <PeagleIcon size={size} />;
+EagleIcon.displayName = "EagleIcon";
+
 export const lucideTheme: IconTheme = {
   id: "lucide",
   displayName: "Modern",
@@ -36,8 +39,8 @@ export const lucideTheme: IconTheme = {
   preview: "✨",
   style: "colored-bg",
   icons: {
-    peagle:              { icon: Target,          color: "#c0392b" },
-    "peagle-showroom":   { icon: Palette,         color: "#9b59b6" },
+    peagle:              { icon: EagleIcon,        color: "#c0392b" },
+    "peagle-gallery":    { icon: Palette,         color: "#9b59b6" },
     "plouf-plouf":   { icon: Droplets,        color: "#2980b9" },
     profile:         { icon: User,            color: "#8e44ad" },
     directory:       { icon: Users,           color: "#27ae60" },

@@ -1,26 +1,21 @@
-import type { Peg, Decor, DecorBumper, DecorPlank, DecorArc, DecorSpike } from "./types";
+import type { Peg, PegKind } from "./types";
 import { PEG_R } from "./constants";
 
 // ─── Peg factory ─────────────────────────────────────────────────────────────
 
-function makePeg(x: number, y: number): Peg {
-  return {
-    x, y,
-    hit: false, orange: false, green: false,
-    bomb: false, boss: false, armorHits: 0, hitCooldown: 0,
-    popping: false, popAlpha: 1, scale: 1,
-  };
+export function makePeg(x: number, y: number, kind: PegKind = "normal"): Peg {
+  return { x, y, kind, hit: false, popping: false, popAlpha: 1, scale: 1, cooldown: 0, bump: 0, revealT: 0 };
 }
 
-type PegOverride = Partial<Pick<Peg, "orange" | "green" | "bomb">>;
+type PegOverride = Partial<Pick<Peg, "kind">>;
 
 function applyOv(p: Peg, ov?: PegOverride): Peg {
   return ov ? { ...p, ...ov } : p;
 }
 
-// ─── Layout helpers ───────────────────────────────────────────────────────────
+// ─── Layout helpers — la boîte à outils pour dessiner des niveaux ─────────────
 
-/** Pegs equally spaced along a straight line from (x1,y1) to (x2,y2). */
+/** Pegs régulièrement espacés sur une ligne droite (x1,y1) → (x2,y2). */
 export function tLine(
   x1: number, y1: number, x2: number, y2: number,
   spacing: number, ov?: PegOverride,
@@ -33,7 +28,7 @@ export function tLine(
   });
 }
 
-/** Pegs along an arc (partial circle). */
+/** Pegs le long d'un arc (cercle partiel). */
 export function tArc(
   cx: number, cy: number, r: number,
   startAngle: number, endAngle: number, count: number,
@@ -45,7 +40,7 @@ export function tArc(
   });
 }
 
-/** Full circle of pegs. */
+/** Cercle complet de pegs. */
 export function tCircle(
   cx: number, cy: number, r: number, count: number,
   ov?: PegOverride,
@@ -56,7 +51,7 @@ export function tCircle(
   });
 }
 
-/** Hex-offset grid (odd rows shifted by half spacing). */
+/** Grille hexagonale (lignes impaires décalées d'un demi-pas). */
 export function tHexGrid(
   originX: number, originY: number,
   cols: number, rows: number, spacing: number,
@@ -75,7 +70,7 @@ export function tHexGrid(
   return pegs;
 }
 
-/** Rectangular grid. */
+/** Grille rectangulaire. */
 export function tGrid(
   originX: number, originY: number,
   cols: number, rows: number,
@@ -91,7 +86,7 @@ export function tGrid(
   return pegs;
 }
 
-/** Pixel-art template: '1' = peg, other chars = empty. */
+/** Pixel-art : '1' = peg, tout autre caractère = vide. */
 export function tPixelArt(
   pixels: string[],
   cellW: number, cellH: number,
@@ -110,7 +105,7 @@ export function tPixelArt(
   return pegs;
 }
 
-/** Remove pegs that are too close to a previously placed peg (deduplication). */
+/** Supprime les pegs trop proches d'un peg déjà placé (déduplication). */
 export function dedup(pegs: Peg[], minDist = PEG_R * 2.8): Peg[] {
   return pegs.filter((p, i) => {
     for (let j = 0; j < i; j++) {
@@ -118,48 +113,4 @@ export function dedup(pegs: Peg[], minDist = PEG_R * 2.8): Peg[] {
     }
     return true;
   });
-}
-
-// ─── Decor factories ──────────────────────────────────────────────────────────
-
-/** Round bumper — reflects the ball with a boost, lights up on hit. */
-export function mkBumper(x: number, y: number, r = 12, color = "#ff5500"): DecorBumper {
-  return { kind: "bumper", x, y, r, flashFrames: 0, color };
-}
-
-/** Rectangular plank at a given angle (radians). len = half-length. */
-export function mkPlank(
-  x: number, y: number,
-  len: number, angle: number,
-  color = "#cc44ff",
-): DecorPlank {
-  return { kind: "plank", x, y, len, thickness: 5, angle, flashFrames: 0, color };
-}
-
-/**
- * Curved arc wall — ball bounces off inner (concave) or outer (convex) surface.
- * startAngle / endAngle in radians (standard math convention: 0=right, PI/2=down in canvas).
- */
-export function mkArc(
-  x: number, y: number, r: number,
-  startAngle: number, endAngle: number,
-  color = "#cc44ff",
-): DecorArc {
-  return { kind: "arc", x, y, r, startAngle, endAngle, thickness: 8, flashFrames: 0, color };
-}
-
-/** Triangular spike — wedge deflector. angle = direction the tip points (radians). */
-export function mkSpike(
-  x: number, y: number,
-  size: number, angle: number,
-  color = "#cc44ff",
-): DecorSpike {
-  return { kind: "spike", x, y, size, angle, flashFrames: 0, color };
-}
-
-// ─── Tableau result ───────────────────────────────────────────────────────────
-
-export interface TableauResult {
-  pegs: Peg[];
-  decors: Decor[];
 }

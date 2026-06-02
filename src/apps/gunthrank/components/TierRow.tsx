@@ -368,9 +368,24 @@ export function TierRow({ tier, games, readOnly, viewLayout, recentlyMovedIds, o
         <span style={{ fontSize: "var(--t-text-md)", transition: "transform 0.15s", transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)" }}>
           ▼
         </span>
-        <span style={{ fontSize: "var(--t-text-lg)" }}>{tier.emoji}</span>
-        <span className="font-bold" style={{ fontSize: "var(--t-text-sm)", color: tier.color }}>
+        <span
+          className="font-bold inline-flex items-center gap-1.5 px-3 py-1"
+          style={{
+            fontSize: "var(--t-text-sm)",
+            background: "var(--t-accent)",
+            color: "#fff",
+            textTransform: "uppercase",
+            textShadow: "0 1px 3px rgba(0,0,0,0.45)",
+            borderRadius: "4px",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.2)",
+            margin: "0 auto",
+          }}
+        >
+          <span style={{ fontSize: "var(--t-text-md)", filter: "drop-shadow(0 1px 1px rgba(0,0,0,0.3))" }}>{tier.emoji}</span>
+          <span style={{ fontSize: "calc(var(--t-text-xs) * 0.9)", opacity: 0.85 }}>✦</span>
           {tier.label}
+          <span style={{ fontSize: "calc(var(--t-text-xs) * 0.9)", opacity: 0.85 }}>✦</span>
+          <span style={{ fontSize: "var(--t-text-md)", filter: "drop-shadow(0 1px 1px rgba(0,0,0,0.3))" }}>{tier.emoji}</span>
         </span>
         <span style={{ fontSize: "var(--t-text-xs)", color: "var(--t-text-muted)" }}>
           · {games.length} jeu{games.length !== 1 ? "x" : ""}
@@ -470,7 +485,6 @@ export function TierRow({ tier, games, readOnly, viewLayout, recentlyMovedIds, o
             style={{
               display: "grid",
               gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))",
-              gridAutoRows: "1fr",
               alignContent: "start",
             }}
             onDragOverCapture={(e) => {
@@ -492,7 +506,6 @@ export function TierRow({ tier, games, readOnly, viewLayout, recentlyMovedIds, o
                   onDrop={(e) => handleListItemDrop(e, r.id, index)}
                   className="rounded"
                   style={{
-                    height: "100%",
                     // ── Swap glow ──
                     outline: isSwapTarget ? "3px solid var(--t-accent)" : "3px solid transparent",
                     outlineOffset: 3,

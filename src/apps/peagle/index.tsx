@@ -3,27 +3,24 @@
 import { useRef, useCallback, useState, useEffect } from "react";
 import type { AppProps } from "@/types";
 import { useAuth } from "@/lib/contexts/auth-context";
-import { PEAGLE_TIPS } from "@/lib/gunth-jokes";
-import { pickRandom } from "@/lib/utils/random";
 import { useMusic } from "./hooks/useMusic";
 import { useGameLoop } from "./hooks/useGameLoop";
-import { GameHud } from "./components/GameHud";
 import { GameCanvas } from "./components/GameCanvas";
 import { Leaderboard } from "./components/Leaderboard";
+import { LoadingScreen } from "./components/LoadingScreen";
 import { MainMenu } from "./components/MainMenu";
-import { ClassPicker } from "./components/ClassPicker";
 import { UpgradePicker } from "./components/UpgradePicker";
-import { W, H } from "./engine/constants";
-import type { UiState, LeaderboardEntry, UpgradeId } from "./engine/types";
-import type { RunState, ClassId } from "./engine/roguelite";
-import { makeInitialRunState, generateUpgradeOffer } from "./engine/roguelite";
-import { DevPanel, DEFAULT_DEV_CONFIG } from "./components/DevPanel";
-import type { DevConfig } from "./components/DevPanel";
 import { SidePanel } from "./components/SidePanel";
-import { PEAGLE_LIVE_THEME_KEY } from "./components/Showroom";
-type Screen = "menu" | "class-pick" | "game" | "leaderboard";
+import { DevPanel } from "./components/DevPanel";
+import type { DevConfig } from "./components/DevPanel";
+import { W } from "./engine/constants";
+import type { UiState, LeaderboardEntry, UpgradeId } from "./engine/types";
+import type { RunState } from "./engine/roguelite";
+import { makeInitialRunState, makeRunStateWithSeed, generateUpgradeOffer } from "./engine/roguelite";
 
-const EMPTY_RUN: RunState = makeInitialRunState("canonnier");
+type Screen = "loading" | "menu" | "game" | "leaderboard";
+
+const EMPTY_RUN: RunState = makeInitialRunState();
 
 export function PeagleApp({ windowId: _windowId }: AppProps) {
   const { user } = useAuth();
@@ -33,14 +30,17 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
   const runStateRef = useRef<RunState>(EMPTY_RUN);
   const devConfigRef = useRef<DevConfig | null>(null);
   const [devSessionActive, setDevSessionActive] = useState(false);
+  const [showDevPanelInGame, setShowDevPanelInGame] = useState(false);
 
-  const [screen, setScreen] = useState<Screen>("menu");
+  const [screen, setScreen] = useState<Screen>("loading");
+  const [paused, setPaused] = useState(false);
+  const pausedRef = useRef(paused);
   const [ui, setUi] = useState<UiState>({
-    balls: 10, score: 0, orangeLeft: 0, orangeTotal: 0,
-    phase: "aim", message: "", combo: 0, level: 1,
-    multiballReady: true, multiballPending: false, multiballUsed: false,
-    relics: [], spookyActive: false, magnetFrames: 0, bossLevel: false, stars: 0,
+    balls: 12, score: 0, orangeLeft: 0, orangeTotal: 0,
+    phase: "aim", message: "", combo: 0, level: 1, stars: 0,
   });
+  const [currentSeed, setCurrentSeed] = useState<number>(EMPTY_RUN.seed);
+
   const [bestScore, setBestScore] = useState<number>(() => {
     if (typeof window === "undefined") return 0;
     return parseInt(localStorage.getItem("peagle98_best") ?? "0", 10);
@@ -48,12 +48,26 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [lbLoading, setLbLoading] = useState(false);
   const [scoreSubmitted, setScoreSubmitted] = useState(false);
-  const [tip, setTip] = useState(() => pickRandom(PEAGLE_TIPS));
 
-  // Upgrade pick state
+  // Offre d'upgrade entre deux niveaux
   const [upgradeOffer, setUpgradeOffer] = useState<UpgradeId[] | null>(null);
-  const [lastBossKilled, setLastBossKilled] = useState(false);
-  const [showDevPanelInGame, setShowDevPanelInGame] = useState(false);
+
+  // ── Screen transition overlay (simple CSS transition, pas de keyframes) ──
+  const [overlayOpaque, setOverlayOpaque] = useState(false);
+  // Indique si l'utilisateur a déjà vu l'intro → au retour menu on la skippe.
+  const [hasSeenIntro, setHasSeenIntro] = useState(false);
+
+  const transitionTo = useCallback((target: Screen, setup?: () => void) => {
+    setOverlayOpaque(true);
+    setTimeout(() => {
+      setup?.();
+      setScreen(target);
+      // Double rAF : attend que React ait rendu le nouvel écran avant de révéler
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        setOverlayOpaque(false);
+      }));
+    }, 200);
+  }, []);
 
   const userId = user?.id;
   useEffect(() => {
@@ -66,9 +80,8 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
   }, [userId]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (ui.phase === "aim") setTip(pickRandom(PEAGLE_TIPS));
-  }, [ui.phase]);
+    pausedRef.current = paused;
+  }, [paused]);
 
   const fetchLeaderboard = useCallback(async () => {
     setLbLoading(true);
@@ -92,149 +105,171 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     } catch { /* silent */ }
   }, [user, scoreSubmitted]);
 
-  const handleLevelWon = useCallback((bossKilled: boolean) => {
-    const offer = generateUpgradeOffer(runStateRef.current.upgrades, bossKilled);
-    setLastBossKilled(bossKilled);
-    setUpgradeOffer(offer);
+  const handleLevelWon = useCallback(() => {
+    setUpgradeOffer(generateUpgradeOffer(runStateRef.current.upgrades));
   }, []);
 
-  const handleIronWillUsed = useCallback(() => {
-    runStateRef.current = { ...runStateRef.current, ironWillUsed: true };
+  const recordBestScore = useCallback((score: number) => {
+    setBestScore(prev => {
+      if (score <= prev) return prev;
+      try { localStorage.setItem("peagle98_best", String(score)); } catch { /* quota / private mode */ }
+      return score;
+    });
   }, []);
 
-  useMusic();
+  const { musicMuted, toggleMusic, fadeOutAndRestart, fadeToGameTrack, fadeToFeverTrack, getBeat } = useMusic(screen !== "loading");
+
+  // Transitions musicales fever : détecte l'entrée en fever pour démarrer le fever track,
+  // et revient au game track dès que le fever se termine (pegs orange tous touchés ou niveau perdu).
+  const prevInFeverRef = useRef(false);
+  const inFever = screen === "game" && ui.orangeLeft > 0 && ui.orangeLeft <= 3;
+  useEffect(() => {
+    if (screen !== "game") { prevInFeverRef.current = false; return; }
+    if (inFever && !prevInFeverRef.current) fadeToFeverTrack();
+    prevInFeverRef.current = inFever;
+  }, [inFever, screen, fadeToFeverTrack]);
 
   const handleUiSync = useCallback((uiState: UiState) => setUi(uiState), []);
   const handleOrangeTotalChange = useCallback((total: number) => setUi(u => ({ ...u, orangeTotal: total })), []);
 
-  const { handleClick, resetGame, nextLevel, activateMultiball, skipLevel } = useGameLoop({
+  const { handlePointerDown, handlePointerMove, handlePointerUp, resetGame, nextLevel, skipLevel } = useGameLoop({
     canvasRef,
     mouseRef,
     runStateRef,
     devConfigRef,
+    pausedRef,
     onUiSync: handleUiSync,
     onOrangeTotalChange: handleOrangeTotalChange,
-    onBestScore: setBestScore,
+    onBestScore: recordBestScore,
     onScoreSubmit: submitScore,
     onLevelWon: handleLevelWon,
-    onIronWillUsed: handleIronWillUsed,
+    onRequestPause: () => setPaused(true),
   });
 
   const handleUpgradePick = useCallback((id: UpgradeId) => {
     runStateRef.current = { ...runStateRef.current, upgrades: [...runStateRef.current.upgrades, id] };
     setUpgradeOffer(null);
+    fadeToGameTrack();
     nextLevel();
-  }, [nextLevel]);
+  }, [nextLevel, fadeToGameTrack]);
 
   const handleUpgradeSkip = useCallback(() => {
     setUpgradeOffer(null);
+    fadeToGameTrack();
     nextLevel();
-  }, [nextLevel]);
+  }, [nextLevel, fadeToGameTrack]);
 
-  const handleMouseMove = useCallback((e: { clientX: number; clientY: number; currentTarget: { getBoundingClientRect(): DOMRect } }) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    mouseRef.current = {
-      x: (e.clientX - rect.left) * (W / rect.width),
-      y: (e.clientY - rect.top) * (H / rect.height),
-    };
-  }, []);
-
-  const handleClassPick = useCallback((classId: ClassId) => {
-    runStateRef.current = makeInitialRunState(classId);
+  const startRun = useCallback((seedOverride?: number) => {
+    setHasSeenIntro(true);
+    devConfigRef.current = null;
+    setDevSessionActive(false);
+    const run = seedOverride !== undefined
+      ? makeRunStateWithSeed(seedOverride)
+      : makeInitialRunState();
+    runStateRef.current = run;
+    setCurrentSeed(run.seed);
     resetGame(false);
     setScoreSubmitted(false);
     setUpgradeOffer(null);
-    setScreen("game");
-  }, [resetGame]);
+    setPaused(false);
+    fadeToGameTrack();
+    transitionTo("game");
+  }, [resetGame, transitionTo, fadeToGameTrack]);
 
   const handleDevLaunch = useCallback((cfg: DevConfig) => {
+    setHasSeenIntro(true);
     devConfigRef.current = cfg;
-    const base = makeInitialRunState(cfg.classId);
-    runStateRef.current = {
-      ...base,
-      relics: cfg.relics.length > 0 ? cfg.relics : base.relics,
-      upgrades: cfg.upgrades,
-    };
+    const run = { ...makeInitialRunState(), upgrades: cfg.upgrades };
+    runStateRef.current = run;
+    setCurrentSeed(run.seed);
     resetGame(false, cfg.startLevel);
     setScoreSubmitted(false);
     setUpgradeOffer(null);
     setDevSessionActive(true);
-    setScreen("game");
-  }, [resetGame]);
-
-  const handlePlay = useCallback(() => {
-    setScreen("class-pick");
-  }, []);
+    setShowDevPanelInGame(false);
+    setPaused(false);
+    fadeToGameTrack();
+    transitionTo("game");
+  }, [resetGame, transitionTo, fadeToGameTrack]);
 
   const handleGoToMenu = useCallback(() => {
-    setUpgradeOffer(null);
-    setScreen("menu");
-  }, []);
+    fadeOutAndRestart();
+    transitionTo("menu", () => {
+      setUpgradeOffer(null);
+      setPaused(false);
+    });
+  }, [transitionTo, fadeOutAndRestart]);
 
   const handleGoToLeaderboard = useCallback(() => {
-    setScreen("leaderboard");
-    fetchLeaderboard();
-  }, [fetchLeaderboard]);
-
-  const handleApplyTheme = useCallback((themeId: string) => {
-    if (devConfigRef.current) {
-      devConfigRef.current = { ...devConfigRef.current, gameThemeId: themeId };
-    } else {
-      devConfigRef.current = { ...DEFAULT_DEV_CONFIG, gameThemeId: themeId };
-    }
-  }, []);
-
-  // Live theme sync — listens for broadcasts from the Showroom in another window
-  useEffect(() => {
-    function onLiveTheme(e: StorageEvent) {
-      if (e.key !== PEAGLE_LIVE_THEME_KEY || !e.newValue) return;
-      handleApplyTheme(e.newValue);
-    }
-    window.addEventListener("storage", onLiveTheme);
-    return () => window.removeEventListener("storage", onLiveTheme);
-  }, [handleApplyTheme]);
+    setHasSeenIntro(true);
+    transitionTo("leaderboard", () => {
+      setPaused(false);
+      fetchLeaderboard();
+    });
+  }, [transitionTo, fetchLeaderboard]);
 
   const handleReplay = useCallback(() => {
-    runStateRef.current = makeInitialRunState(runStateRef.current.classId);
+    const run = makeInitialRunState();
+    runStateRef.current = run;
+    setCurrentSeed(run.seed);
     resetGame(false);
     setScoreSubmitted(false);
     setUpgradeOffer(null);
-  }, [resetGame]);
+    setPaused(false);
+    fadeToGameTrack();
+  }, [resetGame, fadeToGameTrack]);
 
-  const displayName = user ? (user.name || user.email || "Joueur") : null;
+  // Rejouer avec exactement le même seed (upgrades remises à zéro).
+  const handleReplaySeed = useCallback(() => {
+    const seed = runStateRef.current.seed;
+    runStateRef.current = makeRunStateWithSeed(seed);
+    // setCurrentSeed reste inchangé (même seed)
+    resetGame(false);
+    setScoreSubmitted(false);
+    setUpgradeOffer(null);
+    setPaused(false);
+    fadeToGameTrack();
+  }, [resetGame, fadeToGameTrack]);
+
+  const handleAssetsReady = useCallback(() => {
+    transitionTo("menu");
+  }, [transitionTo]);
 
   return (
     <div
       className="flex flex-col h-full select-none"
-      style={{ background: "var(--t-bg)", fontFamily: "var(--t-font-display)" }}
+      style={{ background: "var(--t-bg)", fontFamily: "var(--t-font-display)", position: "relative" }}
     >
-      {screen === "menu" && (
-        <MainMenu
-          bestScore={bestScore}
-          displayName={displayName}
-          isAdmin={isAdmin}
-          onPlay={handlePlay}
-          onLeaderboard={handleGoToLeaderboard}
-          onDevLaunch={handleDevLaunch}
-        />
+      {screen === "loading" && (
+        <LoadingScreen onReady={handleAssetsReady} />
       )}
 
-      {screen === "class-pick" && (
-        <ClassPicker onPick={handleClassPick} />
+      {screen === "menu" && (
+        <MainMenu
+          isAdmin={isAdmin}
+          onPlay={() => startRun()}
+          onPlayWithSeed={(seed) => startRun(seed)}
+          onLeaderboard={handleGoToLeaderboard}
+          onDevLaunch={handleDevLaunch}
+          musicMuted={musicMuted}
+          onToggleMusic={toggleMusic}
+          skipIntro={hasSeenIntro}
+          getBeat={getBeat}
+        />
       )}
 
       {screen === "leaderboard" && (
         <Leaderboard
           entries={leaderboard}
           loading={lbLoading}
-          currentUserId={userId}
+          currentUserId={user?.id}
           onRefresh={fetchLeaderboard}
           showLoginHint={!user}
           onBack={handleGoToMenu}
         />
       )}
 
-      {/* Game screen — canvas stays mounted to keep the game loop alive */}
+      {/* Écran de jeu — le canvas reste monté pour garder la boucle vivante */}
       <div
         style={{
           display: screen === "game" ? "flex" : "none",
@@ -244,140 +279,73 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
           background: "linear-gradient(to bottom, #122010 0%, #0a1806 50%, #060e04 100%)",
         }}
       >
-        <GameHud
-          ui={ui}
-          bestScore={bestScore}
-          displayName={displayName}
-          isAdmin={isAdmin}
-          showDevTools={isAdmin && devSessionActive}
-          onActivateMultiball={activateMultiball}
-          onSkipLevel={skipLevel}
-          onOpenDevPanel={() => setShowDevPanelInGame(true)}
-          onMenu={handleGoToMenu}
-        />
-
-        {/* DevPanel overlay in-game */}
         {showDevPanelInGame && (
           <DevPanel
             onClose={() => setShowDevPanelInGame(false)}
-            onApplyTheme={handleApplyTheme}
-            onLaunch={(cfg) => {
-              devConfigRef.current = cfg;
-              const base = makeInitialRunState(cfg.classId);
-              runStateRef.current = {
-                ...base,
-                relics: cfg.relics.length > 0 ? cfg.relics : base.relics,
-                upgrades: cfg.upgrades,
-              };
-              resetGame(false, cfg.startLevel);
-              setScoreSubmitted(false);
-              setUpgradeOffer(null);
-              setDevSessionActive(true);
-              setShowDevPanelInGame(false);
-            }}
+            onLaunch={handleDevLaunch}
           />
         )}
 
         {/* Layout responsive : vertical (mobile) ou horizontal (16/9+) */}
         <div className="pg-game-layout peagle-root" style={{ flex: 1, overflow: "hidden", alignItems: "stretch" }}>
-          {/* Panneau gauche — stats + aigle (visible seulement en mode large) */}
-          <SidePanel side="left" ui={ui} bestScore={bestScore} feverMode={ui.orangeLeft > 0 && ui.orangeLeft <= 3} />
+          <SidePanel side="left" feverMode={ui.balls > 0 && ui.balls <= 3} />
 
-          {/* Zone canvas centrale */}
           <div className="pg-canvas-area">
-            {/* Canvas area — upgrade picker overlays here */}
             <div style={{ position: "relative", flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
               <GameCanvas
                 canvasRef={canvasRef}
                 ui={ui}
                 bestScore={bestScore}
+                currentSeed={currentSeed}
                 user={user}
+                isAdmin={isAdmin}
+                showDevTools={isAdmin && devSessionActive}
                 upgradeOfferPending={!!upgradeOffer}
-                onMouseMove={handleMouseMove}
-                onClick={handleClick}
+                paused={paused}
+                musicMuted={musicMuted}
+                onResume={() => setPaused(false)}
+                onToggleMusic={toggleMusic}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
                 onReplay={handleReplay}
+                onReplaySeed={handleReplaySeed}
                 onLeaderboard={handleGoToLeaderboard}
                 onMenu={handleGoToMenu}
+                onSkipLevel={skipLevel}
+                onOpenDevPanel={() => setShowDevPanelInGame(true)}
               />
 
-              {/* Upgrade picker overlay — shown after each won level */}
               {upgradeOffer && (
                 <UpgradePicker
                   offers={upgradeOffer}
-                  relics={ui.relics}
                   level={ui.level}
                   score={ui.score}
-                  bossKilled={lastBossKilled}
                   onPick={handleUpgradePick}
                   onSkip={handleUpgradeSkip}
                 />
               )}
             </div>
-
-            {/* Win98 status bar */}
-            <div
-              style={{
-                display: "flex",
-                gap: 3,
-                padding: "2px 4px",
-                borderTop: "2px solid var(--t-border-dark)",
-                background: "var(--t-bg)",
-                alignItems: "center",
-                flexShrink: 0,
-              }}
-            >
-              <div
-                style={{
-                  flex: 1,
-                  padding: "1px 8px",
-                  fontSize: "var(--t-text-xs)",
-                  color: "var(--t-text-muted)",
-                  borderWidth: 1,
-                  borderStyle: "solid",
-                  borderTopColor: "var(--t-border-dark)",
-                  borderLeftColor: "var(--t-border-dark)",
-                  borderBottomColor: "var(--t-border-light)",
-                  borderRightColor: "var(--t-border-light)",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {upgradeOffer
-                  ? "Choisissez une amélioration pour continuer le run..."
-                  : ui.phase === "aim" ? tip : ui.phase === "firing" ? "En vol..." : " "}
-              </div>
-              <div
-                style={{
-                  padding: "1px 8px",
-                  fontSize: "var(--t-text-xs)",
-                  color: "var(--t-text-muted)",
-                  borderWidth: 1,
-                  borderStyle: "solid",
-                  borderTopColor: "var(--t-border-dark)",
-                  borderLeftColor: "var(--t-border-dark)",
-                  borderBottomColor: "var(--t-border-light)",
-                  borderRightColor: "var(--t-border-light)",
-                  whiteSpace: "nowrap",
-                  minWidth: 72,
-                  textAlign: "center",
-                }}
-              >
-                {upgradeOffer
-                  ? "Upgrade !"
-                  : ui.phase === "aim" ? "En attente"
-                  : ui.phase === "firing" ? "En vol"
-                  : ui.phase === "won" ? "Victoire !"
-                  : ui.phase === "lost" ? "Game Over"
-                  : " "}
-              </div>
-            </div>
           </div>
 
-          {/* Panneau droit — record, combo, décor (visible seulement en mode large) */}
-          <SidePanel side="right" ui={ui} bestScore={bestScore} feverMode={ui.orangeLeft > 0 && ui.orangeLeft <= 3} />
+          <SidePanel side="right" feverMode={ui.balls > 0 && ui.balls <= 3} />
         </div>
       </div>
+
+      {/* ── Transition overlay — CSS transition, toujours monté ─────────────── */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 200,
+          background: "#030804",
+          pointerEvents: "none",
+          opacity: overlayOpaque ? 1 : 0,
+          transition: overlayOpaque
+            ? "opacity 0.18s cubic-bezier(0.4, 0, 1, 1)"
+            : "opacity 0.35s cubic-bezier(0, 0, 0.4, 1)",
+        }}
+      />
     </div>
   );
 }

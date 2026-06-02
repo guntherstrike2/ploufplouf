@@ -14,5 +14,6 @@ export const manifest: AppManifest = {
   defaultSize: { w: 950, h: 750 },
   loadDuration: 1800,
   showInLauncher: true,
+  hot: true,
   component: GunthrankApp,
 };

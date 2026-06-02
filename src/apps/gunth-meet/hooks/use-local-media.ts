@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { getVADContext } from "../lib/vad-context";
+import { createVAD } from "../lib/vad-context";
 
 const AUDIO_CONSTRAINTS: MediaTrackConstraints = {
   echoCancellation: true,
@@ -18,56 +18,14 @@ const VIDEO_CONSTRAINTS: MediaTrackConstraints = {
   facingMode: "user",
 };
 
-const VAD_THRESHOLD = 0.01;
-const VAD_SILENCE_DELAY_MS = 500;
-
-// RMS-based VAD using the shared AudioContext.
-// Returns a cleanup function. onSpeakingChange fires on state transitions only.
 function startVADOnStream(
   stream: MediaStream,
   onSpeakingChange: (speaking: boolean) => void,
 ): () => void {
   const audioTrack = stream.getAudioTracks()[0];
   if (!audioTrack) return () => {};
-  try {
-    const ctx = getVADContext();
-    const source = ctx.createMediaStreamSource(stream);
-    const analyser = ctx.createAnalyser();
-    analyser.fftSize = 512;
-    analyser.smoothingTimeConstant = 0.8;
-    source.connect(analyser);
-
-    const buf = new Float32Array(analyser.fftSize);
-    let speaking = false;
-    let silenceTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const interval = setInterval(() => {
-      analyser.getFloatTimeDomainData(buf);
-      const rms = Math.sqrt(buf.reduce((s: number, x: number) => s + x * x, 0) / buf.length);
-      if (rms > VAD_THRESHOLD && !speaking) {
-        if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
-        speaking = true;
-        onSpeakingChange(true);
-      } else if (rms <= VAD_THRESHOLD && speaking && !silenceTimer) {
-        silenceTimer = setTimeout(() => {
-          speaking = false;
-          onSpeakingChange(false);
-          silenceTimer = null;
-        }, VAD_SILENCE_DELAY_MS);
-      }
-    }, 100);
-
-    return () => {
-      clearInterval(interval);
-      if (silenceTimer) clearTimeout(silenceTimer);
-      // Disconnect the source node — the shared ctx stays open
-      source.disconnect();
-      onSpeakingChange(false);
-    };
-  } catch {
-    // Non-secure contexts or AudioContext suspended — VAD is non-critical
-    return () => {};
-  }
+  const cleanup = createVAD(audioTrack, onSpeakingChange);
+  return () => { cleanup(); onSpeakingChange(false); };
 }
 
 export interface UseLocalMediaReturn {

@@ -7,6 +7,7 @@ import { getAuth } from "@/lib/auth";
 import { eq, and, or } from "drizzle-orm";
 import { headers } from "next/headers";
 import { unauthorized } from "@/lib/api-utils";
+import { translateToFrench } from "@/lib/translate";
 
 const TIER_ORDER: Record<string, number> = {
   diamond: 0,
@@ -46,6 +47,18 @@ export async function GET() {
     : [];
 
   const gameMap = new Map(games.map((g) => [g.id, g]));
+
+  // Backfill French summaries for games that have English but no French translation
+  for (const game of games) {
+    if (game.summary && !game.summaryFr) {
+      const summaryFr = await translateToFrench(game.summary);
+      if (summaryFr) {
+        db().update(gunthrankGames).set({ summaryFr }).where(eq(gunthrankGames.id, game.id)).run();
+        gameMap.set(game.id, { ...game, summaryFr });
+      }
+    }
+  }
+
   const enriched = rankings
     .map((r) => ({ ...r, game: gameMap.get(r.gameId) ?? null }))
     .sort((a, b) => tierSort(a, b));

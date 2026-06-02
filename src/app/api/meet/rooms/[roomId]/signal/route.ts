@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { joinRoom, relaySignal, listParticipants } from "@/lib/meet-rooms";
+import { joinRoom, relaySignal, sendToParticipant, getHost, listParticipants } from "@/lib/meet-rooms";
 import { VALID_SIGNAL_TYPES } from "@/apps/gunth-meet/types";
 
 export const dynamic = "force-dynamic";
@@ -77,6 +77,24 @@ export async function POST(
   }
   if (!VALID_SIGNAL_TYPES.includes(type)) {
     return NextResponse.json({ error: "Invalid signal type" }, { status: 400 });
+  }
+
+  const payloadStr = JSON.stringify(payload);
+  if (payloadStr.length > 64_000) {
+    return NextResponse.json({ error: "Payload too large" }, { status: 413 });
+  }
+
+  // host-mute-peer is delivered as a direct SSE event (not a WebRTC signal relay)
+  // so the target receives it in the SSE handler, not handleSignal
+  if (type === "host-mute-peer") {
+    const hostId = getHost(roomId);
+    if (hostId !== session.user.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    const { targetUserId } = payload as { targetUserId: string };
+    if (!targetUserId) return NextResponse.json({ error: "Missing targetUserId" }, { status: 400 });
+    sendToParticipant(roomId, targetUserId, { kind: "host-mute-peer", targetUserId });
+    return NextResponse.json({ sent: true });
   }
 
   const sent = relaySignal(roomId, {

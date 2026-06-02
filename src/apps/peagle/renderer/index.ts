@@ -2,15 +2,16 @@ import type { GameState } from "../engine/types";
 import type { GameTheme } from "../engine/game-theme";
 import { PEG_R } from "../engine/constants";
 import { drawBackground } from "./background";
-import { drawWarpCables, drawPegs } from "./pegs";
-import { drawDecors, drawDecorHitboxes } from "./decor";
+import { drawPegs } from "./pegs";
 import { drawAimLine, drawLauncher, drawBuckets } from "./ui";
 import { drawBall } from "./ball";
-import { drawParticles, drawFloatingTexts, drawScreenFlash, drawVignette, drawBezel } from "./effects";
+import { drawParticles, drawFloatingTexts, drawScreenFlash, drawSlowMoOverlay, drawBezel, drawImpactRings } from "./effects";
+import { drawHud } from "./hud";
 
 export interface RenderOpts {
-  theme:        GameTheme;
+  theme:         GameTheme;
   showHitboxes?: boolean;
+  orangeTotal?:  number;
 }
 
 export function drawFrame(
@@ -20,48 +21,49 @@ export function drawFrame(
   orangeLeft: number,
   opts: RenderOpts,
 ): void {
-  const { theme, showHitboxes = false } = opts;
-  const inFever = orangeLeft <= s.effectiveFeverThreshold && orangeLeft > 0;
+  const { theme, showHitboxes = false, orangeTotal = 0 } = opts;
+  const inFever = s.balls > 0 && s.balls <= s.effectiveFeverThreshold;
   const feverIntensity = inFever ? 1 : 0;
-  const inSlowMo = s.slowMoFrames > 0;
-  const hasZoom = s.zoomLevel > 1.01 && s.ball?.active;
+  // Intensité visuelle du ralenti dérivée de la vitesse du temps lissée.
+  const slowVis = Math.max(0, Math.min(1, (1 - s.timeWarp) / 0.85));
+  const inSlowMo = slowVis > 0.08;
+
+  // Progression vers le fever basée sur les œufs dépensés :
+  // 0 = tous les œufs présents, 1 = seuil fever atteint (3 restants).
+  const preFeverDusk =
+    !inFever && s.startBalls > s.effectiveFeverThreshold && s.balls > s.effectiveFeverThreshold
+      ? Math.max(0, Math.min(1, (s.startBalls - s.balls) / (s.startBalls - s.effectiveFeverThreshold)))
+      : 0;
 
   ctx.save();
 
-  // Camera: zoom follows ball during slow-mo, otherwise just screen shake
-  if (hasZoom && s.ball) {
-    const W = 480, H = 640;
-    ctx.translate(s.shakeX * 0.4, s.shakeY * 0.4);
-    ctx.translate(W / 2, H / 2);
-    ctx.scale(s.zoomLevel, s.zoomLevel);
-    ctx.translate(-s.ball.x, -s.ball.y);
-  } else {
-    ctx.translate(s.shakeX, s.shakeY);
-  }
+  // Caméra : plus de zoom en fin de niveau, juste le screen shake.
+  ctx.translate(s.shakeX, s.shakeY);
 
-  drawBackground(ctx, s, feverIntensity, theme);
-  drawDecors(ctx, s);
+  drawBackground(ctx, s, feverIntensity, theme, preFeverDusk);
+  drawImpactRings(ctx, s);   // ondes de choc dans le décor, derrière les pegs
   drawAimLine(ctx, s, aimAngle);
-  drawWarpCables(ctx, s, theme);
   drawPegs(ctx, s, inFever, feverIntensity, theme);
   drawParticles(ctx, s);
 
-  if (s.ball?.active) drawBall(ctx, s.ball, inSlowMo);
-  for (const eb of s.extraBalls) {
-    if (eb.active) drawBall(ctx, eb, inSlowMo);
-  }
+  if (s.ball?.active) drawBall(ctx, s.ball, inSlowMo, orangeLeft === 0);
 
   drawFloatingTexts(ctx, s);
   drawLauncher(ctx, s, aimAngle);
   drawBuckets(ctx, s);
 
-  ctx.restore(); // end camera transform
+  ctx.restore(); // fin transform caméra
 
+  drawSlowMoOverlay(ctx, s, slowVis);
   drawBezel(ctx);
   drawScreenFlash(ctx, s, inFever, theme);
-  drawVignette(ctx, s);
 
-  if (showHitboxes) { drawDebugHitboxes(ctx, s); drawDecorHitboxes(ctx, s); }
+  // HUD façon mobile : enseigne in-canvas, par-dessus tout sauf le flash écran
+  if (s.phase !== "lost" && s.phase !== "won") {
+    drawHud(ctx, s, orangeLeft, orangeTotal, theme);
+  }
+
+  if (showHitboxes) drawDebugHitboxes(ctx, s);
 }
 
 function drawDebugHitboxes(ctx: CanvasRenderingContext2D, s: GameState): void {
@@ -75,12 +77,10 @@ function drawDebugHitboxes(ctx: CanvasRenderingContext2D, s: GameState): void {
     ctx.stroke();
   }
   const ballR = s.effectiveBallR;
-  const balls = s.ball ? [s.ball, ...s.extraBalls] : s.extraBalls;
-  ctx.strokeStyle = "rgba(0,255,255,0.7)";
-  for (const b of balls) {
-    if (!b.active) continue;
+  if (s.ball?.active) {
+    ctx.strokeStyle = "rgba(0,255,255,0.7)";
     ctx.beginPath();
-    ctx.arc(b.x, b.y, ballR, 0, Math.PI * 2);
+    ctx.arc(s.ball.x, s.ball.y, ballR, 0, Math.PI * 2);
     ctx.stroke();
   }
   ctx.restore();

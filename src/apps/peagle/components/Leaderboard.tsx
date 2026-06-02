@@ -1,6 +1,9 @@
 "use client";
 
+import "../peagle.css";
 import type { LeaderboardEntry } from "../engine/types";
+import { PG } from "../styles";
+import { PixelSprite } from "./PixelSprite";
 
 interface LeaderboardProps {
   entries: LeaderboardEntry[];
@@ -11,118 +14,111 @@ interface LeaderboardProps {
   onBack: () => void;
 }
 
+function RankBadge({ rank }: { rank: number }) {
+  const cls =
+    rank === 1 ? "pg-lb-badge pg-lb-badge-gold"
+    : rank === 2 ? "pg-lb-badge pg-lb-badge-silver"
+    : rank === 3 ? "pg-lb-badge pg-lb-badge-bronze"
+    : "pg-lb-badge pg-lb-badge-plain";
+  return <span className={cls}>{rank}</span>;
+}
+
 export function Leaderboard({ entries, loading, currentUserId, onRefresh, showLoginHint, onBack }: LeaderboardProps) {
   return (
     <div
+      className="peagle-root"
       style={{
         flex: 1,
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
-        background: "var(--t-bg)",
-        fontFamily: "var(--t-font-display)",
+        background: "linear-gradient(to bottom, #0e1e0a 0%, #0a1606 50%, #060e04 100%)",
+        fontFamily: "var(--pg-font)",
+        position: "relative",
       }}
     >
-      {/* Toolbar */}
+      {/* ── Toolbar ──────────────────────────────────────────────────────── */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
-          gap: 6,
-          padding: "5px 8px",
-          borderBottom: "2px solid var(--t-border-dark)",
-          background: "var(--t-bg)",
+          gap: 10,
+          padding: "11px 14px",
+          borderBottom: `2px solid #050d03`,
+          background: "linear-gradient(to bottom, #1a3410 0%, #111f0b 55%, #0d1a08 100%)",
+          boxShadow: `inset 0 1px 0 0 ${PG.bevelHi}, inset 0 -2px 0 0 ${PG.goldDark}`,
           flexShrink: 0,
+          zIndex: 1,
         }}
       >
-        <button
-          onClick={onBack}
-          style={{
-            padding: "3px 10px",
-            fontSize: "var(--t-text-xs)",
-            fontFamily: "var(--t-font-display)",
-            cursor: "pointer",
-            background: "var(--t-bg)",
-            color: "var(--t-text)",
-            borderWidth: 2,
-            borderStyle: "solid",
-            borderTopColor: "var(--t-border-light)",
-            borderLeftColor: "var(--t-border-light)",
-            borderBottomColor: "var(--t-border-dark)",
-            borderRightColor: "var(--t-border-dark)",
-          }}
-        >
-          ◀ Menu
+        <button onClick={onBack} className="pg-btn-lux" style={{ fontSize: 7, padding: "9px 14px", width: "auto" }}>
+          ◀ MENU
         </button>
 
         <span
           style={{
-            fontSize: "var(--t-text-sm)",
+            fontSize: 8,
             fontWeight: "bold",
-            color: "var(--t-text)",
+            color: PG.gold,
             flex: 1,
+            letterSpacing: "0.1em",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            textShadow: "0 0 10px rgba(220,180,50,0.45), 0 1px 0 rgba(0,0,0,0.95)",
           }}
         >
-          🦅 Tableau des Grands Chasseurs — Top 10
+          <PixelSprite name="eagle" scale={2} />
+          GRANDS CHASSEURS — TOP 10
         </span>
 
         <button
           onClick={onRefresh}
           disabled={loading}
+          className="pg-btn pg-btn-ghost"
           style={{
-            padding: "3px 10px",
-            fontSize: "var(--t-text-xs)",
-            fontFamily: "var(--t-font-display)",
+            fontSize: 7,
+            padding: "8px 12px",
+            opacity: loading ? 0.5 : 1,
             cursor: loading ? "default" : "pointer",
-            background: "var(--t-bg)",
-            color: "var(--t-text-muted)",
-            borderWidth: 2,
-            borderStyle: "solid",
-            borderTopColor: "var(--t-border-light)",
-            borderLeftColor: "var(--t-border-light)",
-            borderBottomColor: "var(--t-border-dark)",
-            borderRightColor: "var(--t-border-dark)",
-            opacity: loading ? 0.6 : 1,
           }}
         >
-          {loading ? "..." : "↻ Actualiser"}
+          {loading ? "..." : "↻ ACTUALISER"}
         </button>
       </div>
 
-      {/* Table container */}
+      {/* ── Table container ──────────────────────────────────────────────── */}
       <div
+        className="pg-lux-panel"
         style={{
           flex: 1,
           overflow: "auto",
-          margin: "12px 16px",
-          borderWidth: 2,
-          borderStyle: "solid",
-          borderTopColor: "var(--t-border-dark)",
-          borderLeftColor: "var(--t-border-dark)",
-          borderBottomColor: "var(--t-border-light)",
-          borderRightColor: "var(--t-border-light)",
-          background: "var(--t-app-bg)",
+          margin: "14px 14px",
+          animation: "none",
         }}
       >
-        {/* Header row */}
+        {/* Header */}
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "44px 1fr 36px 88px",
+            gridTemplateColumns: "52px 1fr 38px 100px",
             gap: 8,
-            padding: "6px 16px",
-            borderBottom: "2px solid var(--t-border-dark)",
-            background: "var(--t-bg)",
+            padding: "10px 16px",
+            borderBottom: `2px solid #050d03`,
+            background: "linear-gradient(to bottom, #1a3410 0%, #0e1e08 100%)",
+            boxShadow: `inset 0 1px 0 0 ${PG.bevelHi}, inset 0 -2px 0 0 ${PG.goldDark}`,
             position: "sticky",
             top: 0,
+            zIndex: 1,
           }}
         >
-          {["#", "CHASSEUR", "VOL", "SCORE"].map((h, i) => (
+          {(["#", "CHASSEUR", "VOL", "SCORE"] as const).map((h, i) => (
             <span
               key={h}
               style={{
-                fontSize: "var(--t-text-xs)",
-                color: "var(--t-text-muted)",
+                fontSize: 7,
+                color: PG.textMuted,
+                letterSpacing: "0.1em",
                 textAlign: i === 3 ? "right" : i === 2 ? "center" : "left",
               }}
             >
@@ -131,101 +127,113 @@ export function Leaderboard({ entries, loading, currentUserId, onRefresh, showLo
           ))}
         </div>
 
+        {/* Loading */}
         {loading && (
           <div
             style={{
-              padding: 32,
+              padding: 40,
               textAlign: "center",
-              color: "var(--t-text-muted)",
-              fontSize: "var(--t-text-sm)",
+              color: PG.textMuted,
+              fontSize: 8,
+              letterSpacing: "0.08em",
             }}
           >
             Chargement...
           </div>
         )}
 
+        {/* Empty */}
         {!loading && entries.length === 0 && (
           <div
             style={{
-              padding: 32,
+              padding: 40,
               textAlign: "center",
-              color: "var(--t-text-muted)",
-              fontSize: "var(--t-text-sm)",
+              color: PG.textMuted,
+              fontSize: 14,
+              lineHeight: 1.6,
+              fontFamily: "var(--pg-font-ui)",
             }}
           >
-            Aucun aigle inscrit. Le ciel est vide. Soyez le premier prédateur.
+            Aucun aigle inscrit.<br />Le ciel est vide.<br />Soyez le premier prédateur.
           </div>
         )}
 
-        {!loading &&
-          entries.map((entry, i) => {
-            const name = entry.displayUsername || entry.username || entry.name;
-            const isMe = currentUserId && entry.userId === currentUserId;
-            const medal = i === 0 ? "#1" : i === 1 ? "#2" : i === 2 ? "#3" : `${i + 1}.`;
-            return (
-              <div
-                key={entry.userId}
+        {/* Rows */}
+        {!loading && entries.map((entry, i) => {
+          const name = entry.displayUsername || entry.username || entry.name;
+          const isMe = !!(currentUserId && entry.userId === currentUserId);
+          const rank = i + 1;
+          return (
+            <div
+              key={entry.userId}
+              className="pg-lb-row"
+              style={{
+                background: isMe
+                  ? "rgba(126,209,58,0.12)"
+                  : i % 2 === 0
+                    ? "transparent"
+                    : "rgba(0,0,0,0.16)",
+                animation: "pg-row-slide 0.34s cubic-bezier(0.34, 1.56, 0.64, 1) both",
+                animationDelay: `${i * 0.05}s`,
+              }}
+            >
+              {/* Rang */}
+              <div style={{ display: "flex", justifyContent: "center" }}>
+                <RankBadge rank={rank} />
+              </div>
+
+              {/* Nom */}
+              <span
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "44px 1fr 36px 88px",
-                  gap: 8,
-                  alignItems: "center",
-                  padding: "9px 16px",
-                  borderBottom: "1px solid var(--t-border-dark)",
-                  background: isMe
-                    ? "var(--t-card-hover, rgba(255,255,255,0.06))"
-                    : i % 2 === 0
-                      ? "transparent"
-                      : "rgba(0,0,0,0.04)",
-                  fontFamily: "var(--t-font-display)",
+                  fontSize: 8,
+                  color: isMe ? PG.leaf : PG.text,
+                  fontWeight: isMe ? "bold" : "normal",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  textShadow: isMe ? `0 0 8px ${PG.leaf}55` : "none",
                 }}
               >
-                <span style={{ fontSize: "var(--t-text-sm)", textAlign: "center" }}>{medal}</span>
-                <span
-                  style={{
-                    fontSize: "var(--t-text-sm)",
-                    color: isMe ? "var(--t-accent)" : "var(--t-text)",
-                    fontWeight: isMe ? "bold" : "normal",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {name}{isMe ? " (votre nid)" : ""}
-                </span>
-                <span style={{ fontSize: "var(--t-text-sm)", textAlign: "center" }}>
-                  {entry.won ? "🦅" : "🪦"}
-                </span>
-                <span
-                  style={{
-                    fontSize: "var(--t-text-sm)",
-                    fontWeight: "bold",
-                    color: "var(--t-text)",
-                    textAlign: "right",
-                  }}
-                >
-                  {entry.score.toLocaleString()}
-                </span>
-              </div>
-            );
-          })}
+                {name}
+                {isMe && (
+                  <span style={{ color: PG.leafDim, fontWeight: "normal" }}> (votre nid)</span>
+                )}
+              </span>
+
+              {/* Icône vol */}
+              <span style={{ display: "flex", justifyContent: "center" }}>
+                <PixelSprite name={entry.won ? "eagle" : "grave"} scale={2} />
+              </span>
+
+              {/* Score */}
+              <span
+                style={{
+                  fontSize: 9,
+                  fontWeight: "bold",
+                  color: rank <= 3 ? PG.cream : PG.text,
+                  textAlign: "right",
+                  textShadow: rank <= 3 ? `0 0 8px rgba(242,230,194,0.25)` : "none",
+                }}
+              >
+                {entry.score.toLocaleString()}
+              </span>
+            </div>
+          );
+        })}
       </div>
 
+      {/* ── Login hint ───────────────────────────────────────────────────── */}
       {showLoginHint && (
         <div
+          className="pg-hero-score"
           style={{
-            margin: "0 16px 12px",
-            padding: "8px 16px",
-            fontSize: "var(--t-text-sm)",
-            color: "var(--t-text-muted)",
+            margin: "0 14px 14px",
+            padding: "10px 18px",
+            fontSize: 13,
+            color: PG.textMuted,
             textAlign: "center",
-            borderWidth: 2,
-            borderStyle: "solid",
-            borderTopColor: "var(--t-border-dark)",
-            borderLeftColor: "var(--t-border-dark)",
-            borderBottomColor: "var(--t-border-light)",
-            borderRightColor: "var(--t-border-light)",
-            background: "var(--t-app-bg)",
+            lineHeight: 1.5,
+            fontFamily: "var(--pg-font-ui)",
           }}
         >
           Connectez-vous pour marquer votre territoire dans le classement des nids

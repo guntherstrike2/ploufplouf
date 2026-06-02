@@ -27,6 +27,7 @@ const nextConfig: NextConfig = {
               "img-src 'self' data: blob: https://images.igdb.com",
               "media-src 'self' https://radio.frequencegroove.com",
               "connect-src 'self' https://radio.frequencegroove.com wss: https:",
+              "frame-src https://www.youtube.com",
               "frame-ancestors 'none'",
             ].join("; "),
           },

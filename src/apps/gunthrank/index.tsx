@@ -11,6 +11,7 @@ import { TierRow } from "./components/TierRow";
 import { GameDetailModal } from "./components/GameDetailModal";
 import { OverlayView } from "./components/OverlayView";
 import { CatalogPanel } from "./components/CatalogPanel";
+import { JournalistView } from "./components/JournalistView";
 import { KiffThemeProvider, useKiffTheme } from "./kiff-theme-context";
 import { TIERS, type TierId, type IgdbSearchResult, type RankingEntry } from "./constants";
 import { KIFF_THEMES } from "./kiff-themes";
@@ -116,7 +117,7 @@ function GunthrankAppInner({ windowId }: { windowId: string }) {
   const {
     viewMode,
     devMode, setDevMode,
-    rankings, loading,
+    rankings, allRankings, loading,
     viewedUser,
     availableUsers, fetchAvailableUsers,
     selectUser, goToMyRankings,
@@ -128,10 +129,11 @@ function GunthrankAppInner({ windowId }: { windowId: string }) {
   const [showOverlay, setShowOverlay] = useState(false);
   const [showCatalog, setShowCatalog] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [detailRanking, setDetailRanking] = useState<RankingEntry | null>(null);
   const [recentlyMovedIds, setRecentlyMovedIds] = useState<Set<number>>(new Set());
-  const [viewLayout, setViewLayout] = useState<"list" | "grid">(() => {
-    try { return (localStorage.getItem("gunthrank-view-layout") as "list" | "grid") ?? "list"; } catch { return "list"; }
+  const [viewLayout, setViewLayout] = useState<"list" | "grid" | "journalist">(() => {
+    try { return (localStorage.getItem("gunthrank-view-layout") as "list" | "grid" | "journalist") ?? "list"; } catch { return "list"; }
   });
   const [effectsOn, setEffectsOn] = useState(() => {
     try { return localStorage.getItem("gunthrank-effects") !== "false"; } catch { return true; }
@@ -148,7 +150,7 @@ function GunthrankAppInner({ windowId }: { windowId: string }) {
   };
 
   const toggleViewLayout = () => {
-    const next = viewLayout === "list" ? "grid" : "list";
+    const next = viewLayout === "list" ? "grid" : viewLayout === "grid" ? "journalist" : "list";
     setViewLayout(next);
     try { localStorage.setItem("gunthrank-view-layout", next); } catch { /* noop */ }
   };
@@ -272,6 +274,7 @@ function GunthrankAppInner({ windowId }: { windowId: string }) {
         genres: igdbGame.genres,
         releaseDate: igdbGame.releaseYear,
         summary: igdbGame.summary,
+        videos: igdbGame.videos,
         tier: toTier,
         toIndex,
       });
@@ -289,6 +292,7 @@ function GunthrankAppInner({ windowId }: { windowId: string }) {
           genres: igdbGame.genres,
           releaseDate: igdbGame.releaseYear,
           summary: igdbGame.summary,
+          videos: igdbGame.videos,
         }),
       });
       const { game } = await gameRes.json() as { game: { id: number } };
@@ -495,20 +499,58 @@ function GunthrankAppInner({ windowId }: { windowId: string }) {
                 </div>
                 <div className="flex gap-0.5 mt-0.5">
                   <button
-                    onClick={() => { playClick(); toggleViewLayout(); }}
+                    onClick={() => { playClick(); setViewLayout("list"); try { localStorage.setItem("gunthrank-view-layout", "list"); } catch {} }}
                     className="flex-1 text-center px-1 py-1"
                     style={{
                       fontSize: "var(--t-text-sm)",
-                      background: "var(--t-bg-dark)",
-                      color: "var(--t-text)",
-                      borderTop: "2px solid var(--t-border-light)",
-                      borderLeft: "2px solid var(--t-border-light)",
-                      borderBottom: "2px solid var(--t-border-dark)",
-                      borderRight: "2px solid var(--t-border-dark)",
+                      background: viewLayout === "list" ? "var(--t-accent)" : "var(--t-bg-dark)",
+                      color: viewLayout === "list" ? "#fff" : "var(--t-text)",
+                      borderTop: viewLayout === "list" ? "2px solid var(--t-border-dark)" : "2px solid var(--t-border-light)",
+                      borderLeft: viewLayout === "list" ? "2px solid var(--t-border-dark)" : "2px solid var(--t-border-light)",
+                      borderBottom: viewLayout === "list" ? "2px solid var(--t-border-light)" : "2px solid var(--t-border-dark)",
+                      borderRight: viewLayout === "list" ? "2px solid var(--t-border-light)" : "2px solid var(--t-border-dark)",
                       cursor: "pointer",
+                      fontWeight: viewLayout === "list" ? "bold" : "normal",
                     }}
+                    title="Liste"
                   >
-                    {viewLayout === "list" ? "📋 Liste" : "⊞ Grille"}
+                    📋
+                  </button>
+                  <button
+                    onClick={() => { playClick(); setViewLayout("grid"); try { localStorage.setItem("gunthrank-view-layout", "grid"); } catch {} }}
+                    className="flex-1 text-center px-1 py-1"
+                    style={{
+                      fontSize: "var(--t-text-sm)",
+                      background: viewLayout === "grid" ? "var(--t-accent)" : "var(--t-bg-dark)",
+                      color: viewLayout === "grid" ? "#fff" : "var(--t-text)",
+                      borderTop: viewLayout === "grid" ? "2px solid var(--t-border-dark)" : "2px solid var(--t-border-light)",
+                      borderLeft: viewLayout === "grid" ? "2px solid var(--t-border-dark)" : "2px solid var(--t-border-light)",
+                      borderBottom: viewLayout === "grid" ? "2px solid var(--t-border-light)" : "2px solid var(--t-border-dark)",
+                      borderRight: viewLayout === "grid" ? "2px solid var(--t-border-light)" : "2px solid var(--t-border-dark)",
+                      cursor: "pointer",
+                      fontWeight: viewLayout === "grid" ? "bold" : "normal",
+                    }}
+                    title="Grille"
+                  >
+                    ⊞
+                  </button>
+                  <button
+                    onClick={() => { playClick(); setViewLayout("journalist"); try { localStorage.setItem("gunthrank-view-layout", "journalist"); } catch {} }}
+                    className="flex-1 text-center px-1 py-1"
+                    style={{
+                      fontSize: "var(--t-text-sm)",
+                      background: viewLayout === "journalist" ? "#e63946" : "var(--t-bg-dark)",
+                      color: viewLayout === "journalist" ? "#fff" : "var(--t-text)",
+                      borderTop: viewLayout === "journalist" ? "2px solid var(--t-border-dark)" : "2px solid var(--t-border-light)",
+                      borderLeft: viewLayout === "journalist" ? "2px solid var(--t-border-dark)" : "2px solid var(--t-border-light)",
+                      borderBottom: viewLayout === "journalist" ? "2px solid var(--t-border-light)" : "2px solid var(--t-border-dark)",
+                      borderRight: viewLayout === "journalist" ? "2px solid var(--t-border-light)" : "2px solid var(--t-border-dark)",
+                      cursor: "pointer",
+                      fontWeight: viewLayout === "journalist" ? "bold" : "normal",
+                    }}
+                    title="Kiff+ Magazine"
+                  >
+                    📰
                   </button>
                   <button
                     onClick={toggleEffects}
@@ -541,9 +583,9 @@ function GunthrankAppInner({ windowId }: { windowId: string }) {
                   style={{ fontSize: "calc(var(--t-text-xs) * 0.9)", color: "var(--t-text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}
                 >
                   Filtres
-                  {(filters.platform || filters.genre || filters.year) && (
+                  {(filters.platform || filters.genre || filters.year || searchQuery) && (
                     <button
-                      onClick={() => { playClick(); setFilters({ platform: null, genre: null, year: null, tiers: [] }); }}
+                      onClick={() => { playClick(); setFilters({ platform: null, genre: null, year: null, tiers: [] }); setSearchQuery(""); }}
                       style={{
                         fontSize: "calc(var(--t-text-xs) * 0.8)",
                         background: "var(--t-error)",
@@ -557,6 +599,26 @@ function GunthrankAppInner({ windowId }: { windowId: string }) {
                     </button>
                   )}
                 </div>
+                <input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Chercher un jeu..."
+                  className="w-full px-2 py-1"
+                  style={{
+                    fontSize: "var(--t-text-sm)",
+                    background: "var(--t-app-bg)",
+                    color: "var(--t-text)",
+                    borderTop: "2px solid var(--t-border-dark)",
+                    borderLeft: "2px solid var(--t-border-dark)",
+                    borderBottom: "2px solid var(--t-border-light)",
+                    borderRight: "2px solid var(--t-border-light)",
+                  }}
+                />
+                {searchQuery && (
+                  <div style={{ fontSize: "calc(var(--t-text-xs) * 0.85)", color: "var(--t-text-muted)", marginTop: 1, paddingLeft: 2 }}>
+                    {rankings.filter((r) => r.game?.name?.toLowerCase().includes(searchQuery.toLowerCase())).length} trouvé{rankings.filter((r) => r.game?.name?.toLowerCase().includes(searchQuery.toLowerCase())).length >= 2 ? "s" : ""}
+                  </div>
+                )}
                 <select
                   value={filters.platform ?? ""}
                   onChange={(e) => { playClick(); setFilters({ ...filters, platform: e.target.value || null }); }}
@@ -656,6 +718,14 @@ function GunthrankAppInner({ windowId }: { windowId: string }) {
           {sidebarCollapsed && (
             <div className="flex flex-col items-center gap-1.5" style={{ marginTop: 8 }}>
               <button
+                onClick={() => { playClick(); setSidebarCollapsed(false); }}
+                title="Chercher dans le classement"
+                style={{
+                  fontSize: "var(--t-text-md)", background: "none", border: "none", cursor: "pointer",
+                  color: searchQuery ? "var(--t-accent)" : "var(--t-text-muted)",
+                }}
+              >🔍</button>
+              <button
                 onClick={() => { playClick(); goToMyRankings(); }}
                 title="Mon classement"
                 style={{
@@ -665,9 +735,9 @@ function GunthrankAppInner({ windowId }: { windowId: string }) {
               >👤</button>
               <button
                 onClick={() => { playClick(); toggleViewLayout(); }}
-                title={viewLayout === "list" ? "Passer en Grille" : "Passer en Liste"}
-                style={{ fontSize: "var(--t-text-md)", background: "none", border: "none", cursor: "pointer", color: "var(--t-text-muted)" }}
-              >{viewLayout === "list" ? "⊞" : "📋"}</button>
+                title={viewLayout === "list" ? "Grille" : viewLayout === "grid" ? "Kiff+ Magazine" : "Liste"}
+                style={{ fontSize: "var(--t-text-md)", background: "none", border: "none", cursor: "pointer", color: viewLayout === "journalist" ? "#e63946" : "var(--t-text-muted)" }}
+              >{viewLayout === "list" ? "⊞" : viewLayout === "grid" ? "📰" : "📋"}</button>
             </div>
           )}
         </div>
@@ -706,9 +776,28 @@ function GunthrankAppInner({ windowId }: { windowId: string }) {
                 Chargement...
               </span>
             </div>
+          ) : viewLayout === "journalist" ? (
+            <JournalistView
+              rankings={rankings}
+              allRankingsForKiff={allRankings}
+              readOnly={readOnly}
+              searchQuery={searchQuery}
+              onDetailClick={setDetailRanking}
+            />
           ) : (
             TIERS.reduce<{ offset: number; rows: React.ReactNode[] }>((acc, tier) => {
-              const tierGames = rankings.filter((r) => r.tier === tier.id);
+              const tierLayout: "list" | "grid" = viewLayout as "list" | "grid";
+              const q = searchQuery.trim().toLowerCase();
+              const tierGames = rankings.filter((r) => {
+                if (r.tier !== tier.id) return false;
+                if (q && r.game?.name && !r.game.name.toLowerCase().includes(q)) return false;
+                return true;
+              });
+              // Hide tiers with no matches when searching
+              if (q && tierGames.length === 0) {
+                if (["diamond", "gold", "silver", "bronze"].includes(tier.id)) acc.offset += 0;
+                return acc;
+              }
               const isNumbered = ["diamond", "gold", "silver", "bronze"].includes(tier.id);
               const row = (
                 <TierRow
@@ -716,7 +805,7 @@ function GunthrankAppInner({ windowId }: { windowId: string }) {
                   tier={tier}
                   games={tierGames}
                   readOnly={readOnly}
-                  viewLayout={viewLayout}
+                  viewLayout={tierLayout}
                   recentlyMovedIds={recentlyMovedIds}
                   onDrop={handleMoveGame}
                   onAddFromCatalog={handleAddFromCatalog}
