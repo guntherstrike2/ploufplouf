@@ -392,26 +392,6 @@ export function drawLauncher(ctx: CanvasRenderingContext2D, s: GameState, aimAng
   ctx.restore();
 }
 
-// Brindilles pixel art pré-définies (offset x relatif au centre, offset y, angle 0/1/2)
-// On dessine des segments de 1px de large en diagonale pour simuler des brindilles
-const TWIG_SEGS = [
-  // bord gauche — brindilles qui dépassent
-  { sx: -38, sy: 4,  ex: -24, ey: -2 },
-  { sx: -36, sy: 8,  ex: -20, ey:  2 },
-  { sx: -34, sy: 2,  ex: -22, ey:  8 },
-  { sx: -30, sy: -2, ex: -14, ey:  4 },
-  // bord droit — brindilles qui dépassent
-  { sx:  38, sy: 4,  ex:  24, ey: -2 },
-  { sx:  36, sy: 8,  ex:  20, ey:  2 },
-  { sx:  34, sy: 2,  ex:  22, ey:  8 },
-  { sx:  30, sy: -2, ex:  14, ey:  4 },
-  // bord bas — brindilles horizontales
-  { sx: -28, sy: 10, ex: -12, ey: 10 },
-  { sx: -10, sy: 12, ex:  10, ey: 12 },
-  { sx:  12, sy: 10, ex:  28, ey: 10 },
-  { sx: -22, sy: 8,  ex: -4,  ey: 11 },
-  { sx:   4, sy: 11, ex:  22, ey:  8 },
-] as const;
 
 function drawTwig(ctx: CanvasRenderingContext2D, cx: number, cy: number, sx: number, sy: number, ex: number, ey: number, color: string): void {
   const steps = Math.max(Math.abs(ex - sx), Math.abs(ey - sy));
@@ -433,113 +413,157 @@ function drawNest(
   flash: boolean,
   animClock: number,
 ): void {
-  const { egg: eggColor, eggHi: eggHiColor } = style;
-  // cy = centre vertical du nid
-  // Le nid est une cuvette en U — plus large que haut
-  const nestW = w + 10;     // légèrement plus large que le bucket
-  const nestH = Math.round(h * 0.75);
-  const nestBot = Math.round(cy + h * 0.5);   // bas du nid
-  const nestTop = nestBot - nestH;             // haut des bords
-  const nestMid = nestBot - Math.round(nestH * 0.3); // fond du creux
+  cx = Math.round(cx);
+  const nW = w + 16;
+  const nH = Math.round(h * 1.95);
+  const bot = Math.round(cy + h * 0.5);
+  const top = bot - nH;
 
-  // ── Ombre portée ────────────────────────────────────────────────────────────
-  ctx.fillStyle = "rgba(0,0,0,0.30)";
-  for (let i = 0; i < 4; i++) {
-    const inset = i;
-    ctx.fillRect(Math.round(cx - nestW / 2) + inset + 3, nestBot + i, nestW - inset * 2 - 3, 1);
+  // ── Ombre portée ──────────────────────────────────────────────────────────
+  for (let i = 0; i < 6; i++) {
+    const sw = nW + 4 - i * 2;
+    ctx.fillStyle = `rgba(0,0,0,${(0.24 - i * 0.038).toFixed(3)})`;
+    ctx.fillRect(cx - Math.round(sw / 2), bot + i, sw, 1);
   }
 
-  // ── Corps du nid — couches de brindilles entrelacées ────────────────────────
-  // On dessine le nid couche par couche du foncé vers le clair
-
-  // Couche de base (la plus foncée — fond du creux)
-  ctx.fillStyle = style.nestDark;
-  // Cuvette U : on dessine la forme avec des lignes horizontales de plus en plus larges
-  for (let row = 0; row < nestH; row++) {
-    const t = row / nestH;
-    // La cuvette s'élargit de 30% au fond à 100% en haut
-    const rowW = Math.round(nestW * (0.3 + 0.7 * t));
-    const rowX = Math.round(cx - rowW / 2);
-    const rowY = nestTop + row;
-    ctx.fillRect(rowX, rowY, rowW, 1);
+  // ── Corps — cuvette U de base (nestDark) ──────────────────────────────────
+  for (let y = top; y < bot; y++) {
+    const t = (y - top) / nH;
+    const rHW = Math.round((nW / 2) * (0.38 + 0.62 * Math.sqrt(t)));
+    ctx.fillStyle = style.nestDark;
+    ctx.fillRect(cx - rHW, y, rHW * 2, 1);
   }
 
-  // Brindilles intermédiaires
+  // ── Croisillons tissés \ (brindilles nestMid) ──────────────────────────────
   ctx.fillStyle = style.nestMid;
-  for (let row = 2; row < nestH - 1; row += 2) {
-    const t = row / nestH;
-    const rowW = Math.round((nestW - 8) * (0.28 + 0.68 * t));
-    const rowX = Math.round(cx - rowW / 2);
-    const rowY = nestTop + row;
-    ctx.fillRect(rowX, rowY, rowW, 1);
+  for (let y = top; y < bot; y++) {
+    const t = (y - top) / nH;
+    const rHW = Math.round((nW / 2) * (0.38 + 0.62 * Math.sqrt(t)));
+    const rX = cx - rHW;
+    for (let x = rX; x < rX + rHW * 2; x++) {
+      if (((x + y) % 7 + 7) % 7 < 2) ctx.fillRect(x, y, 1, 1);
+    }
   }
 
-  // Brindilles claires entrelacées (lignes verticales légères)
+  // ── Croisillons tissés / (brindilles nestLight) ────────────────────────────
   ctx.fillStyle = style.nestLight;
-  for (let col = -Math.floor(nestW / 2) + 4; col < Math.floor(nestW / 2) - 3; col += 5) {
-    const absX = Math.round(cx + col);
-    // hauteur visible de cette colonne dans la cuvette
-    const edgeDist = Math.abs(col) / (nestW / 2);
-    const colTop = nestTop + Math.round(nestH * edgeDist * 0.6);
-    ctx.fillRect(absX, colTop, 1, nestBot - colTop);
+  for (let y = top; y < bot; y++) {
+    const t = (y - top) / nH;
+    const rHW = Math.round((nW / 2) * (0.38 + 0.62 * Math.sqrt(t)));
+    const rX = cx - rHW;
+    for (let x = rX; x < rX + rHW * 2; x++) {
+      if (((x - y + 1000) % 9) < 2) ctx.fillRect(x, y, 1, 1);
+    }
   }
 
-  // Brindilles qui dépassent sur les côtés et en bas — les plus claires
-  for (const seg of TWIG_SEGS) {
-    drawTwig(ctx, cx, nestBot - Math.round(nestH * 0.3), seg.sx, seg.sy, seg.ex, seg.ey, style.nestRim);
-  }
-  // Quelques brindilles accent
-  for (const seg of TWIG_SEGS) {
-    drawTwig(ctx, cx, nestBot - Math.round(nestH * 0.3) - 1, seg.sx - 1, seg.sy - 1, seg.ex - 1, seg.ey - 1, style.nestMid);
+  // ── Rebord — anneau elliptique 3D ─────────────────────────────────────────
+  // Anneau dessiné en scan-lines : pour chaque dy, bras gauche + bras droit
+  // La couleur varie selon dy : plus clair en haut (lumière rasante), sombre en bas
+  const rimRx = nW / 2;
+  const rimRy = 9;
+  const rimThick = 15;
+  const rimCy = top + rimRy;
+
+  for (let dy = -rimRy; dy <= rimRy; dy++) {
+    const y = Math.round(rimCy + dy);
+    const outerHW = Math.round(rimRx * Math.sqrt(Math.max(0, 1 - (dy / rimRy) ** 2)));
+    if (outerHW <= 0) continue;
+    const innerHW = Math.max(0, outerHW - rimThick);
+    const shade = dy < -rimRy * 0.55 ? style.nestRim
+                : dy < rimRy * 0.1   ? style.nestLight
+                                     : style.nestMid;
+    ctx.fillStyle = shade;
+    if (innerHW > 0) {
+      ctx.fillRect(cx - outerHW, y, outerHW - innerHW, 1);
+      ctx.fillRect(cx + innerHW, y, outerHW - innerHW, 1);
+    } else {
+      ctx.fillRect(cx - outerHW, y, outerHW * 2, 1);
+    }
   }
 
-  // Reflet — bord supérieur légèrement plus clair
-  ctx.fillStyle = style.nestRim;
-  ctx.fillRect(Math.round(cx - nestW / 2) + 2, nestTop, Math.round(nestW * 0.35), 1);
-  ctx.fillRect(Math.round(cx + nestW * 0.15), nestTop, Math.round(nestW * 0.35), 1);
+  // ── Brindilles qui dépassent du rebord — organic fringe ───────────────────
+  // Paires gauche (sx/ex négatifs) ; droite = miroir automatique
+  const strayPairs: [number, number, number, number][] = [
+    [-rimRx - 5,  2, -rimRx +  7, -4],
+    [-rimRx - 2,  6, -rimRx + 10,  1],
+    [-rimRx + 2, -3, -rimRx + 15,  3],
+    [-rimRx + 5,  8, -rimRx + 17,  2],
+    [-rimRx + 10,-2, -rimRx + 22,  5],
+    [-rimRx + 14, 9, -rimRx + 24,  3],
+  ];
+  for (const [sx, sy, ex, ey] of strayPairs) {
+    drawTwig(ctx, cx, rimCy, sx, sy, ex, ey, style.nestRim);
+    drawTwig(ctx, cx, rimCy, -sx, sy, -ex, ey, style.nestRim);
+  }
+  for (const [sx, sy, ex, ey] of strayPairs) {
+    drawTwig(ctx, cx, rimCy + 1, sx, sy + 1, ex, ey + 1, style.nestMid);
+    drawTwig(ctx, cx, rimCy + 1, -sx, sy + 1, -ex, ey + 1, style.nestMid);
+  }
 
-  // ── Fond intérieur du creux — zone où repose l'œuf ──────────────────────────
-  const innerW = Math.round(nestW * 0.55);
-  const innerH = Math.round(nestH * 0.4);
+  // ── Creux intérieur — ombre profonde + duvet ──────────────────────────────
+  const cavHW = Math.round(rimRx - rimThick + 2);
+  const cavOpenY = Math.round(rimCy);
+  const cavBot = bot - 2;
+  const cavH = cavBot - cavOpenY;
+
+  for (let row = 0; row < cavH; row++) {
+    const t = row / cavH;
+    ctx.fillStyle = `rgba(0,0,0,${(0.65 - t * 0.3).toFixed(2)})`;
+    ctx.fillRect(cx - cavHW, cavOpenY + row, cavHW * 2, 1);
+  }
+
+  // Duvet — fond sombre progressif
   ctx.fillStyle = style.nestDark;
-  ctx.fillRect(Math.round(cx - innerW / 2), nestMid - innerH + 2, innerW, innerH);
-  // Duvet — quelques pixels plus clairs
+  for (let row = 3; row < cavH - 1; row++) {
+    const t = row / cavH;
+    const lHW = Math.round(cavHW * (0.25 + 0.75 * t));
+    ctx.fillRect(cx - lHW, cavOpenY + row, lHW * 2, 1);
+  }
+  // Granulés mousse
   ctx.fillStyle = style.nestMid;
-  ctx.fillRect(Math.round(cx - innerW / 2) + 2, nestMid - innerH + 4, innerW - 4, innerH - 4);
+  for (let row = 4; row < cavH - 1; row += 2) {
+    const t = row / cavH;
+    const lHW = Math.round(cavHW * (0.2 + 0.7 * t));
+    const lX = cx - lHW;
+    for (let x = lX + 1; x < lX + lHW * 2 - 1; x++) {
+      if ((x + row) % 3 === 0) ctx.fillRect(x, cavOpenY + row, 1, 1);
+    }
+  }
 
-  // ── Œuf ─────────────────────────────────────────────────────────────────────
-  const eggCx = Math.round(cx);
-  const eggCy = nestMid - Math.round(innerH * 0.5);
-  const eggRx = Math.round(innerW * 0.38);
-  const eggRy = Math.round(innerH * 0.62);
+  // ── Œuf — ellipse pixel art avec taper au sommet ──────────────────────────
+  const eggCx = cx;
+  const eggRx = Math.round(cavHW * 0.54);
+  const eggRy = Math.round(cavH * 0.47);
+  const eggCy = cavBot - eggRy - 1;
 
   if (flash) {
-    const glow = 0.65 + 0.35 * Math.sin(animClock * 9);
-    ctx.shadowColor = eggHiColor;
-    ctx.shadowBlur = 12 * glow;
+    const glow = 0.6 + 0.4 * Math.sin(animClock * 9);
+    ctx.shadowColor = style.eggHi;
+    ctx.shadowBlur = 14 * glow;
   }
 
-  // Corps de l'œuf — ellipse pixel art (3 rectangles croisés)
-  ctx.fillStyle = eggColor;
-  ctx.fillRect(eggCx - eggRx + 2, eggCy - eggRy,     eggRx * 2 - 4, eggRy * 2);
-  ctx.fillRect(eggCx - eggRx,     eggCy - eggRy + 2,  eggRx * 2,     eggRy * 2 - 4);
-  ctx.fillRect(eggCx - eggRx + 1, eggCy - eggRy + 1,  eggRx * 2 - 2, eggRy * 2 - 2);
+  ctx.fillStyle = style.egg;
+  for (let dy = -eggRy; dy <= eggRy; dy++) {
+    const topTaper = dy < 0 ? 0.88 : 1.0;
+    const hw = Math.round(eggRx * topTaper * Math.sqrt(Math.max(0, 1 - (dy / eggRy) ** 2)));
+    if (hw <= 0) continue;
+    ctx.fillRect(eggCx - hw, eggCy + dy, hw * 2, 1);
+  }
 
   ctx.shadowBlur = 0;
 
   // Reflet haut-gauche
-  ctx.fillStyle = "rgba(255,255,255,0.65)";
-  ctx.fillRect(eggCx - eggRx + 3, eggCy - eggRy + 2, 4, 1);
-  ctx.fillRect(eggCx - eggRx + 2, eggCy - eggRy + 3, 2, 2);
+  ctx.fillStyle = "rgba(255,255,255,0.72)";
+  ctx.fillRect(eggCx - eggRx + 2, eggCy - eggRy + 1, 4, 1);
+  ctx.fillRect(eggCx - eggRx + 1, eggCy - eggRy + 2, 2, 3);
 
-  // Taches (speckles) de l'œuf
-  const speckle = flash ? "rgba(255,255,255,0.45)" : "rgba(70,40,15,0.38)";
-  ctx.fillStyle = speckle;
-  ctx.fillRect(eggCx - 2,          eggCy - eggRy + 3, 2, 1);
-  ctx.fillRect(eggCx + eggRx - 4,  eggCy - 1,         2, 1);
-  ctx.fillRect(eggCx - eggRx + 3,  eggCy + 2,         1, 2);
-  ctx.fillRect(eggCx + 1,          eggCy + eggRy - 3, 2, 1);
-  ctx.fillRect(eggCx - 1,          eggCy + 1,         1, 1);
+  // Taches (speckles)
+  ctx.fillStyle = flash ? "rgba(255,255,255,0.5)" : "rgba(55,28,8,0.42)";
+  ctx.fillRect(eggCx - 2,         eggCy - eggRy + 4,  2, 1);
+  ctx.fillRect(eggCx + eggRx - 5, eggCy - 2,          2, 1);
+  ctx.fillRect(eggCx - eggRx + 3, eggCy + 2,          1, 2);
+  ctx.fillRect(eggCx + 1,         eggCy + eggRy - 3,  2, 1);
+  ctx.fillRect(eggCx - 1,         eggCy + 2,          1, 1);
 }
 
 export function drawBuckets(ctx: CanvasRenderingContext2D, s: GameState): void {

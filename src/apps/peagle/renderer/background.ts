@@ -1628,6 +1628,30 @@ function drawDuskBg(ctx: CanvasRenderingContext2D, t: number): void {
   ctx.fillRect(0, 15, W, Math.round(GROUND_Y * 0.52));
 }
 
+// Assombrissement progressif avant que le fever mode s'enclenche.
+// progress 0→1 : de plein jour (aucun orange dépensé) à juste avant le seuil fever.
+// Pas de mouvement du soleil — seul le ciel s'assombrit et se teinte de chaud.
+function drawPreFeverDuskOverlay(ctx: CanvasRenderingContext2D, progress: number): void {
+  if (progress < 0.02) return;
+  const t = progress;
+  const t2 = t * t; // ease-in
+
+  // Voile de nuit qui monte doucement depuis le haut
+  const darkA = t2 * 0.44;
+  ctx.fillStyle = `rgba(8,3,30,${darkA.toFixed(3)})`;
+  ctx.fillRect(0, 0, W, H);
+
+  // Lueur orangée/rouge à l'horizon — chaleur du coucher de soleil naissant
+  for (let row = 0; row < 10; row++) {
+    const rt = row / 10;
+    const a = t2 * 0.30 * (1 - rt * rt);
+    if (a < 0.003) continue;
+    const g = Math.round(55 + rt * 50);
+    ctx.fillStyle = `rgba(255,${g},15,${a.toFixed(3)})`;
+    ctx.fillRect(0, GROUND_Y - 100 + row * 11, W, 14);
+  }
+}
+
 // Voile sombre plein-écran : s'assombrit (entering=true) ou s'éclaircit (entering=false).
 function drawDuskFg(ctx: CanvasRenderingContext2D, t: number, entering: boolean): void {
   const fade = entering ? easeInCubic(t) : 1 - easeOutCubic(t);
@@ -1720,7 +1744,7 @@ function getScanlines(): OffCanvas {
 // ─── Composition de la forêt (par frame) ─────────────────────────────────────
 
 function drawForetLayers(
-  ctx: CanvasRenderingContext2D, s: GameState, feverMode: boolean, bg: BgTheme,
+  ctx: CanvasRenderingContext2D, s: GameState, feverMode: boolean, bg: BgTheme, preFeverDusk: number,
 ): void {
   // État de transition fever calculé avant tout — pilote le choix des couches.
   const { t: feverT } = updateFeverTransition(s.animClock, feverMode);
@@ -1843,6 +1867,9 @@ function drawForetLayers(
     } else {
       const sr = sunriseT(s.animClock);
       if (sr < 1) drawSunriseFg(ctx, sr); // lever de soleil de début de niveau
+      // Assombrissement progressif pré-fever : le ciel se voile à mesure qu'on
+      // dépense les oranges (preFeverDusk 0→1 jusqu'au seuil de 3 oranges).
+      if (preFeverDusk > 0.02 && sr >= 1) drawPreFeverDuskOverlay(ctx, preFeverDusk);
     }
   } else if (inDusk) {
     drawDuskFg(ctx, feverT, true); // entrée fever : assombrissement
@@ -1861,12 +1888,13 @@ export function drawBackground(
   s: GameState,
   feverIntensity: number,
   theme: GameTheme,
+  preFeverDusk = 0,
 ): void {
   const feverMode = feverIntensity > 0.3;
 
   if (theme.id === "foret") {
     // Décor forêt : couches procédurales avec parallaxe (lanceur + dérive + shake)
-    drawForetLayers(ctx, s, feverMode, theme.bg);
+    drawForetLayers(ctx, s, feverMode, theme.bg, preFeverDusk);
   } else {
     // Autres thèmes : fond statique unique (blit depuis OffscreenCanvas)
     ctx.drawImage(getStaticBg(feverMode, theme), -BG_PAD, -BG_PAD);
@@ -1875,6 +1903,8 @@ export function drawBackground(
       case "enfer": drawEnferAnimated(ctx, s, feverMode); break;
       case "glace": drawGlaceAnimated(ctx, s, feverMode); break;
     }
+    // Assombrissement progressif pré-fever pour les thèmes non-forêt
+    if (preFeverDusk > 0.02) drawPreFeverDuskOverlay(ctx, preFeverDusk);
   }
 
   // Corps céleste — géré dans drawForetLayers pour la forêt (passe derrière les nuages)

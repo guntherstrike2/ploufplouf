@@ -100,7 +100,7 @@ export function drawHud(
   orangeTotal: number,
   theme: GameTheme,
 ): void {
-  const inFever = orangeLeft > 0 && orangeLeft <= s.effectiveFeverThreshold;
+  const inFever = s.balls > 0 && s.balls <= s.effectiveFeverThreshold;
   const lowBalls = s.balls > 0 && s.balls <= 2;
   const pulse = 0.5 + 0.5 * Math.sin(s.animClock * 6);
   const egg = getActiveBall();

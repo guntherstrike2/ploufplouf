@@ -22,18 +22,25 @@ export function drawFrame(
   opts: RenderOpts,
 ): void {
   const { theme, showHitboxes = false, orangeTotal = 0 } = opts;
-  const inFever = orangeLeft <= s.effectiveFeverThreshold && orangeLeft > 0;
+  const inFever = s.balls > 0 && s.balls <= s.effectiveFeverThreshold;
   const feverIntensity = inFever ? 1 : 0;
   // Intensité visuelle du ralenti dérivée de la vitesse du temps lissée.
   const slowVis = Math.max(0, Math.min(1, (1 - s.timeWarp) / 0.85));
   const inSlowMo = slowVis > 0.08;
+
+  // Progression vers le fever basée sur les œufs dépensés :
+  // 0 = tous les œufs présents, 1 = seuil fever atteint (3 restants).
+  const preFeverDusk =
+    !inFever && s.startBalls > s.effectiveFeverThreshold && s.balls > s.effectiveFeverThreshold
+      ? Math.max(0, Math.min(1, (s.startBalls - s.balls) / (s.startBalls - s.effectiveFeverThreshold)))
+      : 0;
 
   ctx.save();
 
   // Caméra : plus de zoom en fin de niveau, juste le screen shake.
   ctx.translate(s.shakeX, s.shakeY);
 
-  drawBackground(ctx, s, feverIntensity, theme);
+  drawBackground(ctx, s, feverIntensity, theme, preFeverDusk);
   drawImpactRings(ctx, s);   // ondes de choc dans le décor, derrière les pegs
   drawAimLine(ctx, s, aimAngle);
   drawPegs(ctx, s, inFever, feverIntensity, theme);

@@ -141,6 +141,9 @@ export interface GameState {
   turnScoreStart: number;
   orangeLeft: number;
 
+  // Nombre d'œufs au départ du niveau (pour la progression pré-fever)
+  startBalls: number;
+
   // Run modifiers (dérivés des upgrades par makeInitialState)
   runUpgrades: UpgradeId[];
   effectiveBallR: number;

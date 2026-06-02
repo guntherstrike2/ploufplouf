@@ -83,6 +83,7 @@ export function makeInitialState(
     turnScoreStart: 0,
     orangeLeft,
 
+    startBalls: baseBalls,
     runUpgrades: [...upgrades],
     effectiveBallR,
     effectiveFeverThreshold: FEVER_THRESHOLD,

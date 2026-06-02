@@ -109,7 +109,7 @@ export function eagleFace(ctx: CanvasRenderingContext2D, cx: number, cy: number,
 
 // Dérive l'expression depuis l'état de jeu courant.
 export function getFaceMood(s: GameState): FaceMood {
-  const inFever = s.orangeLeft > 0 && s.orangeLeft <= s.effectiveFeverThreshold;
+  const inFever = s.balls > 0 && s.balls <= s.effectiveFeverThreshold;
   const lowBalls = s.balls > 0 && s.balls <= 2;
   const pulse = 0.5 + 0.5 * Math.sin(s.animClock * 6);
   const hitMag = s.hitFreezeFrames;

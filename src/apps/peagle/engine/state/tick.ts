@@ -81,9 +81,9 @@ export function tick(s: GameState): TickResult {
 
   updateBucket(s, timeScale);
 
-  // Pulsation "fièvre" quand il reste peu d'oranges
+  // Pulsation "fièvre" quand il reste peu d'œufs à tirer
   const orangeLeft = s.orangeLeft;
-  const inFever = orangeLeft <= s.effectiveFeverThreshold && orangeLeft > 0;
+  const inFever = s.balls > 0 && s.balls <= s.effectiveFeverThreshold;
   if (inFever) s.feverPulse = (s.feverPulse + 0.08) % (Math.PI * 2);
   else s.feverPulse = 0;
 
@@ -115,7 +115,10 @@ export function tick(s: GameState): TickResult {
   // Fin de tour
   if (s.phase === "firing" && !s.ball) {
     endOfTurn(s, events);
-    return { events, syncUI: true, orangeLeft };
+    // Utilise s.orangeLeft (mis à jour par la physique) plutôt que la variable
+    // capturée avant processBallPhysics — évite un décalage d'1 quand la balle
+    // touche un peg et sort du terrain dans le même tick.
+    return { events, syncUI: true, orangeLeft: s.orangeLeft };
   }
 
   return { events, syncUI: false, orangeLeft };
