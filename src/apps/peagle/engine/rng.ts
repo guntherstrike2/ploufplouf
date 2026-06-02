@@ -34,7 +34,7 @@ export const randRange = (r: Rng, lo: number, hi: number): number => lo + r() * 
 
 /** Entier uniforme dans [lo, hi] (bornes incluses). */
 export const randInt = (r: Rng, lo: number, hi: number): number =>
-  Math.floor(lo + r() * (hi - lo + 1));
+  Math.min(hi, Math.floor(lo + r() * (hi - lo + 1)));
 
 /** Élément au hasard d'un tableau non vide. */
 export const pick = <T>(r: Rng, arr: readonly T[]): T => arr[Math.floor(r() * arr.length)]!;

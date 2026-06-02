@@ -82,12 +82,12 @@ export function processBallPhysics(
     if (b.x - s.effectiveBallR < 0) {
       b.vx = Math.abs(b.vx) * WALL_BOUNCE;
       b.x = s.effectiveBallR;
-      if (step === 0) { events.push({ kind: "sound", id: "wall-bounce" }); s.trauma = Math.min(1, s.trauma + BALANCE.wall.traumaPerHit); b.squash = Math.max(b.squash, Math.min(0.7, speed * 0.05)); }
+      events.push({ kind: "sound", id: "wall-bounce" }); s.trauma = Math.min(1, s.trauma + BALANCE.wall.traumaPerHit); b.squash = Math.max(b.squash, Math.min(0.7, speed * 0.05));
     }
     if (b.x + s.effectiveBallR > W) {
       b.vx = -Math.abs(b.vx) * WALL_BOUNCE;
       b.x = W - s.effectiveBallR;
-      if (step === 0) { events.push({ kind: "sound", id: "wall-bounce" }); s.trauma = Math.min(1, s.trauma + BALANCE.wall.traumaPerHit); b.squash = Math.max(b.squash, Math.min(0.7, speed * 0.05)); }
+      events.push({ kind: "sound", id: "wall-bounce" }); s.trauma = Math.min(1, s.trauma + BALANCE.wall.traumaPerHit); b.squash = Math.max(b.squash, Math.min(0.7, speed * 0.05));
     }
 
     // Pegs — comportement piloté par la table data-driven PEG_KINDS.

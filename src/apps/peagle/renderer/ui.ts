@@ -60,6 +60,20 @@ function drawBirdSkin(ctx: CanvasRenderingContext2D, skin: BirdSprite, cx: numbe
   }
 }
 
+// Gradient caché pour le halo du launcher (re-créé si le ctx change).
+let _haloCtx: CanvasRenderingContext2D | null = null;
+let _haloGrad: CanvasGradient | null = null;
+function getLauncherHalo(ctx: CanvasRenderingContext2D): CanvasGradient {
+  if (_haloCtx !== ctx) {
+    _haloCtx = ctx;
+    const g = ctx.createRadialGradient(0, 0, 2, 0, 0, 42);
+    g.addColorStop(0, "rgba(255,222,120,1)");
+    g.addColorStop(1, "rgba(255,222,120,0)");
+    _haloGrad = g;
+  }
+  return _haloGrad!;
+}
+
 // Aim line cache — computeAimLine is O(steps × pegs) = ~21 000 ops/frame.
 // During aim phase, pegs never change, so we only recompute when angle or hit
 // state changes. hitSerial = count of hit pegs (O(N) but 120 iters ≪ 21 000).
@@ -294,11 +308,11 @@ export function drawLauncher(ctx: CanvasRenderingContext2D, s: GameState, aimAng
 
   // Lueur dorée à la saisie (halo radial, derrière tout)
   if (grab > 0.01) {
-    const g = ctx.createRadialGradient(0, 0, 2, 0, 0, 42);
-    g.addColorStop(0, `rgba(255,222,120,${(0.45 * grab).toFixed(3)})`);
-    g.addColorStop(1, "rgba(255,222,120,0)");
-    ctx.fillStyle = g;
+    ctx.save();
+    ctx.globalAlpha = 0.45 * grab;
+    ctx.fillStyle = getLauncherHalo(ctx);
     ctx.fillRect(-42, -42, 84, 84);
+    ctx.restore();
   }
 
   // Traits de vitesse traînant à l'opposé du mouvement (espace monde, non tourné)

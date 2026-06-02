@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getChannel } from "@/lib/audio/channel";
 import { getContext } from "@/lib/audio/engine";
 import { AudioPlayer } from "@/lib/audio/player";
@@ -67,6 +67,7 @@ export function getMenuBeat(): number {
 export function useMusic(enabled = false) {
   const { init } = useSoundContext();
   const [musicMuted, setMusicMuted] = useState(false);
+  const crossfadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!enabled) return;
@@ -88,6 +89,7 @@ export function useMusic(enabled = false) {
     // L'output de l'analyser reste déconnecté — il est utilisé uniquement pour la lecture
 
     return () => {
+      if (crossfadeTimerRef.current !== null) clearTimeout(crossfadeTimerRef.current);
       _player?.stop();
       _player = null;
       _analyser?.disconnect();
@@ -102,7 +104,9 @@ export function useMusic(enabled = false) {
     if (musicMuted) return;
     const channel = getChannel("peagle-music");
     channel.fadeOut(fadeTime);
-    setTimeout(() => {
+    if (crossfadeTimerRef.current !== null) clearTimeout(crossfadeTimerRef.current);
+    crossfadeTimerRef.current = setTimeout(() => {
+      crossfadeTimerRef.current = null;
       channel.setVolume(0);
       _player?.play(track, { loop: true });
       channel.fadeIn(fadeTime);

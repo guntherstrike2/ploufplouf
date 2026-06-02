@@ -2,9 +2,9 @@ import type { GameState } from "../types";
 
 export function updateParticles(s: GameState, timeScale: number): void {
   s.particles = s.particles.filter(p => {
-    p.x += p.vx; p.y += p.vy;
-    p.vy += 0.12; p.vx *= 0.97;
-    p.life -= 0.03 / p.maxLife;
+    p.x += p.vx * timeScale; p.y += p.vy * timeScale;
+    p.vy += 0.12 * timeScale; p.vx *= Math.pow(0.97, timeScale);
+    p.life -= (0.03 / p.maxLife) * timeScale;
     return p.life > 0;
   });
 

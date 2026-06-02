@@ -944,6 +944,9 @@ function buildStaticBg(feverMode: boolean, bg: BgTheme, themeId: string): OffCan
 function getStaticBg(feverMode: boolean, theme: GameTheme): OffCanvas {
   const key = `${feverMode ? 1 : 0}:${theme.id}`;
   if (_staticBgCache === null || _staticBgKey !== key) {
+    if (typeof OffscreenCanvas !== "undefined" && _staticBgCache instanceof OffscreenCanvas) {
+      (_staticBgCache as OffscreenCanvas & { close(): void }).close();
+    }
     _staticBgCache = buildStaticBg(feverMode, theme.bg, theme.id);
     _staticBgKey   = key;
   }
@@ -1045,7 +1048,8 @@ function buildForetSky(pal: ForetPalette, feverMode: boolean): OffCanvas {
       ctx.fillRect(LX0, GROUND_Y - 115 + row * 10, CW_L, 12);
     }
 
-    // Rayons de soleil baked — cônes lumineux depuis SUN_X/SUN_Y vers la canopée
+    // Rayons de soleil baked — écriture directe dans l'ImageData pour éviter
+    // les ~144 000 appels fillRect individuels que génère la double boucle pixel.
     const sx = SUN_X, sy = SUN_Y;
     const RAY_DEFS = [
       { a: Math.PI * 0.54, hw0: 15, len: 280, alpha: 0.068 },
@@ -1055,6 +1059,11 @@ function buildForetSky(pal: ForetPalette, feverMode: boolean): OffCanvas {
       { a: Math.PI * 0.91, hw0: 16, len: 350, alpha: 0.058 },
       { a: Math.PI * 1.05, hw0: 24, len: 410, alpha: 0.070 },
     ] as const;
+    // getImageData opère en coords canvas physiques (ignorant le translate).
+    // Le translate(LAYER_MARGIN, VPAD) de makeLayerCanvas décale les coords jeu :
+    //   canvas_px = jeu_x + LAYER_MARGIN,  canvas_py = jeu_y + VPAD
+    const imgData = ctx.getImageData(0, 0, CW_L, CH_L);
+    const data = imgData.data;
     for (const ray of RAY_DEFS) {
       const cosA = Math.cos(ray.a), sinA = Math.sin(ray.a);
       const perpX = -sinA, perpY = cosA;
@@ -1066,12 +1075,19 @@ function buildForetSky(pal: ForetPalette, feverMode: boolean): OffCanvas {
         const cy = sy + sinA * d;
         if (cy > GROUND_Y || cy < -VPAD) continue;
         const hw = Math.max(1, Math.round(ray.hw0 * (1 - t * 0.88)));
-        ctx.fillStyle = `rgba(255,235,155,${a.toFixed(3)})`;
         for (let i = -hw; i <= hw; i++) {
-          ctx.fillRect(Math.round(cx + perpX * i), Math.round(cy + perpY * i), 1, 1);
+          const px = Math.round(cx + perpX * i) + LAYER_MARGIN;
+          const py = Math.round(cy + perpY * i) + VPAD;
+          if (px < 0 || px >= CW_L || py < 0 || py >= CH_L) continue;
+          const idx = (py * CW_L + px) * 4;
+          // Blend rgba(255,235,155,a) sur un fond opaque
+          data[idx]!     = Math.round(data[idx]!     + (255 - data[idx]!)     * a);
+          data[idx + 1]! = Math.round(data[idx + 1]! + (235 - data[idx + 1]!) * a);
+          data[idx + 2]! = Math.round(data[idx + 2]! + (155 - data[idx + 2]!) * a);
         }
       }
     }
+    ctx.putImageData(imgData, 0, 0);
   }
   return canvas;
 }

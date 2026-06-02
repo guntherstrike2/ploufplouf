@@ -323,7 +323,7 @@ export function buildLevel(level: number, runSeed = 0): Peg[] {
 
   // Aucun candidat validé : prend le meilleur, ou une grille garantie.
   const pegs = best && best.length >= 12 ? best : fallbackGrid();
-  const rng = mulberry32(baseSeed);
+  const rng = mulberry32(hashSeed(baseSeed, 11));
   assignKinds(rng, pegs, directlyReachable(pegs), diff);
   return pegs;
 }

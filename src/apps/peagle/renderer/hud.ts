@@ -25,6 +25,30 @@ const INK = {
   orange: "#ff9a4c", warn: "#ffc24a",
 } as const;
 
+// ── Gradients cachés (créés une fois par contexte, réutilisés chaque frame) ──
+let _gradCtx: CanvasRenderingContext2D | null = null;
+let _vigGrad: CanvasGradient | null = null;
+let _shadeGrad: CanvasGradient | null = null;
+let _feverGrad: CanvasGradient | null = null;
+
+function ensureHudGrads(ctx: CanvasRenderingContext2D): void {
+  if (_gradCtx === ctx) return;
+  _gradCtx = ctx;
+  const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.28, W / 2, H / 2, H * 0.82);
+  vig.addColorStop(0, "rgba(180,20,20,0)");
+  vig.addColorStop(1, "rgba(200,30,10,1)");
+  _vigGrad = vig;
+  const shade = ctx.createLinearGradient(0, 0, 0, HUD_H + 8);
+  shade.addColorStop(0, "rgba(6,12,4,0.62)");
+  shade.addColorStop(0.65, "rgba(6,12,4,0.22)");
+  shade.addColorStop(1, "rgba(6,12,4,0)");
+  _shadeGrad = shade;
+  const warm = ctx.createLinearGradient(0, 0, 0, HUD_H + 8);
+  warm.addColorStop(0, "rgba(255,120,40,1)");
+  warm.addColorStop(1, "rgba(255,120,40,0)");
+  _feverGrad = warm;
+}
+
 // ── Sprites réutilisés (mêmes recettes que ball.ts / pegs.ts) ────────────────
 
 function eggSprite(ctx: CanvasRenderingContext2D, cx: number, cy: number, st: BallStyle, r: number): void {
@@ -106,36 +130,32 @@ export function drawHud(
   const egg = getActiveBall();
   const face = getFaceMood(s);
 
+  ensureHudGrads(ctx);
+
   ctx.save();
   ctx.imageSmoothingEnabled = false;
 
   // ── Vignette danger : bords rouges pulsants quand il reste 1 ou 2 œufs ──
   if (lowBalls) {
     const vPulse = 0.5 + 0.5 * Math.sin(s.animClock * 7);
-    const vAlpha = 0.22 + 0.18 * vPulse;
-    const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.28, W / 2, H / 2, H * 0.82);
-    vig.addColorStop(0, "rgba(180,20,20,0)");
-    vig.addColorStop(1, `rgba(200,30,10,${vAlpha.toFixed(3)})`);
-    ctx.fillStyle = vig;
+    ctx.save();
+    ctx.globalAlpha = 0.22 + 0.18 * vPulse;
+    ctx.fillStyle = _vigGrad!;
     ctx.fillRect(0, 0, W, H);
+    ctx.restore();
   }
 
   // ── Ombrage : dégradé sans bord qui se fond dans le ciel (pas de panneau) ──
-  const shade = ctx.createLinearGradient(0, 0, 0, HUD_H + 8);
-  shade.addColorStop(0, "rgba(6,12,4,0.62)");
-  shade.addColorStop(0.65, "rgba(6,12,4,0.22)");
-  shade.addColorStop(1, "rgba(6,12,4,0)");
-  ctx.fillStyle = shade;
+  ctx.fillStyle = _shadeGrad!;
   ctx.fillRect(0, 0, W, HUD_H + 8);
 
   // Fever : touche chaude diffuse par-dessus l'ombre (toujours sans bord).
   if (inFever) {
-    const warm = ctx.createLinearGradient(0, 0, 0, HUD_H + 8);
-    const a = 0.12 + 0.12 * pulse;
-    warm.addColorStop(0, `rgba(255,120,40,${a})`);
-    warm.addColorStop(1, "rgba(255,120,40,0)");
-    ctx.fillStyle = warm;
+    ctx.save();
+    ctx.globalAlpha = 0.12 + 0.12 * pulse;
+    ctx.fillStyle = _feverGrad!;
     ctx.fillRect(0, 0, W, HUD_H + 8);
+    ctx.restore();
   }
 
   // ── Tête d'aigle (mascotte façon Doom), à gauche ──
