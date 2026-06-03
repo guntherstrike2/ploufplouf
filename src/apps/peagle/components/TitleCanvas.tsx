@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import {
   EAGLE_BODY,
   EAGLE_WING,
@@ -365,11 +365,15 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, getBeat
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const revealedRef = useRef(false);
   const onRevealRef = useRef(onMenuReveal);
-  onRevealRef.current = onMenuReveal;
   const onImpactRef = useRef(onImpact);
-  onImpactRef.current = onImpact;
   const getBeatRef = useRef(getBeat);
-  getBeatRef.current = getBeat;
+  // Garde les callbacks à jour sans relancer l'effet d'animation. Mutés en
+  // layout-effect (pas pendant le render) pour rester safe en mode concurrent.
+  useLayoutEffect(() => {
+    onRevealRef.current = onMenuReveal;
+    onImpactRef.current = onImpact;
+    getBeatRef.current = getBeat;
+  });
   // Capturé à la création de l'effet — détermine l'état initial, ne change pas.
   const skipIntroRef = useRef(skipIntro);
 

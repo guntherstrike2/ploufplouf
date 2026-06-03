@@ -24,10 +24,12 @@ export function spawnParticles(
     ? PARTICLE_COLORS.orange
     : PARTICLE_COLORS.normal;
 
-  for (let i = 0; i < count; i++) {
-    // Evict oldest particles to stay under the cap
-    if (s.particles.length >= BALANCE.particles.maxCount) s.particles.shift();
+  // Évince les plus anciennes en un seul splice (O(n)) plutôt qu'un shift par
+  // particule (O(n) × count) — évite un pic sur les gros combos.
+  const overflow = s.particles.length + count - BALANCE.particles.maxCount;
+  if (overflow > 0) s.particles.splice(0, overflow);
 
+  for (let i = 0; i < count; i++) {
     const angle = Math.random() * Math.PI * 2;
     const speed = 1.5 + Math.random() * (bomb ? 6 : 3.5);
     const p: Particle = {
@@ -46,8 +48,9 @@ export function spawnParticles(
 // Éclat de feuilles — déclenché sur chaque impact de peg dans la forêt.
 // Feuilles légères qui s'envolent et retombent doucement.
 export function spawnLeafBurst(s: GameState, x: number, y: number, count = 5): void {
+  const overflow = s.particles.length + count - BALANCE.particles.maxCount;
+  if (overflow > 0) s.particles.splice(0, overflow);
   for (let i = 0; i < count; i++) {
-    if (s.particles.length >= BALANCE.particles.maxCount) s.particles.shift();
     const angle = Math.random() * Math.PI * 2;
     const speed = 0.5 + Math.random() * 1.8;
     s.particles.push({

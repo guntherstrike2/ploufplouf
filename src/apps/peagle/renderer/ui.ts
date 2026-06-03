@@ -551,9 +551,17 @@ function drawNest(
   const eggCy = cavBot - eggRy - 1;
 
   if (flash) {
+    // Halo pulsé — faux glow pixel (3 rects concentriques) au lieu de ctx.shadowBlur,
+    // cohérent avec pixelGlow (pegs.ts) / le glow de la balle : ~10× moins cher (pas de passe gaussienne GPU).
     const glow = 0.6 + 0.4 * Math.sin(animClock * 9);
-    ctx.shadowColor = style.eggHi;
-    ctx.shadowBlur = 14 * glow;
+    const gx0 = eggCx - eggRx, gy0 = eggCy - eggRy, gw = eggRx * 2, gh = eggRy * 2;
+    const b = 14 * glow;
+    const b1 = Math.ceil(b * 0.3), b2 = Math.ceil(b * 0.6), b3 = Math.ceil(b);
+    ctx.fillStyle = style.eggHi;
+    ctx.globalAlpha = 0.28; ctx.fillRect(gx0 - b1, gy0 - b1, gw + b1 * 2, gh + b1 * 2);
+    ctx.globalAlpha = 0.13; ctx.fillRect(gx0 - b2, gy0 - b2, gw + b2 * 2, gh + b2 * 2);
+    ctx.globalAlpha = 0.06; ctx.fillRect(gx0 - b3, gy0 - b3, gw + b3 * 2, gh + b3 * 2);
+    ctx.globalAlpha = 1;
   }
 
   ctx.fillStyle = style.egg;
@@ -563,8 +571,6 @@ function drawNest(
     if (hw <= 0) continue;
     ctx.fillRect(eggCx - hw, eggCy + dy, hw * 2, 1);
   }
-
-  ctx.shadowBlur = 0;
 
   // Reflet haut-gauche
   ctx.fillStyle = "rgba(255,255,255,0.72)";

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useState, useMemo, useCallback } from "react";
+import { useRef, useEffect, useState, useMemo, useCallback, memo } from "react";
 import type { RefObject, PointerEvent } from "react";
 import type { UiState } from "../engine/types";
 import { W, H } from "../engine/constants";
@@ -107,7 +107,7 @@ interface GameCanvasProps {
   onOpenDevPanel?: () => void;
 }
 
-export function GameCanvas({
+function GameCanvasComponent({
   canvasRef,
   ui,
   bestScore,
@@ -509,3 +509,7 @@ export function GameCanvas({
     </div>
   );
 }
+
+// Mémoïsé : le parent (PeagleApp) re-render à chaque sync UI, mais GameCanvas
+// ne doit re-render que si ses props changent réellement.
+export const GameCanvas = memo(GameCanvasComponent);

@@ -33,12 +33,17 @@ export function spawnBirds(s: GameState): void {
 }
 
 export function updateBirds(s: GameState, timeScale: number): void {
-  if (s.birds.length === 0) return;
-  s.birds = s.birds.filter(b => {
+  const bs = s.birds;
+  if (bs.length === 0) return;
+  // Compaction in-place (write-index) — pas de réallocation par frame.
+  let w = 0;
+  for (let i = 0; i < bs.length; i++) {
+    const b = bs[i]!;
     b.x += b.vx * timeScale;
     b.wingPhase += b.flap * timeScale;
     // Flottement vertical doux au rythme des ailes → vol plus vivant.
     b.y += Math.sin(b.wingPhase * 0.5) * 0.15 * timeScale;
-    return b.x > -24 && b.x < W + 24;
-  });
+    if (b.x > -24 && b.x < W + 24) bs[w++] = b;
+  }
+  bs.length = w;
 }
