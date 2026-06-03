@@ -15,30 +15,35 @@ const BIRD_TINTS = ["#2a2018", "#1e1810", "#33281a"] as const;
 export function spawnBirds(s: GameState): void {
   if (s.birds.length >= MAX_BIRDS) return;
 
-  const dir   = Math.random() < 0.5 ? 1 : -1;
-  const y     = SKY_TOP + Math.random() * (SKY_BOT - SKY_TOP);
-  const speed = 0.9 + Math.random() * 1.1;
-  const scale = 0.8 + Math.random() * 0.7;
-  const tint  = BIRD_TINTS[Math.floor(Math.random() * BIRD_TINTS.length)]!;
+  const dir   = s.rng() < 0.5 ? 1 : -1;
+  const y     = SKY_TOP + s.rng() * (SKY_BOT - SKY_TOP);
+  const speed = 0.9 + s.rng() * 1.1;
+  const scale = 0.8 + s.rng() * 0.7;
+  const tint  = BIRD_TINTS[Math.floor(s.rng() * BIRD_TINTS.length)]!;
 
   s.birds.push({
     x: dir > 0 ? -16 : W + 16,
     y,
     vx: speed * dir,
-    wingPhase: Math.random() * Math.PI * 2,
-    flap: 0.22 + Math.random() * 0.16,
+    wingPhase: s.rng() * Math.PI * 2,
+    flap: 0.22 + s.rng() * 0.16,
     scale,
     tint,
   });
 }
 
 export function updateBirds(s: GameState, timeScale: number): void {
-  if (s.birds.length === 0) return;
-  s.birds = s.birds.filter(b => {
+  const bs = s.birds;
+  if (bs.length === 0) return;
+  // Compaction in-place (write-index) — pas de réallocation par frame.
+  let w = 0;
+  for (let i = 0; i < bs.length; i++) {
+    const b = bs[i]!;
     b.x += b.vx * timeScale;
     b.wingPhase += b.flap * timeScale;
     // Flottement vertical doux au rythme des ailes → vol plus vivant.
     b.y += Math.sin(b.wingPhase * 0.5) * 0.15 * timeScale;
-    return b.x > -24 && b.x < W + 24;
-  });
+    if (b.x > -24 && b.x < W + 24) bs[w++] = b;
+  }
+  bs.length = w;
 }

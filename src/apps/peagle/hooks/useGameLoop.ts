@@ -255,7 +255,7 @@ export function useGameLoop({
     // Sinon : pression dans la zone de jeu → tir au relâchement
     pressFireRef.current = true;
     mouseRef.current = p;
-  }, [mouseRef]);
+  }, [mouseRef, playGrab]);
 
   const handlePointerMove = useCallback((e: {
     currentTarget: { getBoundingClientRect(): DOMRect }; clientX: number; clientY: number;

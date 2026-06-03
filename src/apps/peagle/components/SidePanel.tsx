@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import "../peagle.css";
 
 // ─── Petit oiseau pixel-art SVG ───────────────────────────────────────────────
@@ -96,7 +97,7 @@ interface SidePanelProps {
   feverMode?: boolean;
 }
 
-export function SidePanel({ side, feverMode = false }: SidePanelProps) {
+function SidePanelComponent({ side, feverMode = false }: SidePanelProps) {
   const trees = side === "left" ? TREES_LEFT : TREES_RIGHT;
   const fireflies = side === "left" ? FIREFLIES_LEFT : FIREFLIES_RIGHT;
 
@@ -250,3 +251,7 @@ export function SidePanel({ side, feverMode = false }: SidePanelProps) {
     </div>
   );
 }
+
+// Décor statique : ne dépend que de `side`/`feverMode`. Mémoïsé pour ne pas
+// re-render à chaque sync UI du parent (les deux panneaux sont lourds en DOM).
+export const SidePanel = memo(SidePanelComponent);

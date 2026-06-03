@@ -1,6 +1,6 @@
 import { W, PEG_R, LAUNCHER_X, LAUNCHER_Y } from "./constants";
 import type { Peg } from "./types";
-import { tHexGrid, tCircle, tArc, tGrid, dedup, makePeg } from "./tableau";
+import { tHexGrid, tCircle, tArc, dedup, makePeg } from "./tableau";
 import { mulberry32, hashSeed, randRange, randInt, shuffle, type Rng } from "./rng";
 import { difficultyFor, type DifficultyParams } from "./difficulty";
 import { computeAimLine } from "./physics";
@@ -81,18 +81,6 @@ function motifDiamond(rng: Rng, a: Area): Peg[] {
     }
   }
   return out;
-}
-
-function motifColumns(rng: Rng, a: Area): Peg[] {
-  const rows = randInt(rng, 8, 12);
-  const cols = randInt(rng, 2, 3);
-  const sx = randInt(rng, 30, 40);
-  const sy = randInt(rng, 38, 52);
-  const y0 = a.y0 + 6;
-  const left = tGrid(a.x0 + 12, y0, cols, rows, sx, sy);
-  const right = left.map(p => makePeg(2 * a.cx - p.x, p.y));
-  const center = tCircle(a.cx, (a.y0 + a.y1) / 2, randInt(rng, 46, 70), randInt(rng, 10, 16));
-  return [...left, ...right, ...center];
 }
 
 function motifWave(rng: Rng, a: Area): Peg[] {

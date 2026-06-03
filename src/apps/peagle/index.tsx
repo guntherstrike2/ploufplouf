@@ -106,7 +106,7 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
   }, [user, scoreSubmitted]);
 
   const handleLevelWon = useCallback(() => {
-    setUpgradeOffer(generateUpgradeOffer(runStateRef.current.upgrades));
+    setUpgradeOffer(generateUpgradeOffer(runStateRef.current.upgrades, runStateRef.current.seed));
   }, []);
 
   const recordBestScore = useCallback((score: number) => {
@@ -235,6 +235,10 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     transitionTo("menu");
   }, [transitionTo]);
 
+  // Callbacks stables passés à GameCanvas (mémoïsé) — évite de casser sa memo.
+  const handleResume = useCallback(() => setPaused(false), []);
+  const handleOpenDevPanel = useCallback(() => setShowDevPanelInGame(true), []);
+
   return (
     <div
       className="flex flex-col h-full select-none"
@@ -303,7 +307,7 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
                 upgradeOfferPending={!!upgradeOffer}
                 paused={paused}
                 musicMuted={musicMuted}
-                onResume={() => setPaused(false)}
+                onResume={handleResume}
                 onToggleMusic={toggleMusic}
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
@@ -313,7 +317,7 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
                 onLeaderboard={handleGoToLeaderboard}
                 onMenu={handleGoToMenu}
                 onSkipLevel={skipLevel}
-                onOpenDevPanel={() => setShowDevPanelInGame(true)}
+                onOpenDevPanel={handleOpenDevPanel}
               />
 
               {upgradeOffer && (

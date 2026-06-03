@@ -30,14 +30,14 @@ function pushEagleHype(s: GameState, x: number, y: number, mult: number): void {
   const words = EAGLE_HYPE[tier]!;
   s.floatingTexts.push({
     x, y,
-    text: words[Math.floor(Math.random() * words.length)]!,
+    text: words[Math.floor(s.rng() * words.length)]!,
     life: 1,
     maxLife: 1.7,
     color: HYPE_COLORS[tier]!,
     combo: true,
     exclaim: true,
     fontSize: Math.min(26, 15 + tier * 2),
-    spin: (Math.random() - 0.5) * 2,
+    spin: (s.rng() - 0.5) * 2,
   });
 }
 
@@ -64,7 +64,7 @@ export function processBallPhysics(
 
   // Finale : étincelles dorées qui s'égrènent derrière l'œuf en pleine plongée
   // vers le panier → traînée scintillante bien satisfaisante.
-  if (s.orangeLeft === 0 && Math.random() < 0.65) {
+  if (s.orangeLeft === 0 && s.rng() < 0.65) {
     spawnParticles(s, b.x, b.y, true, 1);
   }
 
@@ -166,7 +166,7 @@ export function processBallPhysics(
       const popFontSize = Math.min(18, 11 + Math.floor(totalMult * 1.5));
       const textColor = def.isTarget ? "#88ccff" : p.kind === "bumper" ? "#ffcc44" : "#ffffff";
       s.floatingTexts.push({
-        x: p.x + (Math.random() - 0.5) * 20,
+        x: p.x + (s.rng() - 0.5) * 20,
         y: p.y,
         text: totalMult > 1 ? `+${earned} ×${comboMult}` : `+${earned}`,
         life: 1, maxLife: 1,
@@ -207,7 +207,7 @@ export function processBallPhysics(
     } else {
       s.balls += 1;
       s.trauma = Math.min(1, s.trauma + BALANCE.trauma.bucketCatch);
-      s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 14, text: "ŒUF SAUVÉ !", life: 1, maxLife: 1.8, color: "#00ffcc", combo: true, exclaim: true, fontSize: 16, spin: (Math.random() - 0.5) * 1.5 });
+      s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 14, text: "ŒUF SAUVÉ !", life: 1, maxLife: 1.8, color: "#00ffcc", combo: true, exclaim: true, fontSize: 16, spin: (s.rng() - 0.5) * 1.5 });
       events.push({ kind: "sound", id: "victory" });
     }
   }

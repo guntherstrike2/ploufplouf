@@ -5,16 +5,17 @@ import {
 } from "../constants";
 import { buildLevel } from "../levels";
 import { isTarget } from "../peg-kinds";
+import { mulberry32, hashSeed, type Rng } from "../rng";
 import type { GameState, Peg, Star } from "../types";
 import type { RunState } from "../roguelite";
 
-function makeStars(): Star[] {
+function makeStars(rng: Rng): Star[] {
   return Array.from({ length: STAR_COUNT }, () => ({
-    x: Math.random() * W,
-    y: Math.random() * 640,
-    layer: Math.floor(Math.random() * 3) as 0 | 1 | 2,
-    size: 0.4 + Math.random() * 1.4,
-    phase: Math.random() * Math.PI * 2,
+    x: rng() * W,
+    y: rng() * 640,
+    layer: Math.floor(rng() * 3) as 0 | 1 | 2,
+    size: 0.4 + rng() * 1.4,
+    phase: rng() * Math.PI * 2,
   }));
 }
 
@@ -25,6 +26,10 @@ export function makeInitialState(
   prevScore: number,
 ): GameState {
   const { upgrades } = runState;
+
+  // RNG de simulation, déterministe et distinct par niveau. Re-rejouer le même
+  // niveau (même seed) redonne exactement la même partie.
+  const rng = mulberry32(hashSeed(runState.seed, level));
 
   const baseBalls = START_BALLS + (upgrades.includes("extra_ball") ? 1 : 0);
   const effectiveBallR = BALL_R * (upgrades.includes("bigger_ball") ? 1.3 : 1);
@@ -78,7 +83,7 @@ export function makeInitialState(
     launcherGrab: 0,
     launcherHovered: false,
 
-    stars: makeStars(),
+    stars: makeStars(rng),
     birds: [],
     turnScoreStart: 0,
     orangeLeft,
@@ -91,5 +96,7 @@ export function makeInitialState(
     effectivePegBounce,
 
     forestSeed: (runState.seed ^ 0xf0e5741b) >>> 0,
+
+    rng,
   };
 }

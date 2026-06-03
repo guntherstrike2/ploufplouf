@@ -1,3 +1,5 @@
+import { mulberry32, hashSeed, shuffle } from "./rng";
+
 // ─── Roguelite layer ─────────────────────────────────────────────────────────
 // Squelette minimal : une seule boucle "clear le niveau → choisis une amélioration".
 // POINT D'EXTENSION PRINCIPAL : ajoute tes idées d'upgrades ici.
@@ -58,9 +60,13 @@ export function parseSeed(s: string): number {
 
 // ─── Génération de l'offre d'upgrade (entre deux niveaux) ────────────────────
 
-/** Renvoie jusqu'à 3 upgrades non encore possédées, tirées au hasard. */
-export function generateUpgradeOffer(existing: UpgradeId[]): UpgradeId[] {
+/** Renvoie jusqu'à 3 upgrades non encore possédées, tirées au hasard.
+ *  Déterministe : à seed de partie identique, la Nième offre est toujours la
+ *  même (équité leaderboard / partage de seed). Utilise un mélange Fisher-Yates
+ *  seedé plutôt qu'un `sort(() => Math.random() - 0.5)` (non-déterministe ET biaisé). */
+export function generateUpgradeOffer(existing: UpgradeId[], seed: number): UpgradeId[] {
   const notOwned = (Object.keys(UPGRADES) as UpgradeId[]).filter(id => !existing.includes(id));
-  const shuffled = [...notOwned].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, 3);
+  // Le pas dans la partie = nombre d'upgrades déjà acquises → graine distincte par offre.
+  const rng = mulberry32(hashSeed(seed, existing.length));
+  return shuffle(rng, notOwned).slice(0, 3);
 }

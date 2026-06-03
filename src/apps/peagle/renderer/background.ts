@@ -46,7 +46,6 @@ type MidTreeDef  = {
   x: number; h: number; w: number; type: "oak" | "pine" | "shrub";
   trunkCol: string; leafDark: string; leafMid: string; leafHi: string;
 };
-type BroadLeafDef = { x: number; base: number; size: number; lean: number };
 
 const LEAF_COLS = ["#4ab832", "#7acc44", "#aadd22", "#c4cc22", "#88bb33", "#55cc44"] as const;
 
@@ -232,37 +231,6 @@ function drawRectPine(
     ctx.fillRect(tx - hw + 1, tierBotY - 2, hw * 2 - 2, 3);
     ctx.fillRect(tx + hw - 2, tierTopY + 2, 2, tierH - 4);
   }
-}
-
-// Champignon pixel (chapeau rouge à pois blancs)
-function drawMushroom(ctx: Ctx2D, cx: number, baseY: number, size: number): void {
-  const stemH = Math.max(3, Math.round(size * 0.65));
-  const capR  = size;
-  ctx.fillStyle = "#e0c898";
-  ctx.fillRect(Math.round(cx - 1), baseY - stemH, 2, stemH);
-  for (let dy = 0; dy <= capR; dy++) {
-    const t  = dy / capR;
-    const hw = Math.round(capR * Math.sin(t * Math.PI * 0.5) * 1.5);
-    if (hw === 0) continue;
-    ctx.fillStyle = dy < Math.round(capR * 0.35) ? "#dd4433" : "#cc3322";
-    ctx.fillRect(Math.round(cx - hw), baseY - stemH - capR + dy, hw * 2, 1);
-  }
-  ctx.fillStyle = "rgba(255,255,255,0.72)";
-  ctx.fillRect(Math.round(cx - 2), baseY - stemH - capR + 2, 2, 2);
-  if (capR > 5) ctx.fillRect(Math.round(cx + 2), baseY - stemH - capR + 4, 1, 1);
-}
-
-// Fleur pixel — tige verte + 4 pétales + cœur jaune
-function drawFlower(ctx: Ctx2D, cx: number, baseY: number, color: string): void {
-  ctx.fillStyle = "#3a8030";
-  ctx.fillRect(Math.round(cx), baseY - 5, 1, 5);
-  ctx.fillStyle = color;
-  ctx.fillRect(Math.round(cx - 1), baseY - 7, 3, 1);
-  ctx.fillRect(Math.round(cx - 1), baseY - 5, 3, 1);
-  ctx.fillRect(Math.round(cx - 2), baseY - 6, 1, 1);
-  ctx.fillRect(Math.round(cx + 2), baseY - 6, 1, 1);
-  ctx.fillStyle = "#ffee88";
-  ctx.fillRect(Math.round(cx), baseY - 6, 1, 1);
 }
 
 // Triangle de montagne (utilisé pour Enfer)
@@ -915,7 +883,7 @@ function buildStaticBg(feverMode: boolean, bg: BgTheme, themeId: string): OffCan
   if (themeId !== "enfer") {
     ctx.fillStyle = feverMode ? bg.subGroundColorFever : bg.subGroundColor;
     for (let gx = -BG_PAD; gx < W + BG_PAD; gx += 4) {
-      const h = 2 + (Math.round(gx * 7 + gx * 3) % 5);
+      const h = 2 + (Math.abs((gx >> 2) * 13 + 7) % 5);
       ctx.fillRect(gx, GROUND_Y - h, 2, h);
     }
     ctx.fillStyle = feverMode ? bg.subGroundColorFever : bg.subGroundColor;
@@ -1442,7 +1410,7 @@ function buildForetGround(feverMode: boolean, bg: BgTheme, seed: number): OffCan
     }
   } else {
     for (let gx = LX0; gx < RX1; gx += 4) {
-      const h = 2 + (Math.round(gx * 7 + gx * 3) % 5);
+      const h = 2 + (Math.abs((gx >> 2) * 13 + 7) % 5);
       ctx.fillStyle = bg.subGroundColorFever;
       ctx.fillRect(gx, GROUND_Y - h, 2, h);
     }
@@ -1455,54 +1423,9 @@ function buildForetGround(feverMode: boolean, bg: BgTheme, seed: number): OffCan
   return canvas;
 }
 
-// Grande feuille large (avant-plan forêt) — tige + limbe elliptique incliné
-function drawBroadLeaf(ctx: Ctx2D, cx: number, baseY: number, size: number, color: string, hi: string, lean: number): void {
-  const stemH = Math.max(8, Math.round(size * 0.36));
-  const tipX  = Math.round(cx + lean * stemH * 0.55);
-
-  // Tige diagonale
-  for (let dy = 0; dy < stemH; dy++) {
-    ctx.fillStyle = color;
-    ctx.fillRect(Math.round(cx + lean * dy * 0.55), baseY - dy, 1, 1);
-  }
-
-  // Limbe : ellipse aplatie qui s'élargit puis se rétrécit vers la pointe
-  const bladeH  = Math.round(size * 0.65);
-  const maxHw   = Math.max(4, Math.round(size * 0.22));
-  for (let dy = 0; dy < bladeH; dy++) {
-    const t  = dy / bladeH;
-    const hw = Math.round(maxHw * Math.sin(t * Math.PI));
-    if (hw === 0) continue;
-    const bx = tipX + Math.round(lean * (1 - t) * bladeH * 0.12);
-    ctx.fillStyle = t < 0.22 ? hi : color;
-    ctx.fillRect(bx - hw, baseY - stemH - dy, hw * 2, 1);
-  }
-}
-
-// Canvas statique : arches de racines seulement. Feuilles dessinées par frame (vent).
-function buildForetForeLayer(feverMode: boolean, seed: number): { canvas: OffCanvas; broadLeaves: BroadLeafDef[] } {
+// Canvas statique : arches de racines seulement.
+function buildForetForeLayer(feverMode: boolean): { canvas: OffCanvas } {
   const { canvas, ctx } = makeLayerCanvas();
-  const rnd = makePrng(seed);
-
-  // Positions aléatoires des feuilles — même consommation PRNG qu'avant
-  const anchors = [
-    LX0 + 6,
-    LX0 + 95 + Math.floor(rnd() * 55),
-    Math.round(W * 0.24 + rnd() * (W * 0.08)),
-    Math.round(W * 0.44 + rnd() * (W * 0.06)),
-    Math.round(W * 0.56 + rnd() * (W * 0.06)),
-    Math.round(W * 0.72 + rnd() * (W * 0.06)),
-    RX1 - 110 + Math.floor(rnd() * 55),
-    RX1 - 10,
-  ];
-  const broadLeaves: BroadLeafDef[] = [];
-  for (const ax of anchors) {
-    const size = 58 + Math.floor(rnd() * 52);
-    const lean = (rnd() - 0.5) * 1.6;
-    const base = GROUND_Y + 8 + Math.floor(rnd() * 14);
-    broadLeaves.push({ x: ax, base, size, lean });
-    // Pas de drawBroadLeaf ici — dessin par frame dans drawForetLayers
-  }
 
   // Arches de racines : statiques, ne bougent pas avec le vent
   if (!feverMode) {
@@ -1522,7 +1445,7 @@ function buildForetForeLayer(feverMode: boolean, seed: number): { canvas: OffCan
     }
   }
 
-  return { canvas, broadLeaves };
+  return { canvas };
 }
 
 // Position du soleil — doit coïncider avec drawCelestialBody (mode jour).
@@ -1718,7 +1641,6 @@ interface ForetCacheEntry {
   leaves:      AmbientLeaf[];
   fireflies:   FireflyItem[];
   midTrees:    MidTreeDef[];
-  broadLeaves: BroadLeafDef[];
 }
 
 let _foretCache: ForetCacheEntry | null = null;
@@ -1730,7 +1652,7 @@ function getForetLayers(feverMode: boolean, bg: BgTheme, seed: number): ForetCac
     const leaves     = generateLeaves(seed ^ 0x1eaf7a11);
     const fireflies  = generateFireflies(seed ^ 0x10f1f111);
     const midResult  = buildForetMidLayer(feverMode, seed ^ 0xbada55e1);
-    const foreResult = buildForetForeLayer(feverMode, seed ^ 0x4fe7a033);
+    const foreResult = buildForetForeLayer(feverMode);
     const layers: ForetLayer[] = [
       { canvas: buildForetSky(pal, feverMode),                      parallax: 0,    shakeF: 0.10, drift: 0, tiled: false },
       { canvas: buildForetClouds(pal, seed ^ 0x5eed1234),           parallax: 0.04, shakeF: 0.10, drift: 5, tiled: true  },
@@ -1740,7 +1662,7 @@ function getForetLayers(feverMode: boolean, bg: BgTheme, seed: number): ForetCac
       { canvas: buildForetGround(feverMode, bg, seed ^ 0x60077a55), parallax: 0,    shakeF: 1.00, drift: 0, tiled: false },
       { canvas: foreResult.canvas,                                   parallax: 0.70, shakeF: 1.00, drift: 0, tiled: false },
     ];
-    _foretCache = { key, layers, pal, leaves, fireflies, midTrees: midResult.trees, broadLeaves: foreResult.broadLeaves };
+    _foretCache = { key, layers, pal, leaves, fireflies, midTrees: midResult.trees };
   }
   return _foretCache;
 }
@@ -1770,14 +1692,11 @@ function drawForetLayers(
   // éviter que le ciel change instantanément dès le 1er frame de fever.
   const effectiveFeverMode = inDusk ? !feverMode : feverMode;
   const cache = getForetLayers(effectiveFeverMode, bg, s.forestSeed);
-  const { layers, leaves, fireflies, midTrees, broadLeaves } = cache;
+  const { layers, leaves, fireflies, midTrees } = cache;
   const launchDelta = Math.max(-PARALLAX_CLAMP, Math.min(PARALLAX_CLAMP, s.launcherX - W / 2));
-
-  const leafWind = Math.sin(s.animClock * 0.60) * 0.14 + Math.sin(s.animClock * 1.08) * 0.07;
 
   // Offsets sauvegardés pour les passes animées post-boucle
   let midEx = 0, midEy = 0, midTy = 0;
-  let fgEx  = 0, fgEy  = 0, fgTy  = 0;
 
   for (let i = 0; i < layers.length; i++) {
     const L  = layers[i]!;
@@ -1790,7 +1709,6 @@ function drawForetLayers(
     const ty = i === 0 ? 0 : Math.round((1 - spring) * (LAYER_INTRO_OFFSETS[i - 1] ?? 0));
 
     if (i === 4) { midEx = ex; midEy = ey; midTy = ty; }
-    if (i === 6) { fgEx  = ex; fgEy  = ey; fgTy  = ty; }
 
     // Soleil / lune après le ciel (i=0), avant les nuages (i=1)
     if (i === 1) {

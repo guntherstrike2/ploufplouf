@@ -24,20 +24,22 @@ export function spawnParticles(
     ? PARTICLE_COLORS.orange
     : PARTICLE_COLORS.normal;
 
-  for (let i = 0; i < count; i++) {
-    // Evict oldest particles to stay under the cap
-    if (s.particles.length >= BALANCE.particles.maxCount) s.particles.shift();
+  // Évince les plus anciennes en un seul splice (O(n)) plutôt qu'un shift par
+  // particule (O(n) × count) — évite un pic sur les gros combos.
+  const overflow = s.particles.length + count - BALANCE.particles.maxCount;
+  if (overflow > 0) s.particles.splice(0, overflow);
 
-    const angle = Math.random() * Math.PI * 2;
-    const speed = 1.5 + Math.random() * (bomb ? 6 : 3.5);
+  for (let i = 0; i < count; i++) {
+    const angle = s.rng() * Math.PI * 2;
+    const speed = 1.5 + s.rng() * (bomb ? 6 : 3.5);
     const p: Particle = {
       x, y,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed - (bomb ? 2 : 1),
       life: 1,
-      maxLife: 0.6 + Math.random() * (bomb ? 1.2 : 0.6),
-      color: colors[Math.floor(Math.random() * colors.length)]!,
-      size: 2 + Math.random() * (bomb ? 5 : 3),
+      maxLife: 0.6 + s.rng() * (bomb ? 1.2 : 0.6),
+      color: colors[Math.floor(s.rng() * colors.length)]!,
+      size: 2 + s.rng() * (bomb ? 5 : 3),
     };
     s.particles.push(p);
   }
@@ -46,18 +48,19 @@ export function spawnParticles(
 // Éclat de feuilles — déclenché sur chaque impact de peg dans la forêt.
 // Feuilles légères qui s'envolent et retombent doucement.
 export function spawnLeafBurst(s: GameState, x: number, y: number, count = 5): void {
+  const overflow = s.particles.length + count - BALANCE.particles.maxCount;
+  if (overflow > 0) s.particles.splice(0, overflow);
   for (let i = 0; i < count; i++) {
-    if (s.particles.length >= BALANCE.particles.maxCount) s.particles.shift();
-    const angle = Math.random() * Math.PI * 2;
-    const speed = 0.5 + Math.random() * 1.8;
+    const angle = s.rng() * Math.PI * 2;
+    const speed = 0.5 + s.rng() * 1.8;
     s.particles.push({
       x, y,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed - 1.4,
       life: 1,
-      maxLife: 0.9 + Math.random() * 1.1,
-      color: LEAF_COLORS[Math.floor(Math.random() * LEAF_COLORS.length)]!,
-      size: 2 + Math.random() * 2.5,
+      maxLife: 0.9 + s.rng() * 1.1,
+      color: LEAF_COLORS[Math.floor(s.rng() * LEAF_COLORS.length)]!,
+      size: 2 + s.rng() * 2.5,
     });
   }
 }
