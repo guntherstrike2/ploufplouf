@@ -1,5 +1,5 @@
 import {
-  BALL_R, FEVER_THRESHOLD, AIM_LINE_STEPS, PEG_BOUNCE,
+  BALL_R, CLUTCH_THRESHOLD, AIM_LINE_STEPS, PEG_BOUNCE,
   W, BUCKET_W, BUCKET_SPEED, START_BALLS, STAR_COUNT, LAUNCHER_X,
   PEG_REVEAL_START, PEG_REVEAL_STRIDE, PEG_REVEAL_ANIM_DUR,
 } from "../constants";
@@ -65,7 +65,7 @@ export function makeInitialState(
     particles: [],
     floatingTexts: [],
     impactRings: [],
-    feverPulse: 0,
+    clutchPulse: 0,
     animClock: 0,
     trauma: 0,
     shakeX: 0,
@@ -91,7 +91,7 @@ export function makeInitialState(
     startBalls: baseBalls,
     runUpgrades: [...upgrades],
     effectiveBallR,
-    effectiveFeverThreshold: FEVER_THRESHOLD,
+    effectiveClutchThreshold: CLUTCH_THRESHOLD,
     effectiveAimSteps,
     effectivePegBounce,
 

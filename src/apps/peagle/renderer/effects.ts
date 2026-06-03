@@ -210,11 +210,11 @@ export function drawSlowMoOverlay(ctx: CanvasRenderingContext2D, s: GameState, i
   ctx.restore();
 }
 
-export function drawScreenFlash(ctx: CanvasRenderingContext2D, s: GameState, inFever: boolean, theme: GameTheme): void {
+export function drawScreenFlash(ctx: CanvasRenderingContext2D, s: GameState, inClutch: boolean, theme: GameTheme): void {
   if (s.flashWhite <= 0) return;
   ctx.save();
   ctx.globalAlpha = Math.max(0, s.flashWhite * 0.36);
-  ctx.fillStyle = inFever ? theme.flash.fever : theme.flash.normal;
+  ctx.fillStyle = inClutch ? theme.flash.clutch : theme.flash.normal;
   ctx.fillRect(0, 0, W, H);
   ctx.restore();
 }

@@ -117,17 +117,17 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     });
   }, []);
 
-  const { musicMuted, toggleMusic, fadeOutAndRestart, fadeToGameTrack, fadeToFeverTrack, getBeat } = useMusic(screen !== "loading");
+  const { musicMuted, toggleMusic, fadeOutAndRestart, fadeToGameTrack, fadeToClutchTrack, getBeat } = useMusic(screen !== "loading");
 
   // Transitions musicales fever : détecte l'entrée en fever pour démarrer le fever track,
   // et revient au game track dès que le fever se termine (pegs orange tous touchés ou niveau perdu).
-  const prevInFeverRef = useRef(false);
-  const inFever = screen === "game" && ui.orangeLeft > 0 && ui.orangeLeft <= 3;
+  const prevInClutchRef = useRef(false);
+  const inClutch = screen === "game" && ui.orangeLeft > 0 && ui.orangeLeft <= 3;
   useEffect(() => {
-    if (screen !== "game") { prevInFeverRef.current = false; return; }
-    if (inFever && !prevInFeverRef.current) fadeToFeverTrack();
-    prevInFeverRef.current = inFever;
-  }, [inFever, screen, fadeToFeverTrack]);
+    if (screen !== "game") { prevInClutchRef.current = false; return; }
+    if (inClutch && !prevInClutchRef.current) fadeToClutchTrack();
+    prevInClutchRef.current = inClutch;
+  }, [inClutch, screen, fadeToClutchTrack]);
 
   const handleUiSync = useCallback((uiState: UiState) => setUi(uiState), []);
   const handleOrangeTotalChange = useCallback((total: number) => setUi(u => ({ ...u, orangeTotal: total })), []);
@@ -292,7 +292,7 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
 
         {/* Layout responsive : vertical (mobile) ou horizontal (16/9+) */}
         <div className="pg-game-layout peagle-root" style={{ flex: 1, overflow: "hidden", alignItems: "stretch" }}>
-          <SidePanel side="left" feverMode={ui.balls > 0 && ui.balls <= 3} />
+          <SidePanel side="left" clutchMode={ui.balls > 0 && ui.balls <= 3} />
 
           <div className="pg-canvas-area">
             <div style={{ position: "relative", flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -332,7 +332,7 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
             </div>
           </div>
 
-          <SidePanel side="right" feverMode={ui.balls > 0 && ui.balls <= 3} />
+          <SidePanel side="right" clutchMode={ui.balls > 0 && ui.balls <= 3} />
         </div>
       </div>
 

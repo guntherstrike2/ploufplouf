@@ -74,10 +74,10 @@ function hexAlpha(hex: string, a: number): string {
   return v;
 }
 
-function drawOrangePeg(ctx: CanvasRenderingContext2D, p: Peg, r: number, inFever: boolean, feverIntensity: number, t: PegTheme): void {
+function drawOrangePeg(ctx: CanvasRenderingContext2D, p: Peg, r: number, inClutch: boolean, clutchIntensity: number, t: PegTheme): void {
   if (!p.hit) {
-    if (inFever) {
-      pixelSquare(ctx, p.x, p.y, r, t.orangeFever, t.orangeGlow, t.orangeDark, t.orangeGlow, 14 + feverIntensity * 14);
+    if (inClutch) {
+      pixelSquare(ctx, p.x, p.y, r, t.orangeClutch, t.orangeGlow, t.orangeDark, t.orangeGlow, 14 + clutchIntensity * 14);
     } else {
       pixelSquare(ctx, p.x, p.y, r, t.orange, t.orangeHi, t.orangeDark, hexAlpha(t.orange, 0.4), 5);
     }
@@ -108,7 +108,7 @@ function drawBumperPeg(ctx: CanvasRenderingContext2D, p: Peg, r: number, t: PegT
   ctx.fillRect(cx - 1, cy - 1, 2, 2);
 }
 
-export function drawPegs(ctx: CanvasRenderingContext2D, s: GameState, inFever: boolean, feverIntensity: number, theme: GameTheme): void {
+export function drawPegs(ctx: CanvasRenderingContext2D, s: GameState, inClutch: boolean, clutchIntensity: number, theme: GameTheme): void {
   const t = theme.peg;
   ctx.imageSmoothingEnabled = false;
 
@@ -138,12 +138,12 @@ export function drawPegs(ctx: CanvasRenderingContext2D, s: GameState, inFever: b
       }
     }
 
-    const pulseExtra = inFever && p.kind === "orange" && !p.hit ? Math.sin(s.feverPulse * 2) * 1.5 : 0;
+    const pulseExtra = inClutch && p.kind === "orange" && !p.hit ? Math.sin(s.clutchPulse * 2) * 1.5 : 0;
     const r = (PEG_R + pulseExtra) * p.scale;
 
     if (p.popping) ctx.globalAlpha = p.popAlpha;
 
-    if (p.kind === "orange") drawOrangePeg(ctx, p, r, inFever, feverIntensity, t);
+    if (p.kind === "orange") drawOrangePeg(ctx, p, r, inClutch, clutchIntensity, t);
     else if (p.kind === "bumper") drawBumperPeg(ctx, p, r, t);
     else drawNormalPeg(ctx, p, r, t);
 

@@ -83,9 +83,9 @@ export function tick(s: GameState): TickResult {
 
   // Pulsation "fièvre" quand il reste peu d'œufs à tirer
   const orangeLeft = s.orangeLeft;
-  const inFever = s.balls > 0 && s.balls <= s.effectiveFeverThreshold;
-  if (inFever) s.feverPulse = (s.feverPulse + 0.08) % (Math.PI * 2);
-  else s.feverPulse = 0;
+  const inClutch = s.balls > 0 && s.balls <= s.effectiveClutchThreshold;
+  if (inClutch) s.clutchPulse = (s.clutchPulse + 0.08) % (Math.PI * 2);
+  else s.clutchPulse = 0;
 
   // Screen shake
   if (s.trauma > 0) s.trauma = Math.max(0, s.trauma - TRAUMA_DECAY);

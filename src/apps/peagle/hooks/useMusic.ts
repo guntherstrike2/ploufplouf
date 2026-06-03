@@ -15,9 +15,9 @@ let _beatPulse = 0;  // sortie lissée [0..1]
 
 const MENU_TRACK  = "/sounds/peagle-theme.mp3";
 const GAME_TRACK  = "/sounds/peagle-track1.mp3";
-const FEVER_TRACK = "/sounds/fever-track.mp3";
+const CLUTCH_TRACK = "/sounds/fever-track.mp3";
 const FADE = 0.35;
-const FEVER_FADE = 0.18; // transition plus courte pour l'effet "coup de théâtre"
+const CLUTCH_FADE = 0.18; // transition plus courte pour l'effet "coup de théâtre"
 
 // Détection de beat par flux spectral — appelé chaque frame depuis TitleCanvas.
 //
@@ -115,7 +115,7 @@ export function useMusic(enabled = false) {
 
   const fadeOutAndRestart  = useCallback(() => crossfadeTo(MENU_TRACK), [crossfadeTo]);
   const fadeToGameTrack    = useCallback(() => crossfadeTo(GAME_TRACK), [crossfadeTo]);
-  const fadeToFeverTrack   = useCallback(() => crossfadeTo(FEVER_TRACK, FEVER_FADE), [crossfadeTo]);
+  const fadeToClutchTrack   = useCallback(() => crossfadeTo(CLUTCH_TRACK, CLUTCH_FADE), [crossfadeTo]);
 
   const toggleMusic = useCallback(() => {
     setMusicMuted(prev => {
@@ -125,5 +125,5 @@ export function useMusic(enabled = false) {
     });
   }, []);
 
-  return { musicMuted, toggleMusic, fadeOutAndRestart, fadeToGameTrack, fadeToFeverTrack, getBeat: getMenuBeat };
+  return { musicMuted, toggleMusic, fadeOutAndRestart, fadeToGameTrack, fadeToClutchTrack, getBeat: getMenuBeat };
 }

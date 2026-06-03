@@ -94,18 +94,18 @@ const FIREFLIES_RIGHT = [
 
 interface SidePanelProps {
   side: "left" | "right";
-  feverMode?: boolean;
+  clutchMode?: boolean;
 }
 
-function SidePanelComponent({ side, feverMode = false }: SidePanelProps) {
+function SidePanelComponent({ side, clutchMode = false }: SidePanelProps) {
   const trees = side === "left" ? TREES_LEFT : TREES_RIGHT;
   const fireflies = side === "left" ? FIREFLIES_LEFT : FIREFLIES_RIGHT;
 
-  const skyTop = feverMode ? "#08061e" : "#122010";
-  const skyBot = feverMode ? "#120840" : "#1c3412";
-  const leafTint = feverMode ? "#060818" : undefined;
-  const fireflyColor = feverMode ? "#cc66ff" : "#aaff44";
-  const fireflyGlow = feverMode ? "rgba(180,80,255,0.5)" : "rgba(100,255,30,0.5)";
+  const skyTop = clutchMode ? "#08061e" : "#122010";
+  const skyBot = clutchMode ? "#120840" : "#1c3412";
+  const leafTint = clutchMode ? "#060818" : undefined;
+  const fireflyColor = clutchMode ? "#cc66ff" : "#aaff44";
+  const fireflyGlow = clutchMode ? "rgba(180,80,255,0.5)" : "rgba(100,255,30,0.5)";
 
   return (
     <div
@@ -171,7 +171,7 @@ function SidePanelComponent({ side, feverMode = false }: SidePanelProps) {
       }}>
         {/* Soleil ou lune en haut */}
         <div style={{ paddingTop: 18, paddingBottom: 8, flexShrink: 0, display: "flex", justifyContent: "center" }}>
-          {feverMode ? (
+          {clutchMode ? (
             /* Lune */
             <div style={{
               width: 18, height: 18, position: "relative",
@@ -225,19 +225,19 @@ function SidePanelComponent({ side, feverMode = false }: SidePanelProps) {
         {/* Sol */}
         <div style={{
           position: "absolute", bottom: 0, left: 0, right: 0, height: 18,
-          background: feverMode ? "#080820" : "#2e7820",
+          background: clutchMode ? "#080820" : "#2e7820",
         }} />
         {/* Herbe pixel */}
         {Array.from({ length: 14 }).map((_, i) => (
           <div key={i} style={{
             position: "absolute", bottom: 16, left: i * 11 + (side === "right" ? 2 : 0), width: 2, height: 2 + (i % 3),
-            background: feverMode ? "#1a1a4a" : "#44cc30",
+            background: clutchMode ? "#1a1a4a" : "#44cc30",
           }} />
         ))}
         {/* Brume sol */}
         <div style={{
           position: "absolute", bottom: 12, left: -5, right: -5, height: 18,
-          background: feverMode
+          background: clutchMode
             ? "radial-gradient(ellipse 90% 100% at 50% 100%, rgba(60,40,140,0.3) 0%, transparent 70%)"
             : "radial-gradient(ellipse 90% 100% at 50% 100%, rgba(30,80,15,0.35) 0%, transparent 70%)",
           filter: "blur(5px)",
@@ -252,6 +252,6 @@ function SidePanelComponent({ side, feverMode = false }: SidePanelProps) {
   );
 }
 
-// Décor statique : ne dépend que de `side`/`feverMode`. Mémoïsé pour ne pas
+// Décor statique : ne dépend que de `side`/`clutchMode`. Mémoïsé pour ne pas
 // re-render à chaque sync UI du parent (les deux panneaux sont lourds en DOM).
 export const SidePanel = memo(SidePanelComponent);

@@ -118,7 +118,7 @@ export interface GameState {
   particles: Particle[];
   floatingTexts: FloatingText[];
   impactRings: ImpactRing[];
-  feverPulse: number;
+  clutchPulse: number;
   animClock: number;
   trauma: number;
   shakeX: number;
@@ -148,7 +148,7 @@ export interface GameState {
   // Run modifiers (dérivés des upgrades par makeInitialState)
   runUpgrades: UpgradeId[];
   effectiveBallR: number;
-  effectiveFeverThreshold: number;
+  effectiveClutchThreshold: number;
   effectiveAimSteps: number;
   effectivePegBounce: number;
 

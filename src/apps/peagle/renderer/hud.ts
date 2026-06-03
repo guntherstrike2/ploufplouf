@@ -29,7 +29,7 @@ const INK = {
 let _gradCtx: CanvasRenderingContext2D | null = null;
 let _vigGrad: CanvasGradient | null = null;
 let _shadeGrad: CanvasGradient | null = null;
-let _feverGrad: CanvasGradient | null = null;
+let _clutchGrad: CanvasGradient | null = null;
 
 function ensureHudGrads(ctx: CanvasRenderingContext2D): void {
   if (_gradCtx === ctx) return;
@@ -46,7 +46,7 @@ function ensureHudGrads(ctx: CanvasRenderingContext2D): void {
   const warm = ctx.createLinearGradient(0, 0, 0, HUD_H + 8);
   warm.addColorStop(0, "rgba(255,120,40,1)");
   warm.addColorStop(1, "rgba(255,120,40,0)");
-  _feverGrad = warm;
+  _clutchGrad = warm;
 }
 
 // ── Sprites réutilisés (mêmes recettes que ball.ts / pegs.ts) ────────────────
@@ -67,10 +67,10 @@ function eggSprite(ctx: CanvasRenderingContext2D, cx: number, cy: number, st: Ba
   ctx.fillRect(bx - r + 1, by - r + 1, 1, 2);
 }
 
-function pegSprite(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, t: PegTheme, fever: boolean): void {
+function pegSprite(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, t: PegTheme, clutch: boolean): void {
   const s = Math.round(r * 2), x = Math.round(cx - r), y = Math.round(cy - r);
-  const fill = fever ? t.orangeFever : t.orange;
-  const hi   = fever ? t.orangeGlow : t.orangeHi;
+  const fill = clutch ? t.orangeClutch : t.orange;
+  const hi   = clutch ? t.orangeGlow : t.orangeHi;
   ctx.fillStyle = fill; ctx.fillRect(x, y, s, s);
   ctx.fillStyle = hi; ctx.fillRect(x, y, s, 1); ctx.fillRect(x, y, 1, s);
   ctx.fillStyle = t.orangeDark; ctx.fillRect(x, y + s - 1, s, 1); ctx.fillRect(x + s - 1, y, 1, s);
@@ -124,7 +124,7 @@ export function drawHud(
   orangeTotal: number,
   theme: GameTheme,
 ): void {
-  const inFever = s.balls > 0 && s.balls <= s.effectiveFeverThreshold;
+  const inClutch = s.balls > 0 && s.balls <= s.effectiveClutchThreshold;
   const lowBalls = s.balls > 0 && s.balls <= 2;
   const pulse = 0.5 + 0.5 * Math.sin(s.animClock * 6);
   const egg = getActiveBall();
@@ -150,10 +150,10 @@ export function drawHud(
   ctx.fillRect(0, 0, W, HUD_H + 8);
 
   // Fever : touche chaude diffuse par-dessus l'ombre (toujours sans bord).
-  if (inFever) {
+  if (inClutch) {
     ctx.save();
     ctx.globalAlpha = 0.12 + 0.12 * pulse;
-    ctx.fillStyle = _feverGrad!;
+    ctx.fillStyle = _clutchGrad!;
     ctx.fillRect(0, 0, W, HUD_H + 8);
     ctx.restore();
   }
@@ -171,9 +171,9 @@ export function drawHud(
 
   // ── CIBLES (sprite peg orange) ──
   label(ctx, "CIBLES", HX + 244, LABEL_Y);
-  pegSprite(ctx, HX + 249, VALUE_Y, 5, theme.peg, inFever);
+  pegSprite(ctx, HX + 249, VALUE_Y, 5, theme.peg, inClutch);
   value(ctx, `${orangeLeft}/${orangeTotal}`, HX + 258, VALUE_Y, 15,
-    inFever ? INK.orange : INK.cream, inFever);
+    inClutch ? INK.orange : INK.cream, inClutch);
 
   // ── ŒUFS (icône œuf + compteur) ──
   label(ctx, "ŒUFS", HX + 346, LABEL_Y);

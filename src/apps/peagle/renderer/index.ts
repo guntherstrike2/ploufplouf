@@ -22,17 +22,17 @@ export function drawFrame(
   opts: RenderOpts,
 ): void {
   const { theme, showHitboxes = false, orangeTotal = 0 } = opts;
-  const inFever = s.balls > 0 && s.balls <= s.effectiveFeverThreshold;
-  const feverIntensity = inFever ? 1 : 0;
+  const inClutch = s.balls > 0 && s.balls <= s.effectiveClutchThreshold;
+  const clutchIntensity = inClutch ? 1 : 0;
   // Intensité visuelle du ralenti dérivée de la vitesse du temps lissée.
   const slowVis = Math.max(0, Math.min(1, (1 - s.timeWarp) / 0.85));
   const inSlowMo = slowVis > 0.08;
 
   // Progression vers le fever basée sur les œufs dépensés :
   // 0 = tous les œufs présents, 1 = seuil fever atteint (3 restants).
-  const preFeverDusk =
-    !inFever && s.startBalls > s.effectiveFeverThreshold && s.balls > s.effectiveFeverThreshold
-      ? Math.max(0, Math.min(1, (s.startBalls - s.balls) / (s.startBalls - s.effectiveFeverThreshold)))
+  const preClutchDusk =
+    !inClutch && s.startBalls > s.effectiveClutchThreshold && s.balls > s.effectiveClutchThreshold
+      ? Math.max(0, Math.min(1, (s.startBalls - s.balls) / (s.startBalls - s.effectiveClutchThreshold)))
       : 0;
 
   ctx.save();
@@ -40,10 +40,10 @@ export function drawFrame(
   // Caméra : plus de zoom en fin de niveau, juste le screen shake.
   ctx.translate(s.shakeX, s.shakeY);
 
-  drawBackground(ctx, s, feverIntensity, theme, preFeverDusk);
+  drawBackground(ctx, s, clutchIntensity, theme, preClutchDusk);
   drawImpactRings(ctx, s);   // ondes de choc dans le décor, derrière les pegs
   drawAimLine(ctx, s, aimAngle);
-  drawPegs(ctx, s, inFever, feverIntensity, theme);
+  drawPegs(ctx, s, inClutch, clutchIntensity, theme);
   drawParticles(ctx, s);
 
   if (s.ball?.active) drawBall(ctx, s.ball, inSlowMo, orangeLeft === 0);
@@ -56,7 +56,7 @@ export function drawFrame(
 
   drawSlowMoOverlay(ctx, s, slowVis);
   drawBezel(ctx);
-  drawScreenFlash(ctx, s, inFever, theme);
+  drawScreenFlash(ctx, s, inClutch, theme);
 
   // HUD façon mobile : enseigne in-canvas, par-dessus tout sauf le flash écran
   if (s.phase !== "lost" && s.phase !== "won") {

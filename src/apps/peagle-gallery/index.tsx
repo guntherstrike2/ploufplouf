@@ -25,7 +25,7 @@ function drawPegPreview(ctx: CanvasRenderingContext2D, p: PegTheme, w: number, h
   const cy = h / 2, r = 8;
   bevelSquare(ctx, w * 0.25, cy, r, p.normal, p.normalHi, p.normalDark);
   bevelSquare(ctx, w * 0.5, cy, r, p.orange, p.orangeHi, p.orangeDark);
-  bevelSquare(ctx, w * 0.75, cy, r, p.orangeFever, p.orangeGlow, p.orangeDark);
+  bevelSquare(ctx, w * 0.75, cy, r, p.orangeClutch, p.orangeGlow, p.orangeDark);
 }
 
 function drawBirdPreview(ctx: CanvasRenderingContext2D, sprite: BirdSprite, w: number, h: number) {

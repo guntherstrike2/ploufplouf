@@ -109,19 +109,19 @@ export function eagleFace(ctx: CanvasRenderingContext2D, cx: number, cy: number,
 
 // Dérive l'expression depuis l'état de jeu courant.
 export function getFaceMood(s: GameState): FaceMood {
-  const inFever = s.balls > 0 && s.balls <= s.effectiveFeverThreshold;
+  const inClutch = s.balls > 0 && s.balls <= s.effectiveClutchThreshold;
   const lowBalls = s.balls > 0 && s.balls <= 2;
   const pulse = 0.5 + 0.5 * Math.sin(s.animClock * 6);
   const hitMag = s.hitFreezeFrames;
   const justHit = hitMag > 0;
   const burst = hitMag >= 8;
   return {
-    blink: !justHit && !inFever && (s.animClock % 3.2) < 0.12,
-    open: inFever ? 0.45 + 0.4 * pulse : justHit ? (burst ? 1 : 0.55) : 0,
-    brow: inFever ? "angry" : burst ? "angry" : lowBalls ? "up" : "flat",
-    eyeRed: inFever,
+    blink: !justHit && !inClutch && (s.animClock % 3.2) < 0.12,
+    open: inClutch ? 0.45 + 0.4 * pulse : justHit ? (burst ? 1 : 0.55) : 0,
+    brow: inClutch ? "angry" : burst ? "angry" : lowBalls ? "up" : "flat",
+    eyeRed: inClutch,
     wide: justHit,
-    look: justHit || inFever ? 0 : Math.sin(s.animClock * 0.6) * 1.2,
+    look: justHit || inClutch ? 0 : Math.sin(s.animClock * 0.6) * 1.2,
     pop: Math.min(1, hitMag / 9),
   };
 }

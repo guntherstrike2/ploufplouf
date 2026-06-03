@@ -69,7 +69,7 @@ function generateFireflies(seed: number): FireflyItem[] {
   }));
 }
 
-const FEVER_STARS = [
+const CLUTCH_STARS = [
   { x: 30,  y: 20,  s: 2 }, { x: 80,  y: 45,  s: 1 }, { x: 130, y: 15,  s: 2 },
   { x: 190, y: 55,  s: 1 }, { x: 240, y: 25,  s: 2 }, { x: 300, y: 50,  s: 1 },
   { x: 350, y: 18,  s: 2 }, { x: 410, y: 40,  s: 1 }, { x: 455, y: 22,  s: 2 },
@@ -309,10 +309,10 @@ function drawIceCrystal(ctx: Ctx2D, cx: number, baseY: number, h: number, color:
 // ─── ABÎME — éléments statiques ──────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════
 
-function drawAbimeStaticLayers(ctx: Ctx2D, feverMode: boolean): void {
+function drawAbimeStaticLayers(ctx: Ctx2D, clutchMode: boolean): void {
   // Nébuleuses
   for (const neb of ABIME_NEBULAS) {
-    const mult = feverMode ? 1.8 : 1;
+    const mult = clutchMode ? 1.8 : 1;
     ctx.fillStyle = `rgba(${neb.r},${neb.g},${neb.b},${(neb.a * mult).toFixed(3)})`;
     ctx.fillRect(neb.x, neb.y, neb.w, neb.h);
     ctx.fillStyle = `rgba(${neb.r},${neb.g},${neb.b},${(neb.a * 0.6 * mult).toFixed(3)})`;
@@ -323,7 +323,7 @@ function drawAbimeStaticLayers(ctx: Ctx2D, feverMode: boolean): void {
   }
 
   // Planète
-  drawAbimePlanet(ctx, feverMode);
+  drawAbimePlanet(ctx, clutchMode);
 
   // Champ d'étoiles de base (les scintillements sont animés par-dessus)
   ctx.globalAlpha = 0.72;
@@ -334,13 +334,13 @@ function drawAbimeStaticLayers(ctx: Ctx2D, feverMode: boolean): void {
   ctx.globalAlpha = 1;
 }
 
-function drawAbimePlanet(ctx: Ctx2D, feverMode: boolean): void {
+function drawAbimePlanet(ctx: Ctx2D, clutchMode: boolean): void {
   const cx = W - 74, cy = 68, r = 18;
 
   // Halo d'atmosphère
   for (let ar = r + 7; ar > r; ar--) {
     const alpha = (ar - r - 1) * 0.014;
-    ctx.fillStyle = feverMode
+    ctx.fillStyle = clutchMode
       ? `rgba(0,80,200,${alpha})`
       : `rgba(80,30,160,${alpha})`;
     for (let dy = -ar; dy <= ar; dy++) {
@@ -355,7 +355,7 @@ function drawAbimePlanet(ctx: Ctx2D, feverMode: boolean): void {
     const hw = Math.round(Math.sqrt(Math.max(0, r * r - dy * dy)));
     if (hw === 0) continue;
     const t = (dy + r) / (r * 2);
-    ctx.fillStyle = feverMode
+    ctx.fillStyle = clutchMode
       ? (t < 0.35 ? "#00336a" : t < 0.65 ? "#002255" : "#001133")
       : (t < 0.35 ? "#7733bb" : t < 0.65 ? "#551199" : "#330066");
     ctx.fillRect(cx - hw, cy + dy, hw * 2, 1);
@@ -365,12 +365,12 @@ function drawAbimePlanet(ctx: Ctx2D, feverMode: boolean): void {
   for (let dy = 1; dy <= 4; dy++) {
     const hw = Math.round(Math.sqrt(Math.max(0, r * r - dy * dy)));
     if (hw < 2) continue;
-    ctx.fillStyle = feverMode ? "rgba(0,60,130,0.38)" : "rgba(160,80,255,0.30)";
+    ctx.fillStyle = clutchMode ? "rgba(0,60,130,0.38)" : "rgba(160,80,255,0.30)";
     ctx.fillRect(cx - hw, cy + dy, hw * 2, 1);
   }
 
   // Highlight
-  ctx.fillStyle = feverMode ? "rgba(100,180,255,0.58)" : "rgba(220,190,255,0.62)";
+  ctx.fillStyle = clutchMode ? "rgba(100,180,255,0.58)" : "rgba(220,190,255,0.62)";
   ctx.fillRect(cx - r + 4, cy - r + 4, 6, 2);
   ctx.fillRect(cx - r + 4, cy - r + 5, 2, 3);
 
@@ -379,7 +379,7 @@ function drawAbimePlanet(ctx: Ctx2D, feverMode: boolean): void {
   for (let dx = -rw; dx <= rw; dx++) {
     if (Math.abs(dx) < r - 3) continue;
     const ovalDy = Math.round(4 * Math.sqrt(Math.max(0, 1 - (dx / rw) ** 2)));
-    ctx.fillStyle = feverMode ? "rgba(0,80,180,0.44)" : "rgba(150,100,220,0.44)";
+    ctx.fillStyle = clutchMode ? "rgba(0,80,180,0.44)" : "rgba(150,100,220,0.44)";
     ctx.fillRect(cx + dx, cy + ovalDy, 1, 1);
     if (ovalDy > 0) ctx.fillRect(cx + dx, cy - ovalDy, 1, 1);
   }
@@ -387,7 +387,7 @@ function drawAbimePlanet(ctx: Ctx2D, feverMode: boolean): void {
 
 // ─── ABÎME — animation par frame ─────────────────────────────────────────────
 
-function drawAbimeAnimated(ctx: CanvasRenderingContext2D, s: GameState, feverMode: boolean): void {
+function drawAbimeAnimated(ctx: CanvasRenderingContext2D, s: GameState, clutchMode: boolean): void {
   // Scintillement des étoiles
   for (let i = 0; i < ABIME_STARS.length; i++) {
     const st = ABIME_STARS[i]!;
@@ -427,8 +427,8 @@ function drawAbimeAnimated(ctx: CanvasRenderingContext2D, s: GameState, feverMod
 
   // Pulsation douce de la planète
   const pulse = 0.85 + 0.15 * Math.sin(s.animClock * 0.7);
-  ctx.globalAlpha = pulse * (feverMode ? 0.10 : 0.06);
-  ctx.fillStyle = feverMode ? "#004488" : "#6622aa";
+  ctx.globalAlpha = pulse * (clutchMode ? 0.10 : 0.06);
+  ctx.fillStyle = clutchMode ? "#004488" : "#6622aa";
   ctx.fillRect(W - 96, 46, 50, 50);
   ctx.globalAlpha = 1;
 }
@@ -437,14 +437,14 @@ function drawAbimeAnimated(ctx: CanvasRenderingContext2D, s: GameState, feverMod
 // ─── ENFER — éléments statiques ──────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════
 
-function drawEnferMountains(ctx: Ctx2D, feverMode: boolean): void {
+function drawEnferMountains(ctx: Ctx2D, clutchMode: boolean): void {
   // Colonnnes de feu lointaines (halo dans le fond)
   const fireX = [50, 140, 240, 340, 440] as const;
   for (const fx of fireX) {
     for (let dy = 0; dy < 180; dy++) {
       const t = dy / 180;
       const fw = Math.round(20 * (1 - t * 0.7));
-      const a  = (1 - t) * (feverMode ? 0.11 : 0.065);
+      const a  = (1 - t) * (clutchMode ? 0.11 : 0.065);
       ctx.fillStyle = `rgba(255,${80 - Math.round(50 * t)},0,${a.toFixed(3)})`;
       ctx.fillRect(((fx - fw / 2) | 0), GROUND_Y - dy, fw, 2);
     }
@@ -455,40 +455,40 @@ function drawEnferMountains(ctx: Ctx2D, feverMode: boolean): void {
     for (const m of ENFER_MOUNTAINS) {
       if (m.layer !== layer) continue;
       const color = layer === 0
-        ? (feverMode ? "#1a0800" : "#3a1008")
-        : (feverMode ? "#0e0400" : "#220600");
+        ? (clutchMode ? "#1a0800" : "#3a1008")
+        : (clutchMode ? "#0e0400" : "#220600");
       drawMountain(ctx, m.x, m.peakY, GROUND_Y, m.bw, color);
     }
   }
 }
 
-function drawEnferGroundDetails(ctx: Ctx2D, feverMode: boolean): void {
+function drawEnferGroundDetails(ctx: Ctx2D, clutchMode: boolean): void {
   // Stalactites de lave accrochées au plafond
   for (const st of ENFER_STALACTITES) {
     drawStalactite(ctx, st.x, st.bw, st.len,
-      feverMode ? "#1a0600" : "#2a0c04",
-      feverMode ? "#441008" : "#661408",
+      clutchMode ? "#1a0600" : "#2a0c04",
+      clutchMode ? "#441008" : "#661408",
     );
     // Lueur au bout
-    ctx.fillStyle = feverMode ? "rgba(255,80,0,0.5)" : "rgba(200,50,0,0.35)";
+    ctx.fillStyle = clutchMode ? "rgba(255,80,0,0.5)" : "rgba(200,50,0,0.35)";
     ctx.fillRect(st.x - 1, st.len - 3, 3, 4);
   }
 
   // Fissures de lave dans le sol
   for (const c of ENFER_LAVA_CRACKS) {
-    ctx.fillStyle = feverMode ? "rgba(255,180,0,0.72)" : "rgba(255,100,0,0.55)";
+    ctx.fillStyle = clutchMode ? "rgba(255,180,0,0.72)" : "rgba(255,100,0,0.55)";
     ctx.fillRect(c.x, GROUND_Y - 1, c.len, 2);
-    ctx.fillStyle = feverMode ? "rgba(255,220,50,0.38)" : "rgba(255,200,0,0.28)";
+    ctx.fillStyle = clutchMode ? "rgba(255,220,50,0.38)" : "rgba(255,200,0,0.28)";
     ctx.fillRect(c.x, GROUND_Y - 2, c.len, 1);
     ctx.fillRect(c.x, GROUND_Y + 1, c.len, 1);
-    ctx.fillStyle = feverMode ? "rgba(255,100,0,0.18)" : "rgba(200,50,0,0.12)";
+    ctx.fillStyle = clutchMode ? "rgba(255,100,0,0.18)" : "rgba(200,50,0,0.12)";
     ctx.fillRect(c.x - 2, GROUND_Y - 3, c.len + 4, 6);
   }
 }
 
 // ─── ENFER — animation par frame ─────────────────────────────────────────────
 
-function drawEnferAnimated(ctx: CanvasRenderingContext2D, s: GameState, feverMode: boolean): void {
+function drawEnferAnimated(ctx: CanvasRenderingContext2D, s: GameState, clutchMode: boolean): void {
   // Braises qui montent
   for (let i = 0; i < ENFER_EMBERS.length; i++) {
     const e = ENFER_EMBERS[i]!;
@@ -500,10 +500,10 @@ function drawEnferAnimated(ctx: CanvasRenderingContext2D, s: GameState, feverMod
     const x     = Math.round((e.x + drift + W * 3) % W);
     const twink = 0.4 + 0.6 * Math.abs(Math.sin(s.animClock * 2.2 + i * 0.8));
 
-    ctx.globalAlpha = twink * (feverMode ? 0.85 : 0.55);
+    ctx.globalAlpha = twink * (clutchMode ? 0.85 : 0.55);
     ctx.fillStyle = e.col;
     ctx.fillRect(x, y, 2, 2);
-    ctx.globalAlpha = twink * (feverMode ? 0.22 : 0.12);
+    ctx.globalAlpha = twink * (clutchMode ? 0.22 : 0.12);
     ctx.fillRect(x - 2, y - 2, 6, 6);
   }
   ctx.globalAlpha = 1;
@@ -537,10 +537,10 @@ function drawEnferAnimated(ctx: CanvasRenderingContext2D, s: GameState, feverMod
   // Flammes au bout des stalactites
   for (const st of ENFER_STALACTITES) {
     const flicker = 0.5 + 0.5 * Math.sin(s.animClock * 4.5 + st.x * 0.055);
-    ctx.globalAlpha = flicker * (feverMode ? 0.72 : 0.45);
+    ctx.globalAlpha = flicker * (clutchMode ? 0.72 : 0.45);
     ctx.fillStyle = "#ff8800";
     ctx.fillRect(st.x - 2, st.len, 4, 3);
-    ctx.globalAlpha = flicker * (feverMode ? 0.18 : 0.10);
+    ctx.globalAlpha = flicker * (clutchMode ? 0.18 : 0.10);
     ctx.fillStyle = "#ff6600";
     ctx.fillRect(st.x - 5, st.len - 2, 10, 8);
   }
@@ -551,56 +551,56 @@ function drawEnferAnimated(ctx: CanvasRenderingContext2D, s: GameState, feverMod
 // ─── GLACE — éléments statiques ──────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════
 
-function drawGlaceGroundDetails(ctx: Ctx2D, feverMode: boolean): void {
+function drawGlaceGroundDetails(ctx: Ctx2D, clutchMode: boolean): void {
   // Congères de neige sur le sol
   for (const d of GLACE_SNOWDRIFTS) {
     for (let dy = 0; dy < d.rh; dy++) {
       const t  = dy / d.rh;
       const hw = Math.round(d.rw / 2 * Math.sqrt(1 - t * t));
-      ctx.fillStyle = feverMode ? "#5577aa" : "#c8e8f0";
+      ctx.fillStyle = clutchMode ? "#5577aa" : "#c8e8f0";
       ctx.fillRect(d.cx - hw, GROUND_Y - d.rh + dy, hw * 2, 1);
     }
-    ctx.fillStyle = feverMode ? "rgba(100,150,200,0.38)" : "rgba(255,255,255,0.52)";
+    ctx.fillStyle = clutchMode ? "rgba(100,150,200,0.38)" : "rgba(255,255,255,0.52)";
     ctx.fillRect(d.cx - Math.round(d.rw * 0.28), GROUND_Y - d.rh + 2, Math.round(d.rw * 0.38), 2);
   }
 
   // Arbres gelés en arrière-plan
   for (const t of GLACE_TREES) {
-    drawFrozenTree(ctx, t.x, GROUND_Y, t.h, t.scale, feverMode ? "#335577" : "#88aabb");
+    drawFrozenTree(ctx, t.x, GROUND_Y, t.h, t.scale, clutchMode ? "#335577" : "#88aabb");
   }
 
   // Stalactites de glace (plafond → bas)
   for (const st of GLACE_STALACTITES) {
     drawStalactite(ctx, st.x, st.bw, st.len,
-      feverMode ? "#224466" : "#88ccee",
-      feverMode ? "#336688" : "#cceeff",
+      clutchMode ? "#224466" : "#88ccee",
+      clutchMode ? "#336688" : "#cceeff",
     );
-    ctx.fillStyle = feverMode ? "rgba(50,100,200,0.38)" : "rgba(100,220,255,0.48)";
+    ctx.fillStyle = clutchMode ? "rgba(50,100,200,0.38)" : "rgba(100,220,255,0.48)";
     ctx.fillRect(st.x - 2, st.len - 3, 4, 5);
   }
 
   // Stalagmites de glace (sol → haut)
   for (const st of GLACE_STALAGMITES) {
     drawStalagmite(ctx, st.x, GROUND_Y, st.bw, st.len,
-      feverMode ? "#1a3a55" : "#66aacc",
-      feverMode ? "#2a5577" : "#aaddee",
+      clutchMode ? "#1a3a55" : "#66aacc",
+      clutchMode ? "#2a5577" : "#aaddee",
     );
   }
 
   // Cristaux de glace
   for (const cr of GLACE_CRYSTALS) {
     drawIceCrystal(ctx, cr.x, GROUND_Y - 5, cr.h,
-      feverMode ? "#1a4466" : "#44aadd",
-      feverMode ? "rgba(50,100,180,0.65)" : "rgba(180,240,255,0.78)",
+      clutchMode ? "#1a4466" : "#44aadd",
+      clutchMode ? "rgba(50,100,180,0.65)" : "rgba(180,240,255,0.78)",
     );
   }
 }
 
 // ─── GLACE — animation par frame ─────────────────────────────────────────────
 
-function drawGlaceAnimated(ctx: CanvasRenderingContext2D, s: GameState, feverMode: boolean): void {
+function drawGlaceAnimated(ctx: CanvasRenderingContext2D, s: GameState, clutchMode: boolean): void {
   // Aurore boréale
-  drawGlaceAurora(ctx, s.animClock, feverMode);
+  drawGlaceAurora(ctx, s.animClock, clutchMode);
 
   // Chute de neige
   for (const sf of GLACE_SNOW) {
@@ -609,7 +609,7 @@ function drawGlaceAnimated(ctx: CanvasRenderingContext2D, s: GameState, feverMod
     if (y < 0 || y > GROUND_Y) continue;
     const drift = Math.sin(s.animClock * 0.9 + sf.phase) * 20 * Math.abs(sf.drift);
     const x     = Math.round((sf.x + drift + W * 4) % W);
-    ctx.globalAlpha = feverMode ? 0.15 : 0.62;
+    ctx.globalAlpha = clutchMode ? 0.15 : 0.62;
     ctx.fillStyle = "#ddeeff";
     ctx.fillRect(x, y, sf.sz, sf.sz);
   }
@@ -620,7 +620,7 @@ function drawGlaceAnimated(ctx: CanvasRenderingContext2D, s: GameState, feverMod
     const cr = GLACE_CRYSTALS[i]!;
     const t  = Math.abs(Math.sin(s.animClock * 0.85 + i * 1.45));
     if (t > 0.82) {
-      ctx.globalAlpha = (t - 0.82) * 4 * (feverMode ? 0.28 : 0.88);
+      ctx.globalAlpha = (t - 0.82) * 4 * (clutchMode ? 0.28 : 0.88);
       ctx.fillStyle = "#ffffff";
       const sparkY = (GROUND_Y - cr.h / 2) | 0;
       ctx.fillRect(cr.x - 1, sparkY, 3, 1);
@@ -630,7 +630,7 @@ function drawGlaceAnimated(ctx: CanvasRenderingContext2D, s: GameState, feverMod
   ctx.globalAlpha = 1;
 }
 
-function drawGlaceAurora(ctx: CanvasRenderingContext2D, animClock: number, feverMode: boolean): void {
+function drawGlaceAurora(ctx: CanvasRenderingContext2D, animClock: number, clutchMode: boolean): void {
   const bands = [
     { baseY: 50, r: 0,   g: 255, b: 140, amp: 14, speed: 0.28, freq: 0.018, a: 0.20 },
     { baseY: 70, r: 0,   g: 180, b: 255, amp: 10, speed: 0.20, freq: 0.022, a: 0.15 },
@@ -641,7 +641,7 @@ function drawGlaceAurora(ctx: CanvasRenderingContext2D, animClock: number, fever
       const wave = Math.sin(x * band.freq + animClock * band.speed);
       const py   = Math.round(band.baseY + band.amp * wave);
       const si   = band.a * (0.55 + 0.45 * Math.sin(x * 0.035 + animClock * 0.18));
-      const fa   = feverMode ? si * 0.38 : si;
+      const fa   = clutchMode ? si * 0.38 : si;
       ctx.fillStyle = `rgba(${band.r},${band.g},${band.b},${fa.toFixed(3)})`;
       ctx.fillRect(x, py, 4, 14);
     }
@@ -694,9 +694,9 @@ function drawBgBirds(ctx: CanvasRenderingContext2D, s: GameState): void {
 // ═══════════════════════════════════════════════════════════════════════════
 
 function drawCelestialBody(
-  ctx: CanvasRenderingContext2D, s: GameState, feverMode: boolean, themeId?: string,
+  ctx: CanvasRenderingContext2D, s: GameState, clutchMode: boolean, themeId?: string,
 ): void {
-  if (feverMode) {
+  if (clutchMode) {
     const pulse = 0.88 + 0.12 * Math.sin(s.animClock * 1.2);
     const cx = W - 42;
     const cy = 92 + Math.round(Math.sin(s.animClock * 0.85) * 2.5);
@@ -791,9 +791,9 @@ function drawJuicySun(ctx: CanvasRenderingContext2D, s: GameState): void {
 
 // ─── Étoiles de fièvre ───────────────────────────────────────────────────────
 
-function drawFeverStars(ctx: CanvasRenderingContext2D, s: GameState): void {
-  for (let i = 0; i < FEVER_STARS.length; i++) {
-    const st = FEVER_STARS[i]!;
+function drawClutchStars(ctx: CanvasRenderingContext2D, s: GameState): void {
+  for (let i = 0; i < CLUTCH_STARS.length; i++) {
+    const st = CLUTCH_STARS[i]!;
     const twinkle = 0.5 + 0.5 * Math.abs(Math.sin(i * 1.3 + s.animClock * (0.6 + (i % 4) * 0.2)));
     ctx.globalAlpha = twinkle * 0.85;
     ctx.fillStyle = i % 3 === 0 ? "#ccaaff" : i % 3 === 1 ? "#ffffff" : "#aaccff";
@@ -808,14 +808,14 @@ function drawFeverStars(ctx: CanvasRenderingContext2D, s: GameState): void {
 
 // ─── Lucioles (Forêt) ────────────────────────────────────────────────────────
 
-function drawFireflies(ctx: CanvasRenderingContext2D, s: GameState, feverMode: boolean, fireflies: FireflyItem[]): void {
+function drawFireflies(ctx: CanvasRenderingContext2D, s: GameState, clutchMode: boolean, fireflies: FireflyItem[]): void {
   for (let i = 0; i < fireflies.length; i++) {
     const ff = fireflies[i]!;
     if (ff.y > GROUND_Y - 20) continue;
     const phase   = i * 1.7 + s.animClock * (0.4 + (i % 3) * 0.15);
     const twinkle = 0.4 + 0.6 * Math.abs(Math.sin(phase));
 
-    if (feverMode) {
+    if (clutchMode) {
       const wobbleX = ff.x + Math.round(Math.sin(s.animClock * 2.5 + i * 0.8) * 18);
       const wobbleY = ff.y + Math.round(Math.cos(s.animClock * 1.8 + i * 1.1) * 12);
       ctx.globalAlpha = twinkle * 0.8;
@@ -847,7 +847,7 @@ function drawFireflies(ctx: CanvasRenderingContext2D, s: GameState, feverMode: b
 let _staticBgCache: OffCanvas | null = null;
 let _staticBgKey: string | null = null;
 
-function buildStaticBg(feverMode: boolean, bg: BgTheme, themeId: string): OffCanvas {
+function buildStaticBg(clutchMode: boolean, bg: BgTheme, themeId: string): OffCanvas {
   const CW = W + BG_PAD * 2;
   const CH = H + BG_PAD * 2;
   const canvas = makeOffscreen(CW, CH);
@@ -855,8 +855,8 @@ function buildStaticBg(feverMode: boolean, bg: BgTheme, themeId: string): OffCan
   ctx.translate(BG_PAD, BG_PAD);
 
   const skyRows = 12;
-  const topC = feverMode ? bg.skyTopFever : bg.skyTop;
-  const botC = feverMode ? bg.skyBotFever : bg.skyBot;
+  const topC = clutchMode ? bg.skyTopClutch : bg.skyTop;
+  const botC = clutchMode ? bg.skyBotClutch : bg.skyBot;
 
   // ① Dégradé de ciel
   for (let row = 0; row < skyRows; row++) {
@@ -870,34 +870,34 @@ function buildStaticBg(feverMode: boolean, bg: BgTheme, themeId: string): OffCan
   }
 
   // ② Éléments de fond d'Abîme (nébuleuses + planète + étoiles)
-  if (themeId === "abime") drawAbimeStaticLayers(ctx, feverMode);
+  if (themeId === "abime") drawAbimeStaticLayers(ctx, clutchMode);
 
   // ③ Montagnes d'Enfer (dessinées avant le sol pour que la base soit cachée)
-  if (themeId === "enfer") drawEnferMountains(ctx, feverMode);
+  if (themeId === "enfer") drawEnferMountains(ctx, clutchMode);
 
   // ⑤ Sol principal (étendu au-delà des bords pour couvrir le shake)
-  ctx.fillStyle = feverMode ? bg.groundColorFever : bg.groundColor;
+  ctx.fillStyle = clutchMode ? bg.groundColorClutch : bg.groundColor;
   ctx.fillRect(-BG_PAD, GROUND_Y, CW, CH);
 
   // ⑥ Herbe (Forêt / Glace — pas pour Enfer)
   if (themeId !== "enfer") {
-    ctx.fillStyle = feverMode ? bg.subGroundColorFever : bg.subGroundColor;
+    ctx.fillStyle = clutchMode ? bg.subGroundColorClutch : bg.subGroundColor;
     for (let gx = -BG_PAD; gx < W + BG_PAD; gx += 4) {
       const h = 2 + (Math.abs((gx >> 2) * 13 + 7) % 5);
       ctx.fillRect(gx, GROUND_Y - h, 2, h);
     }
-    ctx.fillStyle = feverMode ? bg.subGroundColorFever : bg.subGroundColor;
+    ctx.fillStyle = clutchMode ? bg.subGroundColorClutch : bg.subGroundColor;
     ctx.fillRect(-BG_PAD, GROUND_Y + 10, CW, CH);
   }
 
   // ⑦ Détails au sol : Enfer (fissures + stalactites) / Glace (glace + neige)
-  if (themeId === "enfer") drawEnferGroundDetails(ctx, feverMode);
-  if (themeId === "glace") drawGlaceGroundDetails(ctx, feverMode);
+  if (themeId === "enfer") drawEnferGroundDetails(ctx, clutchMode);
+  if (themeId === "glace") drawGlaceGroundDetails(ctx, clutchMode);
 
   // ⑧ Brume au sol
-  ctx.fillStyle = feverMode ? bg.mistColorFever : bg.mistColor;
+  ctx.fillStyle = clutchMode ? bg.mistColorClutch : bg.mistColor;
   ctx.fillRect(-BG_PAD, GROUND_Y - 8, CW, 16);
-  ctx.fillStyle = feverMode ? bg.mistFarColorFever : bg.mistFarColor;
+  ctx.fillStyle = clutchMode ? bg.mistFarColorClutch : bg.mistFarColor;
   ctx.fillRect(-BG_PAD, GROUND_Y - 16, CW, 12);
 
   // ⑨ Scanlines (baked une seule fois)
@@ -909,13 +909,13 @@ function buildStaticBg(feverMode: boolean, bg: BgTheme, themeId: string): OffCan
   return canvas;
 }
 
-function getStaticBg(feverMode: boolean, theme: GameTheme): OffCanvas {
-  const key = `${feverMode ? 1 : 0}:${theme.id}`;
+function getStaticBg(clutchMode: boolean, theme: GameTheme): OffCanvas {
+  const key = `${clutchMode ? 1 : 0}:${theme.id}`;
   if (_staticBgCache === null || _staticBgKey !== key) {
     if (typeof OffscreenCanvas !== "undefined" && _staticBgCache instanceof OffscreenCanvas) {
       (_staticBgCache as OffscreenCanvas & { close(): void }).close();
     }
-    _staticBgCache = buildStaticBg(feverMode, theme.bg, theme.id);
+    _staticBgCache = buildStaticBg(clutchMode, theme.bg, theme.id);
     _staticBgKey   = key;
   }
   return _staticBgCache;
@@ -959,10 +959,10 @@ interface ForetPalette {
   ray:         string;
 }
 
-function foretPalette(feverMode: boolean, bg: BgTheme): ForetPalette {
-  if (feverMode) {
+function foretPalette(clutchMode: boolean, bg: BgTheme): ForetPalette {
+  if (clutchMode) {
     return {
-      sky:       { top: bg.skyTopFever, bot: bg.skyBotFever },
+      sky:       { top: bg.skyTopClutch, bot: bg.skyBotClutch },
       // Nuages nocturnes — légèrement plus visibles que l'ancien rgba(40,30,80)
       cloud:     "rgba(48,38,105,0.55)",  cloudHi:     "rgba(78,62,148,0.58)",
       // Collines nuit : profondeur indigo
@@ -991,7 +991,7 @@ function makeLayerCanvas(): { canvas: OffCanvas; ctx: Ctx2D } {
 
 // ─── Générateurs de couches (déterministes via PRNG) ─────────────────────────
 
-function buildForetSky(pal: ForetPalette, feverMode: boolean): OffCanvas {
+function buildForetSky(pal: ForetPalette, clutchMode: boolean): OffCanvas {
   const { canvas, ctx } = makeLayerCanvas();
   // Gradient smoothstep — transitions plus naturelles qu'une interpolation linéaire
   const rows = 28;
@@ -1008,7 +1008,7 @@ function buildForetSky(pal: ForetPalette, feverMode: boolean): OffCanvas {
     ctx.fillRect(LX0, y, CW_L, h);
   }
 
-  if (!feverMode) {
+  if (!clutchMode) {
     // Halo chaud à l'horizon — lumière dorée qui monte vers le ciel
     for (let row = 0; row < 12; row++) {
       const t = 1 - row / 12;
@@ -1110,14 +1110,14 @@ function fillHills(
   }
 }
 
-function buildForetHills(pal: ForetPalette, feverMode: boolean, seed: number): OffCanvas {
+function buildForetHills(pal: ForetPalette, clutchMode: boolean, seed: number): OffCanvas {
   const { canvas, ctx } = makeLayerCanvas();
   const rnd = makePrng(seed);
   const p0  = 2.0 + (rnd() - 0.5) * 1.4;
   const p1  = 1.2 + (rnd() - 0.5) * 1.0;
   const p2  = 3.5 + (rnd() - 0.5) * 1.2;
   const p3  = 4.8 + (rnd() - 0.5) * 1.0;
-  if (feverMode) {
+  if (clutchMode) {
     fillHills(ctx, GROUND_Y - 150, 28, 0.0058, p0, "#181542");
     fillHills(ctx, GROUND_Y - 108, 24, 0.0088, p1, "#100e30");
     fillHills(ctx, GROUND_Y - 72,  18, 0.0128, p2, "#0a0820");
@@ -1260,7 +1260,7 @@ function drawShrubCanopy(
 // et une échelle de taille cohérente. Les clusters se chevauchent partiellement,
 // créant des clairières naturelles et des zones denses. Troncs baked dans le
 // canvas statique ; couronnes animées par frame (vent).
-function buildForetMidLayer(feverMode: boolean, seed: number): { canvas: OffCanvas; trees: MidTreeDef[] } {
+function buildForetMidLayer(clutchMode: boolean, seed: number): { canvas: OffCanvas; trees: MidTreeDef[] } {
   const { canvas, ctx } = makeLayerCanvas();
   const rnd = makePrng(seed);
 
@@ -1302,10 +1302,10 @@ function buildForetMidLayer(feverMode: boolean, seed: number): { canvas: OffCanv
         cluster.kind === "pine" ? (rnd() < 0.80 ? "pine"  : "oak"  ) :
         (rnd() < 0.42 ? "oak"  : rnd() < 0.68 ? "pine" : "shrub");
 
-      const trunkCol = feverMode ? pick(fevTrunks)   : pick(dayTrunks);
-      const leafDark = feverMode ? pick(fevLeafDark) : pick(dayLeafDark);
-      const leafMid  = feverMode ? pick(fevLeafMid)  : pick(dayLeafMid);
-      const leafHi   = feverMode ? pick(fevLeafHi)   : pick(dayLeafHi);
+      const trunkCol = clutchMode ? pick(fevTrunks)   : pick(dayTrunks);
+      const leafDark = clutchMode ? pick(fevLeafDark) : pick(dayLeafDark);
+      const leafMid  = clutchMode ? pick(fevLeafMid)  : pick(dayLeafMid);
+      const leafHi   = clutchMode ? pick(fevLeafHi)   : pick(dayLeafHi);
 
       let w: number;
       let step: number;
@@ -1346,16 +1346,16 @@ function buildForetMidLayer(feverMode: boolean, seed: number): { canvas: OffCanv
   return { canvas, trees };
 }
 
-function buildForetGround(feverMode: boolean, bg: BgTheme, seed: number): OffCanvas {
+function buildForetGround(clutchMode: boolean, bg: BgTheme, seed: number): OffCanvas {
   const { canvas, ctx } = makeLayerCanvas();
   const rnd = makePrng(seed);
 
-  ctx.fillStyle = feverMode ? bg.groundColorFever : bg.groundColor;
+  ctx.fillStyle = clutchMode ? bg.groundColorClutch : bg.groundColor;
   ctx.fillRect(LX0, GROUND_Y, CW_L, CH_L);
-  ctx.fillStyle = feverMode ? bg.subGroundColorFever : bg.subGroundColor;
+  ctx.fillStyle = clutchMode ? bg.subGroundColorClutch : bg.subGroundColor;
   ctx.fillRect(LX0, GROUND_Y + 10, CW_L, CH_L);
 
-  if (!feverMode) {
+  if (!clutchMode) {
     // Herbe dense et variée
     const GRASS = ["#22ff00", "#18ee00", "#33ff11", "#0ecc00", "#44ff22", "#11dd00"] as const;
     for (let gx = LX0; gx < RX1; gx += 2) {
@@ -1411,24 +1411,24 @@ function buildForetGround(feverMode: boolean, bg: BgTheme, seed: number): OffCan
   } else {
     for (let gx = LX0; gx < RX1; gx += 4) {
       const h = 2 + (Math.abs((gx >> 2) * 13 + 7) % 5);
-      ctx.fillStyle = bg.subGroundColorFever;
+      ctx.fillStyle = bg.subGroundColorClutch;
       ctx.fillRect(gx, GROUND_Y - h, 2, h);
     }
   }
 
-  ctx.fillStyle = feverMode ? bg.mistColorFever : bg.mistColor;
+  ctx.fillStyle = clutchMode ? bg.mistColorClutch : bg.mistColor;
   ctx.fillRect(LX0, GROUND_Y - 8, CW_L, 16);
-  ctx.fillStyle = feverMode ? bg.mistFarColorFever : bg.mistFarColor;
+  ctx.fillStyle = clutchMode ? bg.mistFarColorClutch : bg.mistFarColor;
   ctx.fillRect(LX0, GROUND_Y - 16, CW_L, 12);
   return canvas;
 }
 
 // Canvas statique : arches de racines seulement.
-function buildForetForeLayer(feverMode: boolean): { canvas: OffCanvas } {
+function buildForetForeLayer(clutchMode: boolean): { canvas: OffCanvas } {
   const { canvas, ctx } = makeLayerCanvas();
 
   // Arches de racines : statiques, ne bougent pas avec le vent
-  if (!feverMode) {
+  if (!clutchMode) {
     const ARCHES = [
       { cx: LX0 + 38,             hw: 28, maxH: 20 },
       { cx: Math.round(W * 0.56), hw: 32, maxH: 24 },
@@ -1530,26 +1530,26 @@ function drawSunriseFg(ctx: CanvasRenderingContext2D, t: number): void {
 // ─── Coucher / lever de lune (transitions fever forêt) ────────────────────────
 // Quand fever s'active  : soleil descend + corps céleste fever monte + ciel s'assombrit.
 // Quand fever se désactive : corps céleste descend + soleil remonte + ciel s'éclaircit.
-// La "lune" est le corps céleste fever existant (drawCelestialBody feverMode=true).
-const FEVER_BODY_Y = 92; // cy nominal du corps céleste fever (cf. drawCelestialBody)
+// La "lune" est le corps céleste fever existant (drawCelestialBody clutchMode=true).
+const CLUTCH_BODY_Y = 92; // cy nominal du corps céleste fever (cf. drawCelestialBody)
 const DUSK_DURATION = 2.8; // animClock units ≈ 1.55s réels à 60fps
 
 // Tracker fever transition (état module, comme les caches de couches).
-let _prevFeverForDusk = false;
-let _feverTransitionStart = -(DUSK_DURATION + 1); // bien avant → transition déjà terminée
+let _prevClutchForDusk = false;
+let _clutchTransitionStart = -(DUSK_DURATION + 1); // bien avant → transition déjà terminée
 
-function updateFeverTransition(animClock: number, feverMode: boolean): { t: number; enteringFever: boolean } {
+function updateClutchTransition(animClock: number, clutchMode: boolean): { t: number; enteringClutch: boolean } {
   // Détecte un reset de niveau (animClock repart en arrière)
-  if (animClock < _feverTransitionStart) {
-    _prevFeverForDusk = feverMode;
-    _feverTransitionStart = animClock - DUSK_DURATION - 1;
+  if (animClock < _clutchTransitionStart) {
+    _prevClutchForDusk = clutchMode;
+    _clutchTransitionStart = animClock - DUSK_DURATION - 1;
   }
-  if (feverMode !== _prevFeverForDusk) {
-    _prevFeverForDusk = feverMode;
-    _feverTransitionStart = animClock;
+  if (clutchMode !== _prevClutchForDusk) {
+    _prevClutchForDusk = clutchMode;
+    _clutchTransitionStart = animClock;
   }
-  const t = Math.min(1, Math.max(0, (animClock - _feverTransitionStart) / DUSK_DURATION));
-  return { t, enteringFever: feverMode };
+  const t = Math.min(1, Math.max(0, (animClock - _clutchTransitionStart) / DUSK_DURATION));
+  return { t, enteringClutch: clutchMode };
 }
 
 // Lueur orangée au coucher de soleil / lever de lune. Pic à t≈0.35.
@@ -1570,7 +1570,7 @@ function drawDuskBg(ctx: CanvasRenderingContext2D, t: number): void {
 // Assombrissement progressif avant que le fever mode s'enclenche.
 // progress 0→1 : de plein jour (aucun orange dépensé) à juste avant le seuil fever.
 // Pas de mouvement du soleil — seul le ciel s'assombrit et se teinte de chaud.
-function drawPreFeverDuskOverlay(ctx: CanvasRenderingContext2D, progress: number): void {
+function drawPreClutchDuskOverlay(ctx: CanvasRenderingContext2D, progress: number): void {
   if (progress < 0.02) return;
   const t = progress;
   const t2 = t * t; // ease-in
@@ -1600,7 +1600,7 @@ function drawDuskFg(ctx: CanvasRenderingContext2D, t: number, entering: boolean)
 }
 
 // Feuilles ambiantes qui dérivent doucement dans le vent — vie permanente de la forêt.
-function drawAmbientLeaves(ctx: CanvasRenderingContext2D, s: GameState, feverMode: boolean, leaves: AmbientLeaf[]): void {
+function drawAmbientLeaves(ctx: CanvasRenderingContext2D, s: GameState, clutchMode: boolean, leaves: AmbientLeaf[]): void {
   for (let i = 0; i < leaves.length; i++) {
     const lf = leaves[i]!;
     const rawY = (lf.phase / (Math.PI * 2) * (H + 50) + lf.speedY * s.animClock * 28) % (H + 60);
@@ -1610,7 +1610,7 @@ function drawAmbientLeaves(ctx: CanvasRenderingContext2D, s: GameState, feverMod
     const x    = Math.round((lf.x + sway + W * 5) % W);
     const twinkle = 0.22 + 0.78 * Math.abs(Math.sin(s.animClock * 0.55 + i * 0.73));
 
-    if (feverMode) {
+    if (clutchMode) {
       ctx.globalAlpha = twinkle * 0.11;
       ctx.fillStyle = "#7733cc";
     } else {
@@ -1620,7 +1620,7 @@ function drawAmbientLeaves(ctx: CanvasRenderingContext2D, s: GameState, feverMod
     ctx.fillRect(x, y, lf.sz, lf.sz);
 
     // Petite tige sous la feuille — donne un rendu pixel-art plus lisible
-    if (lf.sz > 2 && !feverMode) {
+    if (lf.sz > 2 && !clutchMode) {
       ctx.globalAlpha = twinkle * 0.22;
       ctx.fillStyle = "#2a7818";
       ctx.fillRect(x + 1, y + lf.sz, 1, 2);
@@ -1645,21 +1645,21 @@ interface ForetCacheEntry {
 
 let _foretCache: ForetCacheEntry | null = null;
 
-function getForetLayers(feverMode: boolean, bg: BgTheme, seed: number): ForetCacheEntry {
-  const key = `${feverMode ? 1 : 0}:${seed}`;
+function getForetLayers(clutchMode: boolean, bg: BgTheme, seed: number): ForetCacheEntry {
+  const key = `${clutchMode ? 1 : 0}:${seed}`;
   if (_foretCache === null || _foretCache.key !== key) {
-    const pal        = foretPalette(feverMode, bg);
+    const pal        = foretPalette(clutchMode, bg);
     const leaves     = generateLeaves(seed ^ 0x1eaf7a11);
     const fireflies  = generateFireflies(seed ^ 0x10f1f111);
-    const midResult  = buildForetMidLayer(feverMode, seed ^ 0xbada55e1);
-    const foreResult = buildForetForeLayer(feverMode);
+    const midResult  = buildForetMidLayer(clutchMode, seed ^ 0xbada55e1);
+    const foreResult = buildForetForeLayer(clutchMode);
     const layers: ForetLayer[] = [
-      { canvas: buildForetSky(pal, feverMode),                      parallax: 0,    shakeF: 0.10, drift: 0, tiled: false },
+      { canvas: buildForetSky(pal, clutchMode),                      parallax: 0,    shakeF: 0.10, drift: 0, tiled: false },
       { canvas: buildForetClouds(pal, seed ^ 0x5eed1234),           parallax: 0.04, shakeF: 0.10, drift: 5, tiled: true  },
-      { canvas: buildForetHills(pal, feverMode, seed ^ 0x41116000), parallax: 0.12, shakeF: 0.20, drift: 0, tiled: false },
+      { canvas: buildForetHills(pal, clutchMode, seed ^ 0x41116000), parallax: 0.12, shakeF: 0.20, drift: 0, tiled: false },
       { canvas: buildForetFarTrees(pal, seed),                      parallax: 0.22, shakeF: 0.30, drift: 0, tiled: false },
       { canvas: midResult.canvas,                                    parallax: 0.40, shakeF: 0.55, drift: 0, tiled: false },
-      { canvas: buildForetGround(feverMode, bg, seed ^ 0x60077a55), parallax: 0,    shakeF: 1.00, drift: 0, tiled: false },
+      { canvas: buildForetGround(clutchMode, bg, seed ^ 0x60077a55), parallax: 0,    shakeF: 1.00, drift: 0, tiled: false },
       { canvas: foreResult.canvas,                                   parallax: 0.70, shakeF: 1.00, drift: 0, tiled: false },
     ];
     _foretCache = { key, layers, pal, leaves, fireflies, midTrees: midResult.trees };
@@ -1682,16 +1682,16 @@ function getScanlines(): OffCanvas {
 // ─── Composition de la forêt (par frame) ─────────────────────────────────────
 
 function drawForetLayers(
-  ctx: CanvasRenderingContext2D, s: GameState, feverMode: boolean, bg: BgTheme, preFeverDusk: number,
+  ctx: CanvasRenderingContext2D, s: GameState, clutchMode: boolean, bg: BgTheme, preClutchDusk: number,
 ): void {
   // État de transition fever calculé avant tout — pilote le choix des couches.
-  const { t: feverT } = updateFeverTransition(s.animClock, feverMode);
-  const inDusk = feverT < 1;
+  const { t: clutchT } = updateClutchTransition(s.animClock, clutchMode);
+  const inDusk = clutchT < 1;
 
   // Pendant la transition, on garde les couches SOURCE (avant la bascule) pour
   // éviter que le ciel change instantanément dès le 1er frame de fever.
-  const effectiveFeverMode = inDusk ? !feverMode : feverMode;
-  const cache = getForetLayers(effectiveFeverMode, bg, s.forestSeed);
+  const effectiveClutchMode = inDusk ? !clutchMode : clutchMode;
+  const cache = getForetLayers(effectiveClutchMode, bg, s.forestSeed);
   const { layers, leaves, fireflies, midTrees } = cache;
   const launchDelta = Math.max(-PARALLAX_CLAMP, Math.min(PARALLAX_CLAMP, s.launcherX - W / 2));
 
@@ -1712,19 +1712,19 @@ function drawForetLayers(
 
     // Soleil / lune après le ciel (i=0), avant les nuages (i=1)
     if (i === 1) {
-      if (!feverMode) {
+      if (!clutchMode) {
         // ═══ MODE JOUR ═══
         if (inDusk) {
           // Sortie du fever : soleil remonte, corps fever descend
-          const sunOffY = Math.round((1 - easeInOutCubic(feverT)) * (GROUND_Y + 40 - SUN_Y));
+          const sunOffY = Math.round((1 - easeInOutCubic(clutchT)) * (GROUND_Y + 40 - SUN_Y));
           ctx.save(); ctx.translate(0, sunOffY);
           drawCelestialBody(ctx, s, false, "foret");
           ctx.restore();
-          const moonOffY = Math.round(easeInOutCubic(feverT) * (GROUND_Y + 40 - FEVER_BODY_Y));
+          const moonOffY = Math.round(easeInOutCubic(clutchT) * (GROUND_Y + 40 - CLUTCH_BODY_Y));
           ctx.save(); ctx.translate(0, moonOffY);
           drawCelestialBody(ctx, s, true, "foret");
           ctx.restore();
-          drawDuskBg(ctx, 1 - feverT);
+          drawDuskBg(ctx, 1 - clutchT);
         } else {
           // Lever de soleil au début du niveau
           const sr = sunriseT(s.animClock);
@@ -1738,15 +1738,15 @@ function drawForetLayers(
         // ═══ MODE FEVER ═══
         if (inDusk) {
           // Entrée du fever : soleil se couche, corps fever se lève
-          const sunOffY = Math.round(easeInOutCubic(feverT) * (GROUND_Y + 40 - SUN_Y));
+          const sunOffY = Math.round(easeInOutCubic(clutchT) * (GROUND_Y + 40 - SUN_Y));
           ctx.save(); ctx.translate(0, sunOffY);
           drawCelestialBody(ctx, s, false, "foret");
           ctx.restore();
-          const moonOffY = Math.round((1 - easeInOutCubic(feverT)) * (GROUND_Y + 40 - FEVER_BODY_Y));
+          const moonOffY = Math.round((1 - easeInOutCubic(clutchT)) * (GROUND_Y + 40 - CLUTCH_BODY_Y));
           ctx.save(); ctx.translate(0, moonOffY);
           drawCelestialBody(ctx, s, true, "foret");
           ctx.restore();
-          drawDuskBg(ctx, feverT);
+          drawDuskBg(ctx, clutchT);
         } else {
           // Fever établi : corps céleste fever au repos
           const ss = introSpring(s.animClock, SUN_INTRO_DELAY);
@@ -1780,7 +1780,7 @@ function drawForetLayers(
       } else if (tree.type === "pine") {
         drawRectPine(ctx, tree.x, GROUND_Y, tree.h, tree.w,
           tree.leafMid, tree.leafHi,
-          feverMode ? "#030510" : "#071a0c",
+          clutchMode ? "#030510" : "#071a0c",
           tree.trunkCol,
         );
       } else {
@@ -1791,22 +1791,22 @@ function drawForetLayers(
   }
 
   // Feuilles ambiantes et lucioles (forêt vivante)
-  drawAmbientLeaves(ctx, s, feverMode, leaves);
-  drawFireflies(ctx, s, feverMode, fireflies);
+  drawAmbientLeaves(ctx, s, clutchMode, leaves);
+  drawFireflies(ctx, s, clutchMode, fireflies);
 
   // Voiles plein-écran : lever de soleil (début niveau) ou crépuscule/aube (transitions fever)
-  if (!feverMode) {
+  if (!clutchMode) {
     if (inDusk) {
-      drawDuskFg(ctx, feverT, false); // retour jour : éclaircissement
+      drawDuskFg(ctx, clutchT, false); // retour jour : éclaircissement
     } else {
       const sr = sunriseT(s.animClock);
       if (sr < 1) drawSunriseFg(ctx, sr); // lever de soleil de début de niveau
       // Assombrissement progressif pré-fever : le ciel se voile à mesure qu'on
-      // dépense les oranges (preFeverDusk 0→1 jusqu'au seuil de 3 oranges).
-      if (preFeverDusk > 0.02 && sr >= 1) drawPreFeverDuskOverlay(ctx, preFeverDusk);
+      // dépense les oranges (preClutchDusk 0→1 jusqu'au seuil de 3 oranges).
+      if (preClutchDusk > 0.02 && sr >= 1) drawPreClutchDuskOverlay(ctx, preClutchDusk);
     }
   } else if (inDusk) {
-    drawDuskFg(ctx, feverT, true); // entrée fever : assombrissement
+    drawDuskFg(ctx, clutchT, true); // entrée fever : assombrissement
   }
 
   // Scanlines CRT, fixées à l'écran (contre-translation complète du shake)
@@ -1820,32 +1820,32 @@ function drawForetLayers(
 export function drawBackground(
   ctx: CanvasRenderingContext2D,
   s: GameState,
-  feverIntensity: number,
+  clutchIntensity: number,
   theme: GameTheme,
-  preFeverDusk = 0,
+  preClutchDusk = 0,
 ): void {
-  const feverMode = feverIntensity > 0.3;
+  const clutchMode = clutchIntensity > 0.3;
 
   if (theme.id === "foret") {
     // Décor forêt : couches procédurales avec parallaxe (lanceur + dérive + shake)
-    drawForetLayers(ctx, s, feverMode, theme.bg, preFeverDusk);
+    drawForetLayers(ctx, s, clutchMode, theme.bg, preClutchDusk);
   } else {
     // Autres thèmes : fond statique unique (blit depuis OffscreenCanvas)
-    ctx.drawImage(getStaticBg(feverMode, theme), -BG_PAD, -BG_PAD);
+    ctx.drawImage(getStaticBg(clutchMode, theme), -BG_PAD, -BG_PAD);
     switch (theme.id) {
-      case "abime": drawAbimeAnimated(ctx, s, feverMode); break;
-      case "enfer": drawEnferAnimated(ctx, s, feverMode); break;
-      case "glace": drawGlaceAnimated(ctx, s, feverMode); break;
+      case "abime": drawAbimeAnimated(ctx, s, clutchMode); break;
+      case "enfer": drawEnferAnimated(ctx, s, clutchMode); break;
+      case "glace": drawGlaceAnimated(ctx, s, clutchMode); break;
     }
     // Assombrissement progressif pré-fever pour les thèmes non-forêt
-    if (preFeverDusk > 0.02) drawPreFeverDuskOverlay(ctx, preFeverDusk);
+    if (preClutchDusk > 0.02) drawPreClutchDuskOverlay(ctx, preClutchDusk);
   }
 
   // Corps céleste — géré dans drawForetLayers pour la forêt (passe derrière les nuages)
-  if (theme.id !== "foret") drawCelestialBody(ctx, s, feverMode, theme.id);
+  if (theme.id !== "foret") drawCelestialBody(ctx, s, clutchMode, theme.id);
 
   // Étoiles de fièvre (commun à tous les thèmes)
-  if (feverMode) drawFeverStars(ctx, s);
+  if (clutchMode) drawClutchStars(ctx, s);
 
   // Easter egg : oiseaux déclenchés par les impacts de pegs (clin d'œil peagle)
   if (s.birds.length > 0) drawBgBirds(ctx, s);

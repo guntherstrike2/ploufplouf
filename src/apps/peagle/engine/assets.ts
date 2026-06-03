@@ -15,7 +15,7 @@ export interface AssetVariant<T> {
 
 export interface BgVariant {
   bg: BgTheme;
-  flash: { normal: string; fever: string };
+  flash: { normal: string; clutch: string };
 }
 
 export interface BirdSprite {
@@ -46,7 +46,7 @@ export const PEG_PALETTES: AssetVariant<PegTheme>[] = [
     value: {
       normal: "#2233aa", normalHi: "#4455ff", normalDark: "#000d44",
       orange: "#ff5500", orangeHi: "#ffdd44", orangeDark: "#882200",
-      orangeFever: "#ff00cc", orangeGlow: "#ff88ee",
+      orangeClutch: "#ff00cc", orangeGlow: "#ff88ee",
       popRing: { normal: "#4455ff", orange: "#ffaa00" },
     },
   },
@@ -55,7 +55,7 @@ export const PEG_PALETTES: AssetVariant<PegTheme>[] = [
     value: {
       normal: "#1144cc", normalHi: "#4488ff", normalDark: "#00082a",
       orange: "#ff7700", orangeHi: "#ffcc44", orangeDark: "#883300",
-      orangeFever: "#ff00ff", orangeGlow: "#ff88ff",
+      orangeClutch: "#ff00ff", orangeGlow: "#ff88ff",
       popRing: { normal: "#4488ff", orange: "#ffaa00" },
     },
   },
@@ -64,7 +64,7 @@ export const PEG_PALETTES: AssetVariant<PegTheme>[] = [
     value: {
       normal: "#882200", normalHi: "#dd4400", normalDark: "#330800",
       orange: "#ff8800", orangeHi: "#ffcc00", orangeDark: "#884400",
-      orangeFever: "#ff0000", orangeGlow: "#ff6600",
+      orangeClutch: "#ff0000", orangeGlow: "#ff6600",
       popRing: { normal: "#dd4400", orange: "#ffcc00" },
     },
   },
@@ -73,7 +73,7 @@ export const PEG_PALETTES: AssetVariant<PegTheme>[] = [
     value: {
       normal: "#224488", normalHi: "#88aaff", normalDark: "#001133",
       orange: "#ee6622", orangeHi: "#ffcc88", orangeDark: "#883311",
-      orangeFever: "#00ccff", orangeGlow: "#88eeff",
+      orangeClutch: "#00ccff", orangeGlow: "#88eeff",
       popRing: { normal: "#88aaff", orange: "#ffcc88" },
     },
   },
@@ -87,14 +87,14 @@ export const BACKGROUNDS: AssetVariant<BgVariant>[] = [
     value: {
       bg: {
         skyTop: [54, 184, 244], skyBot: [255, 232, 168],
-        skyTopFever: [8, 4, 28], skyBotFever: [18, 10, 52],
-        groundColor: "#3fc62e", groundColorFever: "#0a0a28",
-        subGroundColor: "#229c16", subGroundColorFever: "#050514",
-        mistColor: "rgba(150,255,120,0.10)", mistColorFever: "rgba(100,80,200,0.06)",
-        mistFarColor: "rgba(150,255,120,0.05)", mistFarColorFever: "rgba(80,60,180,0.04)",
+        skyTopClutch: [8, 4, 28], skyBotClutch: [18, 10, 52],
+        groundColor: "#3fc62e", groundColorClutch: "#0a0a28",
+        subGroundColor: "#229c16", subGroundColorClutch: "#050514",
+        mistColor: "rgba(150,255,120,0.10)", mistColorClutch: "rgba(100,80,200,0.06)",
+        mistFarColor: "rgba(150,255,120,0.05)", mistFarColorClutch: "rgba(80,60,180,0.04)",
         hasTrees: true, hasFireflies: true,
       },
-      flash: { normal: "#4455ff", fever: "#ff00cc" },
+      flash: { normal: "#4455ff", clutch: "#ff00cc" },
     },
   },
   {
@@ -102,14 +102,14 @@ export const BACKGROUNDS: AssetVariant<BgVariant>[] = [
     value: {
       bg: {
         skyTop: [2, 0, 10], skyBot: [6, 0, 18],
-        skyTopFever: [6, 0, 18], skyBotFever: [12, 4, 36],
-        groundColor: "#04000c", groundColorFever: "#080018",
-        subGroundColor: "#020008", subGroundColorFever: "#04000e",
-        mistColor: "rgba(80,0,180,0.08)", mistColorFever: "rgba(180,0,255,0.10)",
-        mistFarColor: "rgba(60,0,150,0.05)", mistFarColorFever: "rgba(140,0,200,0.07)",
+        skyTopClutch: [6, 0, 18], skyBotClutch: [12, 4, 36],
+        groundColor: "#04000c", groundColorClutch: "#080018",
+        subGroundColor: "#020008", subGroundColorClutch: "#04000e",
+        mistColor: "rgba(80,0,180,0.08)", mistColorClutch: "rgba(180,0,255,0.10)",
+        mistFarColor: "rgba(60,0,150,0.05)", mistFarColorClutch: "rgba(140,0,200,0.07)",
         hasTrees: false, hasFireflies: false,
       },
-      flash: { normal: "#4488ff", fever: "#ff00ff" },
+      flash: { normal: "#4488ff", clutch: "#ff00ff" },
     },
   },
   {
@@ -117,14 +117,14 @@ export const BACKGROUNDS: AssetVariant<BgVariant>[] = [
     value: {
       bg: {
         skyTop: [38, 6, 2], skyBot: [74, 18, 4],
-        skyTopFever: [60, 4, 2], skyBotFever: [100, 10, 4],
-        groundColor: "#3d1208", groundColorFever: "#220600",
-        subGroundColor: "#1a0602", subGroundColorFever: "#0e0200",
-        mistColor: "rgba(200,60,0,0.08)", mistColorFever: "rgba(255,40,0,0.12)",
-        mistFarColor: "rgba(180,40,0,0.05)", mistFarColorFever: "rgba(220,20,0,0.08)",
+        skyTopClutch: [60, 4, 2], skyBotClutch: [100, 10, 4],
+        groundColor: "#3d1208", groundColorClutch: "#220600",
+        subGroundColor: "#1a0602", subGroundColorClutch: "#0e0200",
+        mistColor: "rgba(200,60,0,0.08)", mistColorClutch: "rgba(255,40,0,0.12)",
+        mistFarColor: "rgba(180,40,0,0.05)", mistFarColorClutch: "rgba(220,20,0,0.08)",
         hasTrees: false, hasFireflies: false,
       },
-      flash: { normal: "#ff4400", fever: "#ff0000" },
+      flash: { normal: "#ff4400", clutch: "#ff0000" },
     },
   },
   {
@@ -132,14 +132,14 @@ export const BACKGROUNDS: AssetVariant<BgVariant>[] = [
     value: {
       bg: {
         skyTop: [140, 180, 210], skyBot: [200, 225, 240],
-        skyTopFever: [60, 100, 160], skyBotFever: [100, 150, 200],
-        groundColor: "#b0d8ee", groundColorFever: "#5077aa",
-        subGroundColor: "#80b8d8", subGroundColorFever: "#304466",
-        mistColor: "rgba(200,235,255,0.12)", mistColorFever: "rgba(100,150,220,0.12)",
-        mistFarColor: "rgba(180,220,255,0.08)", mistFarColorFever: "rgba(80,120,200,0.08)",
+        skyTopClutch: [60, 100, 160], skyBotClutch: [100, 150, 200],
+        groundColor: "#b0d8ee", groundColorClutch: "#5077aa",
+        subGroundColor: "#80b8d8", subGroundColorClutch: "#304466",
+        mistColor: "rgba(200,235,255,0.12)", mistColorClutch: "rgba(100,150,220,0.12)",
+        mistFarColor: "rgba(180,220,255,0.08)", mistFarColorClutch: "rgba(80,120,200,0.08)",
         hasTrees: false, hasFireflies: false,
       },
-      flash: { normal: "#44ccff", fever: "#00eeff" },
+      flash: { normal: "#44ccff", clutch: "#00eeff" },
     },
   },
 ];
