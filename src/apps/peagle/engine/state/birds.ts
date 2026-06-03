@@ -15,18 +15,18 @@ const BIRD_TINTS = ["#2a2018", "#1e1810", "#33281a"] as const;
 export function spawnBirds(s: GameState): void {
   if (s.birds.length >= MAX_BIRDS) return;
 
-  const dir   = Math.random() < 0.5 ? 1 : -1;
-  const y     = SKY_TOP + Math.random() * (SKY_BOT - SKY_TOP);
-  const speed = 0.9 + Math.random() * 1.1;
-  const scale = 0.8 + Math.random() * 0.7;
-  const tint  = BIRD_TINTS[Math.floor(Math.random() * BIRD_TINTS.length)]!;
+  const dir   = s.rng() < 0.5 ? 1 : -1;
+  const y     = SKY_TOP + s.rng() * (SKY_BOT - SKY_TOP);
+  const speed = 0.9 + s.rng() * 1.1;
+  const scale = 0.8 + s.rng() * 0.7;
+  const tint  = BIRD_TINTS[Math.floor(s.rng() * BIRD_TINTS.length)]!;
 
   s.birds.push({
     x: dir > 0 ? -16 : W + 16,
     y,
     vx: speed * dir,
-    wingPhase: Math.random() * Math.PI * 2,
-    flap: 0.22 + Math.random() * 0.16,
+    wingPhase: s.rng() * Math.PI * 2,
+    flap: 0.22 + s.rng() * 0.16,
     scale,
     tint,
   });

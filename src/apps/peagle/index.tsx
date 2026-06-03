@@ -106,7 +106,7 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
   }, [user, scoreSubmitted]);
 
   const handleLevelWon = useCallback(() => {
-    setUpgradeOffer(generateUpgradeOffer(runStateRef.current.upgrades));
+    setUpgradeOffer(generateUpgradeOffer(runStateRef.current.upgrades, runStateRef.current.seed));
   }, []);
 
   const recordBestScore = useCallback((score: number) => {

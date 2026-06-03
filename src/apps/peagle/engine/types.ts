@@ -1,5 +1,6 @@
 import type { UpgradeId } from "./roguelite";
 import type { PegKind } from "./peg-kinds";
+import type { Rng } from "./rng";
 
 export type { UpgradeId, PegKind };
 
@@ -153,6 +154,12 @@ export interface GameState {
 
   // Seed used to generate the procedural forest background (per run, derived from runState.seed)
   forestSeed: number;
+
+  // RNG seedé de la simulation : tout l'aléatoire gameplay/cosmétique (particules,
+  // oiseaux, jitter des textes, étoiles) passe par ici plutôt que Math.random(),
+  // pour que la partie soit reproductible à seed + entrées identiques. Re-seedé
+  // par niveau dans makeInitialState (hashSeed(runState.seed, level)).
+  rng: Rng;
 }
 
 export interface UiState {

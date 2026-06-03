@@ -30,16 +30,16 @@ export function spawnParticles(
   if (overflow > 0) s.particles.splice(0, overflow);
 
   for (let i = 0; i < count; i++) {
-    const angle = Math.random() * Math.PI * 2;
-    const speed = 1.5 + Math.random() * (bomb ? 6 : 3.5);
+    const angle = s.rng() * Math.PI * 2;
+    const speed = 1.5 + s.rng() * (bomb ? 6 : 3.5);
     const p: Particle = {
       x, y,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed - (bomb ? 2 : 1),
       life: 1,
-      maxLife: 0.6 + Math.random() * (bomb ? 1.2 : 0.6),
-      color: colors[Math.floor(Math.random() * colors.length)]!,
-      size: 2 + Math.random() * (bomb ? 5 : 3),
+      maxLife: 0.6 + s.rng() * (bomb ? 1.2 : 0.6),
+      color: colors[Math.floor(s.rng() * colors.length)]!,
+      size: 2 + s.rng() * (bomb ? 5 : 3),
     };
     s.particles.push(p);
   }
@@ -51,16 +51,16 @@ export function spawnLeafBurst(s: GameState, x: number, y: number, count = 5): v
   const overflow = s.particles.length + count - BALANCE.particles.maxCount;
   if (overflow > 0) s.particles.splice(0, overflow);
   for (let i = 0; i < count; i++) {
-    const angle = Math.random() * Math.PI * 2;
-    const speed = 0.5 + Math.random() * 1.8;
+    const angle = s.rng() * Math.PI * 2;
+    const speed = 0.5 + s.rng() * 1.8;
     s.particles.push({
       x, y,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed - 1.4,
       life: 1,
-      maxLife: 0.9 + Math.random() * 1.1,
-      color: LEAF_COLORS[Math.floor(Math.random() * LEAF_COLORS.length)]!,
-      size: 2 + Math.random() * 2.5,
+      maxLife: 0.9 + s.rng() * 1.1,
+      color: LEAF_COLORS[Math.floor(s.rng() * LEAF_COLORS.length)]!,
+      size: 2 + s.rng() * 2.5,
     });
   }
 }

@@ -419,19 +419,42 @@ function drawTwig(ctx: CanvasRenderingContext2D, cx: number, cy: number, sx: num
   }
 }
 
-function drawNest(
-  ctx: CanvasRenderingContext2D,
-  cx: number, cy: number,
-  w: number, h: number,
-  style: BucketStyle,
-  flash: boolean,
-  animClock: number,
-): void {
+// ─── Nid ──────────────────────────────────────────────────────────────────────
+// Géométrie partagée entre le corps statique (caché) et l'œuf dynamique.
+interface NestGeom {
+  cx: number; nW: number; nH: number; bot: number; top: number;
+  rimRx: number; rimRy: number; rimThick: number; rimCy: number;
+  cavHW: number; cavOpenY: number; cavBot: number; cavH: number;
+  eggCx: number; eggRx: number; eggRy: number; eggCy: number;
+}
+
+function nestGeom(cx: number, cy: number, w: number, h: number): NestGeom {
   cx = Math.round(cx);
   const nW = w + 16;
   const nH = Math.round(h * 1.95);
   const bot = Math.round(cy + h * 0.5);
   const top = bot - nH;
+  const rimRx = nW / 2;
+  const rimRy = 9;
+  const rimThick = 15;
+  const rimCy = top + rimRy;
+  const cavHW = Math.round(rimRx - rimThick + 2);
+  const cavOpenY = Math.round(rimCy);
+  const cavBot = bot - 2;
+  const cavH = cavBot - cavOpenY;
+  const eggRx = Math.round(cavHW * 0.54);
+  const eggRy = Math.round(cavH * 0.47);
+  const eggCy = cavBot - eggRy - 1;
+  return {
+    cx, nW, nH, bot, top, rimRx, rimRy, rimThick, rimCy,
+    cavHW, cavOpenY, cavBot, cavH, eggCx: cx, eggRx, eggRy, eggCy,
+  };
+}
+
+// Corps statique du nid (ombre → rebord → duvet). Ne dépend que de la géométrie
+// et des couleurs du style → rendu une seule fois puis mis en cache offscreen.
+function drawNestBody(ctx: CanvasRenderingContext2D, g: NestGeom, style: BucketStyle): void {
+  const { cx, nW, nH, bot, top, rimRx, rimRy, rimThick, rimCy, cavHW, cavOpenY, cavH } = g;
 
   // ── Ombre portée ──────────────────────────────────────────────────────────
   for (let i = 0; i < 6; i++) {
@@ -473,11 +496,6 @@ function drawNest(
   // ── Rebord — anneau elliptique 3D ─────────────────────────────────────────
   // Anneau dessiné en scan-lines : pour chaque dy, bras gauche + bras droit
   // La couleur varie selon dy : plus clair en haut (lumière rasante), sombre en bas
-  const rimRx = nW / 2;
-  const rimRy = 9;
-  const rimThick = 15;
-  const rimCy = top + rimRy;
-
   for (let dy = -rimRy; dy <= rimRy; dy++) {
     const y = Math.round(rimCy + dy);
     const outerHW = Math.round(rimRx * Math.sqrt(Math.max(0, 1 - (dy / rimRy) ** 2)));
@@ -515,11 +533,6 @@ function drawNest(
   }
 
   // ── Creux intérieur — ombre profonde + duvet ──────────────────────────────
-  const cavHW = Math.round(rimRx - rimThick + 2);
-  const cavOpenY = Math.round(rimCy);
-  const cavBot = bot - 2;
-  const cavH = cavBot - cavOpenY;
-
   for (let row = 0; row < cavH; row++) {
     const t = row / cavH;
     ctx.fillStyle = `rgba(0,0,0,${(0.65 - t * 0.3).toFixed(2)})`;
@@ -543,12 +556,14 @@ function drawNest(
       if ((x + row) % 3 === 0) ctx.fillRect(x, cavOpenY + row, 1, 1);
     }
   }
+}
 
-  // ── Œuf — ellipse pixel art avec taper au sommet ──────────────────────────
-  const eggCx = cx;
-  const eggRx = Math.round(cavHW * 0.54);
-  const eggRy = Math.round(cavH * 0.47);
-  const eggCy = cavBot - eggRy - 1;
+// Œuf au creux du nid — dynamique (halo pulsé + couleur de tache selon `flash`).
+// Léger (petite ellipse) → dessiné en direct chaque frame par-dessus le corps caché.
+function drawNestEgg(
+  ctx: CanvasRenderingContext2D, g: NestGeom, style: BucketStyle, flash: boolean, animClock: number,
+): void {
+  const { eggCx, eggRx, eggRy, eggCy } = g;
 
   if (flash) {
     // Halo pulsé — faux glow pixel (3 rects concentriques) au lieu de ctx.shadowBlur,
@@ -584,6 +599,54 @@ function drawNest(
   ctx.fillRect(eggCx - eggRx + 3, eggCy + 2,          1, 2);
   ctx.fillRect(eggCx + 1,         eggCy + eggRy - 3,  2, 1);
   ctx.fillRect(eggCx - 1,         eggCy + 2,          1, 1);
+}
+
+// Cache offscreen du corps du nid. Le corps est statique (couleurs du style +
+// géométrie constante) et le panier ne se déplace qu'en x : on le rend une fois,
+// centré sur NEST_REF_CX, puis on le blitte chaque frame avec un décalage
+// horizontal ENTIER → pixel-identique pour les formes lisses, sans refaire des
+// milliers de fillRect. La texture tissée devient solidaire du nid (vs scintillante
+// en espace-écran auparavant) — choix assumé, plus propre.
+const NEST_REF_CX = Math.round(W / 2);
+let _nestCv: HTMLCanvasElement | null = null;
+let _nestCtx: CanvasRenderingContext2D | null = null;
+let _nestKey = "";
+
+function getNestBodyOffscreen(cy: number, w: number, h: number, style: BucketStyle): HTMLCanvasElement | null {
+  if (typeof document === "undefined") return null;
+  // style.* sont des chaînes de couleur : la clé couvre tout ce dont dépend le corps.
+  const key = `${w}:${h}:${cy}:${style.nestDark}:${style.nestMid}:${style.nestLight}:${style.nestRim}`;
+  if (!_nestCv) {
+    _nestCv = document.createElement("canvas");
+    _nestCv.width = W;
+    _nestCv.height = H;
+    _nestCtx = _nestCv.getContext("2d");
+  }
+  if (_nestCtx && _nestKey !== key) {
+    _nestCtx.clearRect(0, 0, W, H);
+    drawNestBody(_nestCtx, nestGeom(NEST_REF_CX, cy, w, h), style);
+    _nestKey = key;
+  }
+  return _nestCtx ? _nestCv : null;
+}
+
+function drawNest(
+  ctx: CanvasRenderingContext2D,
+  cx: number, cy: number,
+  w: number, h: number,
+  style: BucketStyle,
+  flash: boolean,
+  animClock: number,
+): void {
+  const g = nestGeom(cx, cy, w, h);
+  const off = getNestBodyOffscreen(cy, w, h, style);
+  if (off) {
+    // Décalage entier (g.cx et NEST_REF_CX sont arrondis) → pas de rééchantillonnage.
+    ctx.drawImage(off, g.cx - NEST_REF_CX, 0);
+  } else {
+    drawNestBody(ctx, g, style); // fallback SSR / pas de document
+  }
+  drawNestEgg(ctx, g, style, flash, animClock);
 }
 
 export function drawBuckets(ctx: CanvasRenderingContext2D, s: GameState): void {
