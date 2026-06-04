@@ -626,6 +626,13 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, onEagle
     let grooveY = 0;      // déplacement vertical (px) — repos = 0
     let grooveV = 0;      // vitesse du ressort
     let groovePop = 0;    // pop d'échelle [0..~0.18] qui retombe entre les beats
+    // Groove PROPRE au badge « 98 » : au lieu de pomper verticalement avec le mot,
+    // il dodeline (wiggle rotationnel alterné gauche/droite) + pulse léger → un
+    // caractère bien à lui, distinct du rebond vertical de PEAGLE.
+    let grooveBadgeRot = 0;   // rotation du wiggle (rad) — repos = 0
+    let grooveBadgeRotV = 0;  // vitesse du ressort de rotation
+    let grooveBadgeDir = 1;   // alterne le sens du wiggle à chaque beat
+    let badgePulse = 0;       // pulse d'échelle propre au badge [0..~0.14]
 
     // ─── Œufs lâchés par l'aigle (gag idle) ──────────────────────────────────
     // De temps en temps, une fois posé en vol stationnaire, l'aigle « pond »
@@ -1254,13 +1261,14 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, onEagle
         // Bounce indépendant du badge : squash/stretch + wobble piloté par son
         // propre ressort (badgeKnock/badgeKnockV/badgeFlash). Combiné au pop d'intro.
         const sq = Math.max(-0.32, Math.min(0.45, badgeKnock * 0.011));
-        const pop = (1 + badgeFlash * 0.16 + groovePop) * scl;
+        const badgeFloatFade = bp >= 1 ? Math.min(1, (elapsed - BADGE_AT - 0.4) / 0.7) : 0;
+        const pop = (1 + badgeFlash * 0.16 + badgePulse * badgeFloatFade) * scl;
         const bScaleX = (1 + sq * 0.55) * pop;
         const bScaleY = (1 - sq) * pop;
-        const badgeFloatFade = bp >= 1 ? Math.min(1, (elapsed - BADGE_AT - 0.4) / 0.7) : 0;
         const badgeFloat = Math.sin(settledFor * Math.PI * 1.4 + 1.2) * 2.8 * badgeFloatFade;
         const badgeIdleRot = Math.sin(settledFor * Math.PI * 1.0 + 2.0) * 0.022 * badgeFloatFade;
-        const bRot = Math.max(-0.22, Math.min(0.22, badgeKnockV * 0.00048)) + badgeIdleRot;
+        const badgeGrooveRot = Math.max(-0.15, Math.min(0.15, grooveBadgeRot)) * badgeFloatFade;
+        const bRot = Math.max(-0.22, Math.min(0.22, badgeKnockV * 0.00048)) + badgeIdleRot + badgeGrooveRot;
         const acx = bx + bW / 2;                 // centre horizontal
         const aby = by + bH + badgeKnock + badgeFloat; // bord bas + enfoncement + flottement
 
@@ -1857,15 +1865,19 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, onEagle
         if (pigElapsed >= END) continue; // hors écran, ne pas dessiner
 
         const hf  = Math.max(0, (ph - PEEK_IN) / PEEK_HOLD);
-        // Amplitude du balancement : nulle à l'entrée, pleine pendant le hold,
-        // puis éteinte pendant la sortie → la tête se recache bien droite
-        // (comme à l'entrée) au lieu de pencher sur le côté.
-        let bobAmp = hf > 0 ? 1 : 0;
-        if (ph >= PEEK_IN + PEEK_HOLD) {
+        // Balancement : nul à l'entrée, oscillant pendant le hold. Pendant la
+        // sortie, on FIGE la valeur du balancement au moment où la rétractation
+        // commence et on la ramène à 0 en douceur — au lieu de laisser le sinus
+        // continuer à osciller, ce qui faisait pencher la tête sur le côté en
+        // se recachant. Résultat : elle se recache bien droite, comme à l'entrée.
+        let bob: number;
+        if (ph < PEEK_IN + PEEK_HOLD) {
+          bob = (hf > 0 ? 1 : 0) * Math.sin(pigElapsed * 4.5) * 0.06;
+        } else {
           const op = Math.min(1, (ph - PEEK_IN - PEEK_HOLD) / PEEK_OUT);
-          bobAmp = 1 - op;
+          const bobAtRetreat = Math.sin((AT + PEEK_IN + PEEK_HOLD) * 4.5) * 0.06;
+          bob = bobAtRetreat * (1 - easeOutCubic(op));
         }
-        const bob = bobAmp * Math.sin(pigElapsed * 4.5) * 0.06;
         const peekCtx = buildIntroFaceCtx(peekMoodIds[pi]!, pigElapsed);
         peekCtx.screech = currentScreech; // bec ouvert sur le petit cri du peek
         const mood = getFaceMood(peekCtx);
@@ -1993,13 +2005,23 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, onEagle
       const beatRise = Math.max(0, beat - prevBeat);
       prevBeat = beat;
       if (beatRise > 0.04) {
-        grooveV -= beatRise * 320;                 // impulsion vers le haut
-        grooveV = Math.max(grooveV, -300);         // borne le coup le plus fort
-        groovePop = Math.min(0.2, groovePop + beatRise * 0.3);
+        grooveV -= beatRise * 210;                 // impulsion vers le haut (adoucie)
+        grooveV = Math.max(grooveV, -190);         // borne le coup le plus fort
+        groovePop = Math.min(0.14, groovePop + beatRise * 0.22);
+        // Badge : wiggle rotationnel alterné gauche/droite + pulse propre
+        grooveBadgeRotV += grooveBadgeDir * beatRise * 5.5;
+        grooveBadgeDir = -grooveBadgeDir;
+        badgePulse = Math.min(0.14, badgePulse + beatRise * 0.22);
       }
-      grooveV += (-190 * grooveY - 7 * grooveV) * dt; // ressort sous-amorti
+      // Ressort plus mou (k=110) et un peu plus amorti (c=8) → mouvement ample et
+      // smooth au lieu du retour sec ; le pop retombe plus doucement aussi.
+      grooveV += (-110 * grooveY - 8 * grooveV) * dt;
       grooveY += grooveV * dt;
-      groovePop *= Math.pow(0.0015, dt);              // retombe vite entre les beats
+      groovePop *= Math.pow(0.02, dt);                // retombe en douceur entre les beats
+      // Ressort de rotation du badge (indépendant)
+      grooveBadgeRotV += (-150 * grooveBadgeRot - 9 * grooveBadgeRotV) * dt;
+      grooveBadgeRot += grooveBadgeRotV * dt;
+      badgePulse *= Math.pow(0.02, dt);
 
       ctx!.save();
       ctx!.clearRect(0, 0, cssW, cssH);
