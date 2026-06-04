@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { AppProps, OsRelease } from "@/types";
+import type { AppProps } from "@/types";
 import { useNotify } from "@/lib/contexts/notification-context";
 import type { NotificationType } from "@/lib/contexts/notification-context";
 import { useSettings } from "@/lib/contexts/settings-context";
@@ -55,7 +55,7 @@ const divider: React.CSSProperties = {
 
 // ─── nav sidebar ──────────────────────────────────────────────────────────────
 
-type Section = "live" | "users" | "database" | "notifications" | "broadcast" | "vocal" | "versions" | "peagle";
+type Section = "live" | "users" | "database" | "notifications" | "broadcast" | "vocal" | "peagle";
 
 const NAV_ITEMS: { id: Section; label: string; icon: string }[] = [
   { id: "live",          label: "En direct",       icon: "🟢" },
@@ -64,7 +64,6 @@ const NAV_ITEMS: { id: Section; label: string; icon: string }[] = [
   { id: "notifications", label: "Notifications",   icon: "🔔" },
   { id: "broadcast",     label: "Broadcast",       icon: "📢" },
   { id: "vocal",         label: "Vocal TTS",       icon: "🔊" },
-  { id: "versions",      label: "Versions",        icon: "📋" },
   { id: "peagle",        label: "Peagle 98",       icon: "🎯" },
 ];
 
@@ -1233,302 +1232,6 @@ function VocalPanel() {
   );
 }
 
-// ─── versions panel ──────────────────────────────────────────────────────────
-
-function VersionsPanel() {
-  const notify = useNotify();
-  const [releases, setReleases] = useState<OsRelease[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [versionStr, setVersionStr] = useState("");
-  const [changelog, setChangelog] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [editId, setEditId] = useState<number | null>(null);
-  const [editVersion, setEditVersion] = useState("");
-  const [editChangelog, setEditChangelog] = useState("");
-
-  useEffect(() => {
-    fetch("/api/version")
-      .then((r) => r.json())
-      .then((d: { releases?: OsRelease[] }) => setReleases(d.releases ?? []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
-
-  async function create() {
-    if (!versionStr.trim()) { notify({ type: "warning", title: "Numéro de version requis" }); return; }
-    setSaving(true);
-    try {
-      const res = await fetch("/api/admin/broadcast-version", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ version: versionStr.trim(), changelog: changelog.trim() || undefined }),
-      });
-      const data = await res.json() as { ok?: boolean; reached?: number; error?: string; release?: OsRelease };
-      if (data.ok && data.release) {
-        notify({ type: "success", title: `v${versionStr} publiée et diffusée à ${data.reached} client${(data.reached ?? 0) !== 1 ? "s" : ""}` });
-        setReleases((prev) => [data.release!, ...prev]);
-        setVersionStr("");
-        setChangelog("");
-      } else {
-        notify({ type: "error", title: "Erreur", message: data.error });
-      }
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  function startEdit(r: OsRelease) {
-    setEditId(r.id);
-    setEditVersion(r.version);
-    setEditChangelog(r.changelog ?? "");
-  }
-
-  async function saveEdit(id: number) {
-    if (!editVersion.trim()) { notify({ type: "warning", title: "Numéro de version requis" }); return; }
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/admin/versions/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ version: editVersion.trim(), changelog: editChangelog.trim() || null }),
-      });
-      const data = await res.json() as { ok?: boolean; error?: string; release?: OsRelease };
-      if (data.ok && data.release) {
-        setReleases((prev) => prev.map((r) => r.id === id ? data.release! : r));
-        setEditId(null);
-        notify({ type: "success", title: "Version mise à jour" });
-      } else {
-        notify({ type: "error", title: "Erreur", message: data.error });
-      }
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function remove(id: number, version: string) {
-    if (!confirm(`Supprimer la version v${version} ?`)) return;
-    const res = await fetch(`/api/admin/versions/${id}`, { method: "DELETE" });
-    const data = await res.json() as { ok?: boolean; error?: string };
-    if (data.ok) {
-      setReleases((prev) => prev.filter((r) => r.id !== id));
-      notify({ type: "success", title: `v${version} supprimée` });
-    } else {
-      notify({ type: "error", title: "Erreur", message: data.error });
-    }
-  }
-
-  const fieldStyle: React.CSSProperties = { ...inset, width: "100%", boxSizing: "border-box" as const };
-  const labelStyle: React.CSSProperties = {
-    fontFamily: "var(--t-font-body)",
-    fontSize: "var(--t-text-xs)",
-    color: "var(--t-text-muted)",
-    marginBottom: 3,
-    display: "block",
-  };
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <SectionHeader
-        title="Gestion des versions"
-        subtitle="Publie une nouvelle release · diffuse via SSE · visible dans Notes de version"
-      />
-      <div style={{ flex: 1, overflow: "hidden", display: "flex", gap: 0 }}>
-
-        {/* Left: create form */}
-        <div style={{
-          width: 280,
-          flexShrink: 0,
-          borderRight: "2px solid var(--t-border-dark)",
-          padding: 14,
-          display: "flex",
-          flexDirection: "column",
-          gap: 10,
-          overflowY: "auto",
-        }}>
-          <div style={{
-            fontFamily: "var(--t-font-display)",
-            fontSize: "var(--t-text-xs)",
-            color: "var(--t-text-muted)",
-            letterSpacing: "0.05em",
-            paddingBottom: 6,
-            borderBottom: "1px solid var(--t-border-dark)",
-          }}>
-            NOUVELLE VERSION
-          </div>
-          <div>
-            <label style={labelStyle}>Numéro de version *</label>
-            <input
-              value={versionStr}
-              onChange={(e) => setVersionStr(e.target.value)}
-              placeholder="ex: 1.4.2"
-              onKeyDown={(e) => e.key === "Enter" && create()}
-              style={fieldStyle}
-            />
-          </div>
-          <div>
-            <label style={labelStyle}>Changelog</label>
-            <textarea
-              value={changelog}
-              onChange={(e) => setChangelog(e.target.value)}
-              placeholder={"- Nouvelle fonctionnalité\n- Correction de bug\n- Amélioration des perfs"}
-              rows={8}
-              style={{ ...fieldStyle, resize: "vertical" as const, lineHeight: 1.5 }}
-            />
-          </div>
-          <button
-            disabled={saving}
-            onClick={create}
-            style={{
-              ...btn("accent"),
-              padding: "8px 0",
-              textAlign: "center" as const,
-              fontFamily: "var(--t-font-display)",
-              fontSize: "var(--t-text-sm)",
-              opacity: saving ? 0.6 : 1,
-              cursor: saving ? "wait" : "pointer",
-            }}
-          >
-            {saving ? "Publication…" : "🚀 Publier et diffuser"}
-          </button>
-          <div style={{
-            fontSize: "var(--t-text-xs)",
-            color: "var(--t-text-muted)",
-            fontFamily: "var(--t-font-body)",
-            lineHeight: 1.5,
-          }}>
-            La version sera enregistrée en base et diffusée en temps réel à tous les clients connectés.
-          </div>
-        </div>
-
-        {/* Right: releases list */}
-        <div style={{ flex: 1, overflowY: "auto", padding: 14, display: "flex", flexDirection: "column", gap: 8 }}>
-          {loading && (
-            <div style={{ fontFamily: "var(--t-font-body)", fontSize: "var(--t-text-xs)", color: "var(--t-text-muted)" }}>
-              Chargement…
-            </div>
-          )}
-          {!loading && releases.length === 0 && (
-            <div style={{ fontFamily: "var(--t-font-body)", fontSize: "var(--t-text-sm)", color: "var(--t-text-muted)", paddingTop: 20, textAlign: "center" }}>
-              Aucune version publiée.
-            </div>
-          )}
-          {releases.map((r, i) => (
-            <div
-              key={r.id}
-              style={{
-                border: "2px solid",
-                borderTopColor: "var(--t-border-light)",
-                borderLeftColor: "var(--t-border-light)",
-                borderBottomColor: "var(--t-border-dark)",
-                borderRightColor: "var(--t-border-dark)",
-                background: "var(--t-app-bg)",
-              }}
-            >
-              {editId === r.id ? (
-                <div style={{ padding: "8px 10px", display: "flex", flexDirection: "column", gap: 6 }}>
-                  <input
-                    value={editVersion}
-                    onChange={(e) => setEditVersion(e.target.value)}
-                    placeholder="Numéro de version"
-                    style={fieldStyle}
-                  />
-                  <textarea
-                    value={editChangelog}
-                    onChange={(e) => setEditChangelog(e.target.value)}
-                    placeholder="Changelog…"
-                    rows={4}
-                    style={{ ...fieldStyle, resize: "vertical" as const }}
-                  />
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button
-                      disabled={saving}
-                      onClick={() => saveEdit(r.id)}
-                      style={{ ...btn("accent"), flex: 1, opacity: saving ? 0.6 : 1 }}
-                    >
-                      {saving ? "…" : "✔ Sauvegarder"}
-                    </button>
-                    <button
-                      onClick={() => setEditId(null)}
-                      style={btn()}
-                    >
-                      Annuler
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <div style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "6px 10px",
-                    borderBottom: r.changelog ? "1px solid var(--t-border-dark)" : undefined,
-                    background: i === 0 ? "linear-gradient(to right, var(--t-titlebar-from), var(--t-titlebar-to))" : undefined,
-                  }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      {i === 0 && (
-                        <span style={{
-                          fontSize: "var(--t-text-xs)",
-                          background: "var(--t-accent)",
-                          color: "#fff",
-                          padding: "1px 5px",
-                          fontFamily: "var(--t-font-display)",
-                        }}>
-                          LATEST
-                        </span>
-                      )}
-                      <span style={{
-                        fontFamily: "var(--t-font-display)",
-                        fontSize: "var(--t-text-sm)",
-                        color: i === 0 ? "var(--t-titlebar-text)" : "var(--t-accent)",
-                      }}>
-                        v{r.version}
-                      </span>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{
-                        fontSize: "var(--t-text-xs)",
-                        color: i === 0 ? "rgba(255,255,255,0.7)" : "var(--t-text-muted)",
-                        fontFamily: "var(--t-font-body)",
-                      }}>
-                        {new Date(r.releasedAt).toLocaleDateString("fr-FR")}
-                      </span>
-                      <button
-                        onClick={() => startEdit(r)}
-                        style={{ ...btn(), padding: "1px 7px", fontSize: "var(--t-text-xs)" }}
-                      >
-                        ✏️ Éditer
-                      </button>
-                      <button
-                        onClick={() => remove(r.id, r.version)}
-                        style={{ ...btn("danger"), padding: "1px 7px", fontSize: "var(--t-text-xs)" }}
-                      >
-                        🗑
-                      </button>
-                    </div>
-                  </div>
-                  {r.changelog && (
-                    <div style={{
-                      padding: "6px 10px",
-                      fontSize: "var(--t-text-xs)",
-                      color: "var(--t-text)",
-                      whiteSpace: "pre-wrap",
-                      lineHeight: 1.6,
-                      fontFamily: "var(--t-font-body)",
-                    }}>
-                      {r.changelog}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── peagle panel ────────────────────────────────────────────────────────────
 
 type PeagleScoreRow = {
@@ -1745,7 +1448,6 @@ export function DbAdmin({ windowId: _windowId }: AppProps) {
         {section === "notifications" && <NotificationsPanel />}
         {section === "broadcast"     && <BroadcastPanel />}
         {section === "vocal"         && <VocalPanel />}
-        {section === "versions"      && <VersionsPanel />}
         {section === "peagle"        && <PeaglePanel />}
       </div>
     </div>

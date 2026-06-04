@@ -34,24 +34,6 @@ export function useLiveNotifications() {
           }
           return;
         }
-        if (payload.kind === "reload") {
-          notify({
-            type: "info",
-            title: `Nouvelle version ${payload.version}`,
-            message: payload.changelog ?? "Cliquer pour recharger la page.",
-            duration: null,
-            onClick: () => window.location.reload(),
-          });
-          if (user) {
-            persistNotification({
-              source: "system",
-              type: "info",
-              title: `Nouvelle version ${payload.version}`,
-              message: payload.changelog ?? undefined,
-            });
-          }
-          return;
-        }
         notify({
           type: payload.type,
           title: payload.title,

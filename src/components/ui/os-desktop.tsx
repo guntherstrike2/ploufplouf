@@ -11,6 +11,7 @@ import { WALLPAPER_MAP, DEFAULT_WALLPAPER_ID } from "@/lib/wallpapers";
 import { WallpaperDecoration } from "./wallpaper-decorations";
 import { useAuth } from "@/lib/contexts/auth-context";
 import { useMobile } from "@/lib/hooks/use-mobile";
+import { CURRENT_VERSION } from "@/lib/os-versions";
 
 const CELL_W = 110;
 const CELL_H = 100;
@@ -123,6 +124,10 @@ export function OsDesktop() {
 
   const handleOpenSettings = useCallback(() => {
     openNamedWindow("settings", "Paramètres GunthOS", null);
+  }, [openNamedWindow]);
+
+  const openChangelog = useCallback(() => {
+    openNamedWindow("changelog", "GunthOS — Notes de version", "📋");
   }, [openNamedWindow]);
 
   const icons: IconDef[] = [
@@ -252,6 +257,7 @@ export function OsDesktop() {
             />
           ))}
         </div>
+        <DesktopVersionBadge onOpen={openChangelog} />
       </div>
     );
   }
@@ -286,6 +292,7 @@ export function OsDesktop() {
           />
         );
       })}
+      <DesktopVersionBadge onOpen={openChangelog} />
     </div>
   );
 }
@@ -603,6 +610,36 @@ function DraggableDesktopIcon({
           {icon.label}
         </span>
       </span>
+    </button>
+  );
+}
+
+// ─── Version watermark — bottom-right of the desktop, opens the changelog ─────
+
+function DesktopVersionBadge({ onOpen }: { onOpen: () => void }) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); onOpen(); }}
+      onPointerEnter={() => setHover(true)}
+      onPointerLeave={() => setHover(false)}
+      title="Voir les notes de version"
+      className="absolute bottom-2 right-3 focus:outline-none cursor-pointer"
+      style={{
+        zIndex: 20,
+        fontFamily: "var(--t-font-display)",
+        fontSize: "var(--t-text-xs)",
+        color: "white",
+        letterSpacing: "0.05em",
+        textShadow: "1px 1px 2px rgba(0,0,0,0.9), 0 0 6px rgba(0,0,0,0.7)",
+        opacity: hover ? 1 : 0.7,
+        transition: "opacity 0.15s ease",
+        background: "transparent",
+        border: "none",
+        padding: 0,
+      }}
+    >
+      GunthOS v{CURRENT_VERSION}
     </button>
   );
 }

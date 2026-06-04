@@ -337,15 +337,6 @@ export const defragStats = sqliteTable("defrag_stats", {
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
 
-// ── GunthOS versioning ────────────────────────────────────────────────────────
-
-export const osVersions = sqliteTable("os_versions", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  version: text("version").notNull(),
-  changelog: text("changelog"),
-  releasedAt: integer("released_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
-});
-
 // ── GunthRank — game tier-list ──────────────────────────────────────────────────
 
 export const gunthrankGames = sqliteTable("gunthrank_games", {

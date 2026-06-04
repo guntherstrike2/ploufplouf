@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, type CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 import { useWindowActions } from "@/lib/contexts/window-manager-context";
 import { useSettings } from "@/lib/contexts/settings-context";
 import { SETTINGS_RAM_STATUSES, SETTINGS_LICENSES } from "@/lib/gunth-jokes";
@@ -15,7 +15,8 @@ import { OsIcon } from "@/components/ui/os-icon";
 import { useSoundContext } from "@/lib/contexts/sound-context";
 import { RetroTitlebarBtn } from "@/components/ui/retro-titlebar-btn";
 import { APP_REGISTRY } from "@/apps";
-import type { AppProps, OsRelease } from "@/types";
+import { OS_VERSIONS } from "@/lib/os-versions";
+import type { AppProps } from "@/types";
 
 type Tab = "theme" | "wallpaper" | "display" | "icons" | "system" | "about";
 
@@ -484,17 +485,7 @@ function IconsTab({ iconThemeId, setIconTheme }: { iconThemeId: IconThemeId; set
 }
 
 function AboutTab() {
-  const [releases, setReleases] = useState<OsRelease[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetch("/api/version")
-      .then((r) => r.json())
-      .then((data: { releases?: OsRelease[] }) => setReleases(data.releases ?? []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
-
+  const releases = OS_VERSIONS;
   const latest = releases[0];
   const appCount = APP_REGISTRY.length;
   const versionedCount = APP_REGISTRY.filter((a) => a.version).length;
@@ -513,7 +504,7 @@ function AboutTab() {
               GunthOS™
             </div>
             <div style={{ fontFamily: "var(--t-font-display)", fontSize: "var(--t-text-sm)", color: "var(--t-text-muted)" }}>
-              {loading ? "Chargement…" : latest ? `Version ${latest.version}` : "Version inconnue"}
+              {latest ? `Version ${latest.version}` : "Version inconnue"}
             </div>
           </div>
         </div>
@@ -525,23 +516,10 @@ function AboutTab() {
       </div>
 
       <SectionTitle>📋 HISTORIQUE DES VERSIONS</SectionTitle>
-      {loading && (
-        <div style={{ fontFamily: "var(--t-font-display)", fontSize: "var(--t-text-sm)", color: "var(--t-text-muted)" }}>
-          Chargement…
-        </div>
-      )}
-      {!loading && releases.length === 0 && (
-        <div
-          className="p-3 border-[2px]"
-          style={{ backgroundColor: "var(--t-inset-from)", borderTopColor: "var(--t-border-dark)", borderLeftColor: "var(--t-border-dark)", borderBottomColor: "var(--t-border-light)", borderRightColor: "var(--t-border-light)", fontFamily: "var(--t-font-display)", fontSize: "var(--t-text-sm)", color: "var(--t-text-muted)" }}
-        >
-          Aucune version publiée pour l&apos;instant.
-        </div>
-      )}
       <div className="flex flex-col gap-2 max-h-[240px] overflow-y-auto pr-1">
         {releases.map((r) => (
           <div
-            key={r.id}
+            key={r.version}
             className="p-2.5 border-[2px]"
             style={{ backgroundColor: "var(--t-bg-dark)", borderTopColor: "var(--t-border-light)", borderLeftColor: "var(--t-border-light)", borderBottomColor: "var(--t-border-dark)", borderRightColor: "var(--t-border-dark)" }}
           >

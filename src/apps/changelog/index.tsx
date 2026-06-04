@@ -1,24 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { AppProps, OsRelease } from "@/types";
+import type { AppProps } from "@/types";
+import { OS_VERSIONS } from "@/lib/os-versions";
 
-function formatDate(d: string | Date) {
+function formatDate(d: string) {
   return new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
 }
 
 export function ChangelogApp(_: AppProps) {
-  const [releases, setReleases] = useState<OsRelease[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetch("/api/version")
-      .then((r) => r.json())
-      .then((d: { releases?: OsRelease[] }) => setReleases(d.releases ?? []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
-
+  const releases = OS_VERSIONS;
   const latest = releases[0];
 
   return (
@@ -48,7 +38,7 @@ export function ChangelogApp(_: AppProps) {
               GunthOS — Notes de version
             </div>
             <div style={{ fontSize: "var(--t-text-xs)", color: "var(--t-text-muted)" }}>
-              {loading ? "Chargement…" : latest ? `Dernière version : v${latest.version}` : "Aucune version publiée"}
+              {latest ? `Dernière version : v${latest.version}` : "Aucune version"}
             </div>
           </div>
         </div>
@@ -56,29 +46,9 @@ export function ChangelogApp(_: AppProps) {
 
       {/* Release list */}
       <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
-        {loading && (
-          <div style={{ fontSize: "var(--t-text-xs)", color: "var(--t-text-muted)", textAlign: "center", paddingTop: 32 }}>
-            Chargement…
-          </div>
-        )}
-        {!loading && releases.length === 0 && (
-          <div style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            flex: 1,
-            gap: 8,
-            color: "var(--t-text-muted)",
-            fontSize: "var(--t-text-sm)",
-          }}>
-            <span style={{ fontSize: 36 }}>📭</span>
-            Aucune version publiée pour l&apos;instant.
-          </div>
-        )}
         {releases.map((r, i) => (
           <div
-            key={r.id}
+            key={r.version}
             style={{
               border: "2px solid",
               borderTopColor: "var(--t-border-light)",
@@ -150,7 +120,7 @@ export function ChangelogApp(_: AppProps) {
         flexShrink: 0,
         letterSpacing: "0.04em",
       }}>
-        {releases.length} version{releases.length !== 1 ? "s" : ""} publiée{releases.length !== 1 ? "s" : ""}
+        {releases.length} version{releases.length !== 1 ? "s" : ""}
       </div>
     </div>
   );

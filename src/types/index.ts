@@ -56,8 +56,7 @@ export interface AppProps {
 }
 
 export type OsRelease = {
-  id: number;
   version: string;
-  changelog: string | null;
-  releasedAt: string | Date;
+  releasedAt: string; // ISO date
+  changelog: string;
 };
