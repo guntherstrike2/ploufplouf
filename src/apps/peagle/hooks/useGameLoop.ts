@@ -91,7 +91,7 @@ export function useGameLoop({
     playPegHit, playOrangePegHit, playBumperHit,
     playWallBounce, playBucketCatch, playJackpot,
     playLevelClear, playPegClear, playGameOver,
-    playGrab, playFirework,
+    playGrab, playFirework, playEagleCryLong,
   } = usePeagleSounds();
 
   // Ref stable pour playFirework (utilisé dans la boucle rAF sans le mettre en dep)
@@ -119,7 +119,7 @@ export function useGameLoop({
           case "jackpot":     playJackpot(); break;
           case "level-clear": playLevelClear(); break;
           case "peg-clear":   playPegClear(); break;
-          case "game-over":   playGameOver(); break;
+          case "game-over":   playGameOver(); playEagleCryLong(0.8, 0.62); break; // cri grave, dégoûté
           // legacy fallbacks
           case "pop":   playPegClear(); break;
           case "bip":   playWallBounce(); break;
@@ -128,6 +128,7 @@ export function useGameLoop({
         break;
       }
       case "level-won":
+        playEagleCryLong(); // cri triomphal sur la victoire (bec ouvert : mood "won")
         onLevelWonRef.current();
         break;
       case "level-lost":
@@ -144,7 +145,7 @@ export function useGameLoop({
     playPegHit, playOrangePegHit, playBumperHit,
     playWallBounce, playBucketCatch, playJackpot,
     playLevelClear, playPegClear, playGameOver,
-    onBestScore,
+    playEagleCryLong, onBestScore,
   ]);
 
   const syncUI = useCallback((orangeLeft?: number) => {

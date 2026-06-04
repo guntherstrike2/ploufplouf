@@ -5,6 +5,7 @@ import type { AppProps } from "@/types";
 import { useAuth } from "@/lib/contexts/auth-context";
 import { useMusic } from "./hooks/useMusic";
 import { useGameLoop } from "./hooks/useGameLoop";
+import { usePeagleSounds } from "./hooks/usePeagleSounds";
 import { GameCanvas } from "./components/GameCanvas";
 import { Leaderboard } from "./components/Leaderboard";
 import { LoadingScreen } from "./components/LoadingScreen";
@@ -130,6 +131,7 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
   }, [bestScoreRef]);
 
   const { musicMuted, toggleMusic, fadeOutAndRestart, fadeToGameTrack, fadeToClutchTrack, getBeat } = useMusic(screen !== "loading");
+  const { playEagleCryLong } = usePeagleSounds();
 
   // Transitions musicales fever : détecte l'entrée en fever pour démarrer le fever track,
   // et revient au game track dès que le fever se termine (pegs orange tous touchés ou niveau perdu).
@@ -137,9 +139,12 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
   const inClutch = screen === "game" && ui.orangeLeft > 0 && ui.orangeLeft <= 3;
   useEffect(() => {
     if (screen !== "game") { prevInClutchRef.current = false; return; }
-    if (inClutch && !prevInClutchRef.current) fadeToClutchTrack();
+    if (inClutch && !prevInClutchRef.current) {
+      fadeToClutchTrack();
+      playEagleCryLong(); // cri féroce qui annonce le fever — l'aigle a le bec ouvert
+    }
     prevInClutchRef.current = inClutch;
-  }, [inClutch, screen, fadeToClutchTrack]);
+  }, [inClutch, screen, fadeToClutchTrack, playEagleCryLong]);
 
   const handleUiSync = useCallback((uiState: UiState) => setUi(uiState), []);
   const handleOrangeTotalChange = useCallback((total: number) => setUi(u => ({ ...u, orangeTotal: total })), []);

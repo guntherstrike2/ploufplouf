@@ -1,9 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import { getContext, getMasterGain } from "@/lib/audio/engine";
+import { getContext, getMasterGain, loadBuffer, prefetch } from "@/lib/audio/engine";
 import { useSettingsState } from "@/lib/contexts/settings-context";
 import { W } from "../engine/constants";
+
+// ─── Samples (cris d'aigle réels, MP3) ───────────────────────────────────────
+const CRY_SHORT = "/sounds/peagle-eagle-cry-short.mp3";
+const CRY_LONG  = "/sounds/peagle-eagle-cry-long.mp3";
 
 // ─── Compressor partagé ──────────────────────────────────────────────────────
 // Un seul DynamicsCompressor pour tous les sons Peagle — donne le "punch"
@@ -194,6 +198,9 @@ export function usePeagleSounds() {
   const enabledRef = useRef(settings.soundEnabled);
   useEffect(() => { enabledRef.current = settings.soundEnabled; }, [settings.soundEnabled]);
 
+  // Précharge les cris d'aigle pour qu'ils soient prêts dès l'intro.
+  useEffect(() => { prefetch(CRY_SHORT); prefetch(CRY_LONG); }, []);
+
   /** Retourne { ctx, dest } (dest = compresseur Peagle) ou null si muet. */
   const cd = useCallback((): { ctx: AudioContext; dest: AudioNode } | null => {
     if (!enabledRef.current) return null;
@@ -203,6 +210,38 @@ export function usePeagleSounds() {
       return { ctx, dest };
     } catch { return null; }
   }, []);
+
+  // ── Cris d'aigle (samples MP3) ────────────────────────────────────────────
+  // Joués via le compresseur Peagle comme tous les sons → restent dans le mix.
+
+  /** Joue un sample one-shot à travers le compresseur, pitch/volume réglables. */
+  const playSample = useCallback((url: string, vol: number, rate = 1) => {
+    const r = cd(); if (!r) return;
+    const { ctx, dest } = r;
+    loadBuffer(url).then((buf) => {
+      if (!enabledRef.current) return; // coupé pendant le chargement
+      try {
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        src.playbackRate.value = rate;
+        const gain = ctx.createGain();
+        gain.gain.value = vol;
+        src.connect(gain); gain.connect(dest);
+        src.start();
+      } catch {}
+    }).catch(() => {});
+  }, [cd]);
+
+  /** Petit cri — teaser pendant l'intro. `rate` fourni par l'appelant (pitch qui
+   *  escalade d'un peek à l'autre) ; sinon pitch random ±22% par défaut. */
+  const playEagleCryShort = useCallback((vol = 0.5, rate?: number) => {
+    playSample(CRY_SHORT, vol, rate ?? 0.78 + Math.random() * 0.44);
+  }, [playSample]);
+
+  /** Gros cri — l'aigle débarque vraiment. `rate` < 1 = pitch grave (ex: défaite dégoûtée). */
+  const playEagleCryLong = useCallback((vol = 0.9, rate = 1) => {
+    playSample(CRY_LONG, vol, rate);
+  }, [playSample]);
 
   // ── Gameplay ────────────────────────────────────────────────────────────────
 
@@ -498,6 +537,8 @@ export function usePeagleSounds() {
     playMenuClick,
     playMenuReveal,
     playTitleImpact,
+    playEagleCryShort,
+    playEagleCryLong,
     playUpgradeReveal,
     playUpgradeHover,
     playUpgradePick,

@@ -38,7 +38,7 @@ export function MainMenu({
   const [showSettings, setShowSettings] = useState(false);
   const [seedInput, setSeedInput] = useState("");
   const [seedError, setSeedError] = useState(false);
-  const { playMenuClick, playMenuHover, playMenuReveal, playTitleImpact } = usePeagleSounds();
+  const { playMenuClick, playMenuHover, playMenuReveal, playTitleImpact, playEagleCryShort, playEagleCryLong } = usePeagleSounds();
 
   const handlePlayWithSeed = useCallback(() => {
     const clean = seedInput.trim().toUpperCase().replace(/[^0-9A-Z]/g, '');
@@ -84,7 +84,13 @@ export function MainMenu({
       }}
     >
       {/* Intro animée + décor en boucle (canvas, derrière tout) */}
-      <TitleCanvas skipIntro={skipIntro} onMenuReveal={() => { setShowMenu(true); playMenuReveal(); }} onImpact={handleImpact} getBeat={getBeat} />
+      <TitleCanvas
+        skipIntro={skipIntro}
+        onMenuReveal={() => { setShowMenu(true); playMenuReveal(); }}
+        onImpact={handleImpact}
+        onEagleCry={(v, rate) => (v === "long" ? playEagleCryLong() : playEagleCryShort(0.5, rate))}
+        getBeat={getBeat}
+      />
 
       {showDev && (
         <DevPanel

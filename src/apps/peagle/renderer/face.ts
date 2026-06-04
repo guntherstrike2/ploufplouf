@@ -39,6 +39,7 @@ export interface FaceContext {
   aimIdleSec: number;   // secondes en aim sans tirer (somnolence)
   bigCombo: boolean;    // combo ≥ 5 en cours (smug)
   oneBall: boolean;     // 1 seul œuf restant (larmes)
+  screech: number;      // 0..1 cri en cours (écran-titre) → force le bec grand ouvert
 }
 
 export function gameFaceCtx(s: GameState): FaceContext {
@@ -53,6 +54,7 @@ export function gameFaceCtx(s: GameState): FaceContext {
     aimIdleSec: s.phase === "aim" ? s.animClock - s.aimStartClock : 0,
     bigCombo: s.combo >= 5,
     oneBall: s.balls === 1,
+    screech: 0,
   };
 }
 
@@ -68,6 +70,7 @@ export function titleFaceCtx(elapsed: number, recoil: number, ponte: number): Fa
     aimIdleSec: 0,
     bigCombo: false,
     oneBall: false,
+    screech: 0,
   };
 }
 
@@ -210,7 +213,8 @@ export function eagleFace(ctx: CanvasRenderingContext2D, cx: number, cy: number,
 // Dérive l'expression depuis un FaceContext (jeu ou écran-titre).
 export function getFaceMood(ctx: FaceContext): FaceMood {
   const { animClock, hitMag, inClutch, lowBalls, zeroPeg, ponte,
-          won, aimIdleSec, bigCombo, oneBall } = ctx;
+          won, aimIdleSec, bigCombo, oneBall, screech } = ctx;
+  const screeching = screech > 0.01;
   const pulse = 0.5 + 0.5 * Math.sin(animClock * 6);
   const justHit = hitMag > 0;
   const burst = hitMag >= 8;
@@ -250,9 +254,10 @@ export function getFaceMood(ctx: FaceContext): FaceMood {
   else if (worried)              brow = "up";
   else                           brow = "flat";
 
-  // Ouverture du bec
+  // Ouverture du bec — un cri (screech) prime sur tout le reste
   const open =
-    inClutch              ? 0.45 + 0.4 * pulse
+    screeching            ? screech                   // bec grand ouvert pendant le cri
+    : inClutch              ? 0.45 + 0.4 * pulse
     : won                 ? 0.6 + 0.35 * pulse        // cri de victoire
     : sleepy && yawnP > 0.2 ? yawnP                   // bâillement progressif
     : ponte > 0.2         ? ponte
@@ -265,7 +270,7 @@ export function getFaceMood(ctx: FaceContext): FaceMood {
     open,
     brow,
     eyeRed: inClutch || rage,
-    wide: justHit && !sleepy,
+    wide: (justHit && !sleepy) || screeching,
     look: justHit || inClutch ? 0
         : sleepy                    ? 0.4                  // regard tombant côté
         : bigCombo && !worried      ? 1.0                  // smug = regard de côté

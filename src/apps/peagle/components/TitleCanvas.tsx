@@ -133,6 +133,10 @@ const STUDIO_DUR  = 3.8;                       // "Gunther Studio présente"
 const PIGEON_DUR  = 3.8;                       // séquence pigeon
 const INTRO_OFFSET = STUDIO_DUR + PIGEON_DUR;  // 6.8 s avant le vrai générique
 
+// Instants (relatifs au début de la phase pigeon) où chaque tête fait coucou.
+// Partagé entre le dessin et le déclenchement des petits cris d'aigle.
+const PEEK_STARTS = [0.08, 1.70, 3.32] as const;
+
 // ─── Forêt animée — positions précalculées (stables entre renders) ────────────
 interface TreeData { nx: number; nh: number; nw: number; swayAmp: number; swaySpeed: number; swayPhase: number; }
 interface ForestLayer { yBase: number; col: string; trees: TreeData[]; }
@@ -357,21 +361,26 @@ interface TitleCanvasProps {
   /** Émis à chaque fois qu'un œuf percute le titre ou le badge (force 0..1).
       Le menu s'en sert pour faire trembloter son texte — onde de choc lointaine. */
   onImpact?: (force: number) => void;
+  /** Cri d'aigle ponctuel : "short" = peeks teaser de l'intro, "long" = l'aigle débarque.
+      `rate` = pitch de lecture (1 = normal) ; les petits cris escaladent peek après peek. */
+  onEagleCry?: (variant: "short" | "long", rate?: number) => void;
   /** Retourne l'énergie basse fréquence de la musique [0..1] — grooves le décor au rythme. */
   getBeat?: () => number;
 }
 
-export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, getBeat }: TitleCanvasProps) {
+export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, onEagleCry, getBeat }: TitleCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const revealedRef = useRef(false);
   const onRevealRef = useRef(onMenuReveal);
   const onImpactRef = useRef(onImpact);
+  const onCryRef = useRef(onEagleCry);
   const getBeatRef = useRef(getBeat);
   // Garde les callbacks à jour sans relancer l'effet d'animation. Mutés en
   // layout-effect (pas pendant le render) pour rester safe en mode concurrent.
   useLayoutEffect(() => {
     onRevealRef.current = onMenuReveal;
     onImpactRef.current = onImpact;
+    onCryRef.current = onEagleCry;
     getBeatRef.current = getBeat;
   });
   // Capturé à la création de l'effet — détermine l'état initial, ne change pas.
@@ -394,6 +403,38 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, getBeat
     let raf = 0;
     let startT = 0;
     let skipped = skipIntroRef.current; // déjà "skipé" si retour au menu
+
+    // Cris d'aigle : tirés une seule fois chacun. Une fenêtre temporelle évite
+    // qu'un saut d'intro (clic) ne déclenche des cris en retard d'un coup.
+    const criedPeek = [false, false, false]; // petit cri par tête qui fait coucou
+    let criedBig = false;                     // gros cri quand l'aigle débarque
+
+    // Enveloppe d'ouverture du bec, synchronisée sur le cri en cours.
+    let screechStart = -1; // performance.now() du début du cri visuel ; -1 = aucun
+    let screechDur   = 0;  // durée d'ouverture du bec (s)
+    let screechRel   = 0;  // durée de fermeture (s) — courte pour les petits cris
+    let currentScreech = 0; // valeur [0..1] recalculée chaque frame → injectée au visage
+
+    /** Déclenche un cri : joue le son ET ouvre le bec (enveloppe visuelle). */
+    function fireCry(kind: "short" | "long", now: number, rate?: number) {
+      onCryRef.current?.(kind, rate);
+      screechStart = now;
+      // Petit cri = ouverture brève et sèche ; gros cri = bec ouvert plus longtemps
+      // (le sample dure ~6.8s, on referme après la partie percutante).
+      screechDur = kind === "long" ? 2.4 : 0.34;
+      screechRel = kind === "long" ? 0.22 : 0.12;
+    }
+
+    /** Ouverture du bec [0..1] pour l'instant `now` : attaque vive, léger flutter, release. */
+    function screechOpen(now: number): number {
+      if (screechStart < 0) return 0;
+      const t = (now - screechStart) / 1000;
+      if (t < 0 || t >= screechDur) return 0;
+      const atk = Math.min(1, t / 0.05);                  // ouverture quasi instantanée
+      const rel = Math.min(1, (screechDur - t) / screechRel); // referme
+      const flutter = 0.86 + 0.14 * Math.sin(t * 42);     // le bec vibre = cri qui porte
+      return Math.max(0, Math.min(1, Math.min(atk, rel) * flutter));
+    }
     let trauma = 0;
     let prevMs = 0;
     let cssW = 0;
@@ -830,6 +871,7 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, getBeat
           faceCtx = titleFaceCtx(elapsed, recoil, ponte);
         }
       }
+      faceCtx.screech = currentScreech; // bec grand ouvert quand l'aigle crie
       eagleFace(ctx!, 0, -13, getFaceMood(faceCtx));
       ctx!.restore();
     }
@@ -1763,8 +1805,7 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, getBeat
         ctx!.restore();
       }
 
-      // Timings des peeks (en s, relatif au début de la phase pigeon)
-      const PEEK_STARTS = [0.08, 1.70, 3.32];
+      // Timings des peeks (PEEK_STARTS remonté au niveau module — partagé avec les cris)
       const PEEK_IN     = 0.30;
       const PEEK_HOLD   = 1.04;
       const PEEK_OUT    = 0.28;
@@ -1810,7 +1851,9 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, getBeat
 
         const hf  = Math.max(0, (ph - PEEK_IN) / PEEK_HOLD);
         const bob = hf > 0 ? Math.sin(pigElapsed * 4.5) * 0.06 : 0;
-        const mood = getFaceMood(buildIntroFaceCtx(peekMoodIds[pi]!, pigElapsed));
+        const peekCtx = buildIntroFaceCtx(peekMoodIds[pi]!, pigElapsed);
+        peekCtx.screech = currentScreech; // bec ouvert sur le petit cri du peek
+        const mood = getFaceMood(peekCtx);
 
         drawPeekHead(cx2, cy2, rotationForSide(cfg.side), bob, mood);
       }
@@ -1847,7 +1890,21 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, getBeat
         if (elapsed < STUDIO_DUR) {
           drawStudioScreen(elapsed);
         } else {
-          drawPigeonSequence(elapsed - STUDIO_DUR);
+          const pigElapsed = elapsed - STUDIO_DUR;
+          // Petit cri quand chaque tête émerge (≈ mi-entrée), une fois chacune.
+          // Fenêtre 0.4 s → un saut d'intro ne rejoue pas les cris ratés.
+          for (let i = 0; i < PEEK_STARTS.length; i++) {
+            const at = PEEK_STARTS[i]! + 0.14;
+            if (!criedPeek[i] && pigElapsed >= at && pigElapsed < at + 0.4) {
+              criedPeek[i] = true;
+              // Pitch qui escalade peek après peek (0.82 → 1.18) + jitter aléatoire
+              // → teaser qui monte en tension, chaque cri nettement distinct.
+              const rate = 0.82 + i * 0.18 + (Math.random() - 0.5) * 0.1;
+              fireCry("short", now, rate);
+            }
+          }
+          currentScreech = screechOpen(now); // doit être prêt avant le dessin des têtes
+          drawPigeonSequence(pigElapsed);
         }
         raf = requestAnimationFrame(frame);
         return;
@@ -1856,6 +1913,14 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, getBeat
       // ── Générique principal ──────────────────────────────────────────────────
       const mainElapsed = elapsed - INTRO_OFFSET;
       currentElapsed = mainElapsed;
+
+      // Gros cri : l'aigle débarque vraiment. Fenêtre courte → pas de cri tardif
+      // au retour menu (skipIntro saute déjà loin au-delà de 0.6 s).
+      if (!criedBig && mainElapsed >= 0.05 && mainElapsed < 0.6) {
+        criedBig = true;
+        fireCry("long", now);
+      }
+      currentScreech = screechOpen(now); // bec ouvert tant que le cri résonne
 
       // shake
       trauma = Math.max(0, trauma - dt * 2.2);
