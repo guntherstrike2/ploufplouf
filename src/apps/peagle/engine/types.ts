@@ -145,6 +145,10 @@ export interface GameState {
   // Nombre d'œufs au départ du niveau (pour la progression pré-fever)
   startBalls: number;
 
+  // Progression visuelle 0→1 de l'assombrissement pré-fever (lissée par lerp).
+  // Freezée quand la fièvre s'enclenche pour laisser la transition fever prendre le relais.
+  duskProgress: number;
+
   // Run modifiers (dérivés des upgrades par makeInitialState)
   runUpgrades: UpgradeId[];
   effectiveBallR: number;
@@ -152,8 +156,18 @@ export interface GameState {
   effectiveAimSteps: number;
   effectivePegBounce: number;
 
+  // Nombre de pegs touchés au dernier tour (-1 = aucun tour joué). Utilisé par
+  // gameFaceCtx pour déclencher l'expression "inquiet" si le joueur a tout raté.
+  lastTurnHitCount: number;
+
+  // animClock au moment où la phase "aim" a commencé — pour calculer l'inactivité (sleepy face).
+  aimStartClock: number;
+
   // Seed used to generate the procedural forest background (per run, derived from runState.seed)
   forestSeed: number;
+
+  // animClock value at the moment the level was won (0 = not yet won)
+  levelWonAt: number;
 
   // RNG seedé de la simulation : tout l'aléatoire gameplay/cosmétique (particules,
   // oiseaux, jitter des textes, étoiles) passe par ici plutôt que Math.random(),

@@ -7,11 +7,13 @@ import { drawAimLine, drawLauncher, drawBuckets } from "./ui";
 import { drawBall } from "./ball";
 import { drawParticles, drawFloatingTexts, drawScreenFlash, drawSlowMoOverlay, drawBezel, drawImpactRings } from "./effects";
 import { drawHud } from "./hud";
+import { drawCelebration } from "./celebration";
 
 export interface RenderOpts {
   theme:         GameTheme;
   showHitboxes?: boolean;
   orangeTotal?:  number;
+  isNewRecord?:  boolean;
 }
 
 export function drawFrame(
@@ -23,17 +25,13 @@ export function drawFrame(
 ): void {
   const { theme, showHitboxes = false, orangeTotal = 0 } = opts;
   const inClutch = s.balls > 0 && s.balls <= s.effectiveClutchThreshold;
-  const clutchIntensity = inClutch ? 1 : 0;
+  const isLost = s.phase === "lost";
+  const clutchIntensity = inClutch || isLost ? 1 : 0;
   // Intensité visuelle du ralenti dérivée de la vitesse du temps lissée.
   const slowVis = Math.max(0, Math.min(1, (1 - s.timeWarp) / 0.85));
   const inSlowMo = slowVis > 0.08;
 
-  // Progression vers le fever basée sur les œufs dépensés :
-  // 0 = tous les œufs présents, 1 = seuil fever atteint (3 restants).
-  const preClutchDusk =
-    !inClutch && s.startBalls > s.effectiveClutchThreshold && s.balls > s.effectiveClutchThreshold
-      ? Math.max(0, Math.min(1, (s.startBalls - s.balls) / (s.startBalls - s.effectiveClutchThreshold)))
-      : 0;
+  const preClutchDusk = (inClutch || isLost) ? 0 : s.duskProgress;
 
   ctx.save();
 
@@ -54,9 +52,10 @@ export function drawFrame(
 
   ctx.restore(); // fin transform caméra
 
-  drawSlowMoOverlay(ctx, s, slowVis);
+  if (!isLost) drawSlowMoOverlay(ctx, s, slowVis);
   drawBezel(ctx);
   drawScreenFlash(ctx, s, inClutch, theme);
+  drawCelebration(ctx, s, opts.isNewRecord ?? false);
 
   // HUD façon mobile : enseigne in-canvas, par-dessus tout sauf le flash écran
   if (s.phase !== "lost" && s.phase !== "won") {

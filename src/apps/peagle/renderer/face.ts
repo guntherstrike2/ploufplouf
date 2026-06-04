@@ -1,26 +1,74 @@
 import type { GameState } from "../engine/types";
 
 // ─── Mascotte façon DOOM — tête d'aigle de face réactive ──────────────────────
-// Partagée entre le HUD (top-left) et l'aigle lanceur.
+// Partagée entre le HUD (top-left), l'aigle lanceur et l'écran-titre.
 
 export const FACE = {
   head: "#f0e8d0", headHi: "#ffffff", headLo: "#cdbf9a", headLo2: "#a89c76",
   brow: "#8f7d52",
   beak: "#ffcc33", beakHi: "#ffe488", beakLo: "#d99a12", beakTip: "#a6760a",
   mouth: "#3a1d0a", tongue: "#d2563a",
-  iris: "#f6d77a", irisRed: "#ff4433", pupil: "#141414", pupilRed: "#7a0d06",
+  iris: "#f6d77a", irisRed: "#ff4433", irisStar: "#ffe066", pupil: "#141414", pupilRed: "#7a0d06",
   nape: "#6e4420", napeLo: "#452910",
   drop: "#9fd4ff",
 } as const;
 
 export interface FaceMood {
-  blink: boolean;
-  open: number;                      // 0..1 ouverture du bec
-  brow: "flat" | "angry" | "up";    // sourcils : neutre / féroce / inquiet
-  eyeRed: boolean;                   // yeux rouges (fever)
-  wide: boolean;                     // yeux écarquillés (impact / surprise)
-  look: number;                      // -1..1 décalage pupille (regard idle)
-  pop: number;                       // 0..1 pulse d'échelle à l'impact
+  blink: "none" | "both" | "wink-l" | "wink-r";
+  open: number;                       // 0..1 ouverture du bec
+  brow: "flat" | "angry" | "up" | "happy" | "smug" | "drowsy";
+  eyeRed: boolean;                    // yeux rouges (fever / rage)
+  wide: boolean;                      // yeux écarquillés (impact / surprise)
+  look: number;                       // -1..1 décalage pupille (regard idle)
+  pop: number;                        // 0..1 pulse d'échelle à l'impact
+  starEyes: boolean;                  // yeux étoile (victoire)
+  tears: boolean;                     // larmes (dernière balle)
+  drowsyEyes: boolean;                // yeux mi-clos (somnolence)
+}
+
+// ─── Contexte abstrait — découple getFaceMood de GameState ────────────────────
+// Rempli par gameFaceCtx() en jeu ou titleFaceCtx() sur l'écran-titre.
+export interface FaceContext {
+  animClock: number;    // secondes écoulées (clignement, regard idle)
+  hitMag: number;       // intensité de l'impact (0 = aucun ; hitFreezeFrames en jeu)
+  inClutch: boolean;    // mode fever (yeux rouges, bec ouvert, sourcils féroces)
+  lowBalls: boolean;    // 1-2 œufs restants (sourcils inquiets)
+  zeroPeg: boolean;     // tour sans toucher aucun peg (goutte d'inquiétude)
+  ponte: number;        // 0..1 ponte en cours (écran-titre uniquement ; 0 en jeu)
+  won: boolean;         // niveau terminé (yeux étoile, sourcils heureux, jubilation)
+  aimIdleSec: number;   // secondes en aim sans tirer (somnolence)
+  bigCombo: boolean;    // combo ≥ 5 en cours (smug)
+  oneBall: boolean;     // 1 seul œuf restant (larmes)
+}
+
+export function gameFaceCtx(s: GameState): FaceContext {
+  return {
+    animClock: s.animClock,
+    hitMag: s.hitFreezeFrames,
+    inClutch: s.balls > 0 && s.balls <= s.effectiveClutchThreshold,
+    lowBalls: s.balls > 0 && s.balls <= 2,
+    zeroPeg: s.lastTurnHitCount === 0 && s.phase === "aim",
+    ponte: 0,
+    won: s.phase === "won",
+    aimIdleSec: s.phase === "aim" ? s.animClock - s.aimStartClock : 0,
+    bigCombo: s.combo >= 5,
+    oneBall: s.balls === 1,
+  };
+}
+
+export function titleFaceCtx(elapsed: number, recoil: number, ponte: number): FaceContext {
+  return {
+    animClock: elapsed,
+    hitMag: recoil,
+    inClutch: false,
+    lowBalls: false,
+    zeroPeg: false,
+    ponte,
+    won: false,
+    aimIdleSec: 0,
+    bigCombo: false,
+    oneBall: false,
+  };
 }
 
 // Tête centrée sur (cx, cy). Boîte ≈ 28×32 px (de -14 à +14 en x, -16 à +16 en y).
@@ -53,11 +101,24 @@ export function eagleFace(ctx: CanvasRenderingContext2D, cx: number, cy: number,
 
   // sourcils / expression
   if (m.brow === "angry") {
+    // V féroce — coins ext hauts, coins int bas
     px(-11, -9, 4, 2, FACE.brow); px(-8, -7, 4, 2, FACE.brow);
     px(7, -9, 4, 2, FACE.brow);   px(4, -7, 4, 2, FACE.brow);
   } else if (m.brow === "up") {
+    // Λ inquiet — coins int hauts, coins ext bas + goutte de sueur
     px(-11, -7, 4, 2, FACE.brow); px(-8, -9, 4, 2, FACE.brow);
     px(7, -7, 4, 2, FACE.brow);   px(4, -9, 4, 2, FACE.brow);
+  } else if (m.brow === "happy") {
+    // Relevés aux extrémités → arc heureux ∪
+    px(-11, -10, 3, 2, FACE.brow); px(-8, -9, 2, 2, FACE.brow);
+    px(8, -10, 3, 2, FACE.brow);   px(6, -9, 2, 2, FACE.brow);
+  } else if (m.brow === "smug") {
+    // Asymétrique : gauche légèrement relevé (arrogance), droit plat
+    px(-11, -9, 3, 2, FACE.brow); px(-8, -8, 2, 2, FACE.brow);
+    px(6, -8, 5, 2, FACE.brow);
+  } else if (m.brow === "drowsy") {
+    // Tombants et bas → paupières lourdes
+    px(-11, -6, 5, 2, FACE.brow); px(6, -6, 5, 2, FACE.brow);
   } else {
     px(-11, -8, 5, 2, FACE.brow); px(6, -8, 5, 2, FACE.brow);
   }
@@ -65,10 +126,38 @@ export function eagleFace(ctx: CanvasRenderingContext2D, cx: number, cy: number,
   // yeux
   for (const sgn of [-1, 1]) {
     const ex = sgn * 7;
-    if (m.blink) {
+
+    // Blink / wink : fermeture d'un ou deux yeux
+    const eyeBlinking =
+      m.blink === "both" ||
+      (m.blink === "wink-l" && sgn === -1) ||
+      (m.blink === "wink-r" && sgn === 1);
+    if (eyeBlinking) {
       px(ex - 3, -3, 6, 1, FACE.headLo2);
       continue;
     }
+
+    // Yeux somnolents : iris réduit + paupière tombante sur le dessus
+    if (m.drowsyEyes) {
+      px(ex - 3, -2, 6, 3, m.eyeRed ? FACE.irisRed : FACE.iris);
+      px(ex - 3, -4, 6, 2, FACE.headLo2);
+      px(ex - 1, -1, 2, 2, m.eyeRed ? FACE.pupilRed : FACE.pupil);
+      continue;
+    }
+
+    // Yeux étoile (victoire) : fond doré + croix blanche en ★
+    if (m.starEyes) {
+      const irisY = -4;
+      px(ex - 3, irisY, 6, 5, FACE.irisStar);
+      px(ex - 3, irisY, 6, 1, "rgba(0,0,0,0.25)");
+      px(ex,     irisY,     1, 5, "#ffffff");               // barre verticale
+      px(ex - 3, irisY + 2, 6, 1, "#ffffff");               // barre horizontale
+      px(ex - 2, irisY + 1, 1, 1, "rgba(255,255,255,0.7)"); // diag haut-gauche
+      px(ex + 1, irisY + 3, 1, 1, "rgba(255,255,255,0.7)"); // diag bas-droit
+      continue;
+    }
+
+    // Yeux normaux
     const irisH = m.wide ? 7 : 5;
     const irisY = m.wide ? -5 : -4;
     px(ex - 3, irisY, 6, irisH, m.eyeRed ? FACE.irisRed : FACE.iris);
@@ -97,31 +186,93 @@ export function eagleFace(ctx: CanvasRenderingContext2D, cx: number, cy: number,
   px(-2, ly, 4, 1, FACE.beak);
   px(-1, ly + 2, 2, 1, FACE.beakTip);
 
-  // goutte d'inquiétude
-  if (m.brow === "up") {
+  // Goutte de sueur (inquiétude simple — supprimée si les larmes prennent le relais)
+  if (m.brow === "up" && !m.tears) {
     px(10, -11, 2, 3, FACE.drop);
     px(10, -8, 1, 1, FACE.drop);
     px(10, -11, 1, 1, FACE.headHi);
   }
 
+  // Larmes bilatérales (dernière balle — désespoir absolu)
+  if (m.tears) {
+    px(-10, 1, 2, 4, FACE.drop);  // larme œil gauche
+    px(-10, 5, 1, 2, FACE.drop);
+    px(8,   1, 2, 4, FACE.drop);  // larme œil droit
+    px(9,   5, 1, 2, FACE.drop);
+    // Petite goutte de sueur conservée pour l'effet dramatique
+    px(10, -11, 2, 3, FACE.drop);
+    px(10, -8,  1, 1, FACE.drop);
+  }
+
   ctx.restore();
 }
 
-// Dérive l'expression depuis l'état de jeu courant.
-export function getFaceMood(s: GameState): FaceMood {
-  const inClutch = s.balls > 0 && s.balls <= s.effectiveClutchThreshold;
-  const lowBalls = s.balls > 0 && s.balls <= 2;
-  const pulse = 0.5 + 0.5 * Math.sin(s.animClock * 6);
-  const hitMag = s.hitFreezeFrames;
+// Dérive l'expression depuis un FaceContext (jeu ou écran-titre).
+export function getFaceMood(ctx: FaceContext): FaceMood {
+  const { animClock, hitMag, inClutch, lowBalls, zeroPeg, ponte,
+          won, aimIdleSec, bigCombo, oneBall } = ctx;
+  const pulse = 0.5 + 0.5 * Math.sin(animClock * 6);
   const justHit = hitMag > 0;
   const burst = hitMag >= 8;
+  const worried = lowBalls || zeroPeg;
+
+  // Somnolence : idle en aim > 5s, sans perturbation
+  const sleepy = aimIdleSec > 5 && !justHit && !inClutch && !won;
+  const yawnP  = sleepy ? Math.min(1, (aimIdleSec - 5) / 2) : 0;
+
+  // Rage : a raté TOUS les pegs le tour dernier, hors situation critique
+  const rage = zeroPeg && !lowBalls && !inClutch && !won;
+
+  // Blink / wink — désactivé en fever, victoire ou somnolence
+  let blink: FaceMood["blink"] = "none";
+  if (!justHit && !inClutch && !won && !sleepy && ponte < 0.1) {
+    const blinkT = animClock % 3.2;
+    if (blinkT < 0.12) {
+      // Pseudo-aléatoire stable par cycle (fhash-style)
+      const idx = Math.floor(animClock / 3.2);
+      const h = Math.abs(Math.sin(idx * 127.1 + 311.7) * 43758.5453 % 1);
+      if (h < 0.18) {
+        // ~18% des clignements → wink (côté aléatoire stable)
+        blink = Math.abs(Math.sin(idx * 79.3) * 43758.5 % 1) < 0.5 ? "wink-l" : "wink-r";
+      } else {
+        blink = "both";
+      }
+    }
+  }
+
+  // Sourcils (priorité décroissante)
+  let brow: FaceMood["brow"];
+  if (won)                       brow = "happy";
+  else if (sleepy)               brow = "drowsy";
+  else if (rage)                 brow = "angry";
+  else if (inClutch || burst)    brow = "angry";
+  else if (bigCombo && !worried) brow = "smug";
+  else if (worried)              brow = "up";
+  else                           brow = "flat";
+
+  // Ouverture du bec
+  const open =
+    inClutch              ? 0.45 + 0.4 * pulse
+    : won                 ? 0.6 + 0.35 * pulse        // cri de victoire
+    : sleepy && yawnP > 0.2 ? yawnP                   // bâillement progressif
+    : ponte > 0.2         ? ponte
+    : justHit             ? (burst ? 1 : 0.55)
+    : bigCombo && !worried ? 0.18                     // sourire smug entrouvert
+    : 0;
+
   return {
-    blink: !justHit && !inClutch && (s.animClock % 3.2) < 0.12,
-    open: inClutch ? 0.45 + 0.4 * pulse : justHit ? (burst ? 1 : 0.55) : 0,
-    brow: inClutch ? "angry" : burst ? "angry" : lowBalls ? "up" : "flat",
-    eyeRed: inClutch,
-    wide: justHit,
-    look: justHit || inClutch ? 0 : Math.sin(s.animClock * 0.6) * 1.2,
+    blink,
+    open,
+    brow,
+    eyeRed: inClutch || rage,
+    wide: justHit && !sleepy,
+    look: justHit || inClutch ? 0
+        : sleepy                    ? 0.4                  // regard tombant côté
+        : bigCombo && !worried      ? 1.0                  // smug = regard de côté
+        : Math.sin(animClock * 0.6) * 1.2,
     pop: Math.min(1, hitMag / 9),
+    starEyes: won,
+    tears: oneBall && !won,
+    drowsyEyes: sleepy,
   };
 }

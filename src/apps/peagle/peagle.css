@@ -506,6 +506,20 @@
 /* Aigle pixel qui flotte doucement (menu pause). */
 .pg-eagle-bob { animation: pg-eagle-hover 2.4s ease-in-out infinite; }
 
+/* Tête d'aigle dégoûtée — game over : bob lourd et résigné */
+@keyframes pg-gameover-face-bob {
+  0%, 100% { transform: translateY(0) scale(1) rotate(-0.6deg); }
+  38%       { transform: translateY(-5px) scale(1.03) rotate(0.4deg); }
+  68%       { transform: translateY(1px) scale(0.985) rotate(0deg); }
+}
+
+.pg-gameover-face {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: pg-gameover-face-bob 3.6s ease-in-out infinite;
+}
+
 .pg-btn-primary {
   /* Ombrage 2 bandes (hard-stop) = look sprite, pas de dégradé flou. */
   background: linear-gradient(to bottom, var(--pg-green-hi) 0 45%, var(--pg-green) 45% 72%, var(--pg-green-deep) 72% 100%);
@@ -1500,3 +1514,244 @@
 
 .pg-flash-overlay-in  { animation: pg-flash-in  0.16s cubic-bezier(0.4, 0, 1, 1) both; }
 .pg-flash-overlay-out { animation: pg-flash-out 0.38s cubic-bezier(0, 0, 0.4, 1)  both; }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   OVERLAY DIÉGÉTIQUE — pause & game over sans panneau/boîte
+   Le jeu reste visible derrière un filtre semi-transparent.
+   Typographie et boutons flottent directement sur le canvas.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Backdrop ───────────────────────────────────────────────────────────────── */
+
+.pg-diag-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 6;
+  padding: 16px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  scrollbar-width: none;
+  animation: pg-backdrop-in 0.2s ease-out both;
+  background:
+    repeating-linear-gradient(to bottom, transparent 0 3px, rgba(0,0,0,0.1) 3px 4px),
+    rgba(3, 6, 2, 0.64);
+}
+.pg-diag-overlay::-webkit-scrollbar { display: none; }
+
+/* Vignette rouge aux bords pour la défaite */
+.pg-diag-overlay-lost {
+  background:
+    repeating-linear-gradient(to bottom, transparent 0 3px, rgba(0,0,0,0.1) 3px 4px),
+    radial-gradient(ellipse 140% 120% at 50% 50%, rgba(4,2,2,0.58) 35%, rgba(70,8,4,0.84) 100%);
+}
+
+/* Touche chaude aux bords pour la victoire */
+.pg-diag-overlay-won {
+  background:
+    repeating-linear-gradient(to bottom, transparent 0 3px, rgba(0,0,0,0.1) 3px 4px),
+    radial-gradient(ellipse 140% 120% at 50% 50%, rgba(3,4,2,0.55) 35%, rgba(40,28,4,0.80) 100%);
+}
+
+/* ─── Titre ──────────────────────────────────────────────────────────────────── */
+
+@keyframes pg-diag-title-in {
+  0%   { transform: translateY(-14px) scale(0.88); opacity: 0; }
+  55%  { transform: translateY(2px)   scale(1.04); opacity: 1; }
+  75%  { transform: translateY(-1px)  scale(0.99); }
+  100% { transform: translateY(0)     scale(1);    opacity: 1; }
+}
+
+.pg-diag-title {
+  font-family: var(--pg-font);
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  text-align: center;
+  line-height: 1;
+  margin-bottom: 10px;
+  animation: pg-diag-title-in 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.pg-diag-title-pause {
+  color: #a6e85c;
+  text-shadow: 0 0 10px rgba(166,232,92,0.65), 0 0 28px rgba(100,200,40,0.3), 0 2px 0 rgba(0,0,0,0.95);
+}
+
+/* Animation compound : entrée + glow continu */
+.pg-diag-title-lost {
+  color: #ff5544;
+  animation:
+    pg-diag-title-in 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) both,
+    pg-glow-defeat 1.3s ease-in-out 0.5s infinite;
+}
+
+.pg-diag-title-won {
+  color: #ffd24a;
+  animation:
+    pg-diag-title-in 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) both,
+    pg-glow-victory 1.5s ease-in-out 0.5s infinite;
+}
+
+/* ─── Score héro — grand, sans boîte ────────────────────────────────────────── */
+
+@keyframes pg-diag-score-in {
+  from { transform: scale(0.72); opacity: 0; }
+  60%  { transform: scale(1.06); opacity: 1; }
+  100% { transform: scale(1);    opacity: 1; }
+}
+
+.pg-diag-score {
+  text-align: center;
+  margin: 4px 0 8px;
+  animation: pg-diag-score-in 0.38s cubic-bezier(0.34, 1.56, 0.64, 1) 0.12s both;
+}
+
+.pg-diag-score-label {
+  font-family: var(--pg-font);
+  font-size: 7px;
+  color: #88a86c;
+  letter-spacing: 0.18em;
+  margin-bottom: 4px;
+}
+
+.pg-diag-score-val {
+  font-family: var(--pg-font);
+  font-size: 28px;
+  font-weight: bold;
+  color: #f2e6c2;
+  line-height: 1;
+  text-shadow: 0 0 20px rgba(242,230,194,0.25), 0 3px 0 rgba(0,0,0,0.9), 0 6px 0 rgba(0,0,0,0.4);
+}
+
+/* ─── Badges inline ─────────────────────────────────────────────────────────── */
+
+.pg-diag-record {
+  font-family: var(--pg-font);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-align: center;
+  margin-bottom: 4px;
+  animation: pg-record-lux 1s ease-in-out infinite;
+  color: var(--pg-gold);
+}
+
+.pg-diag-user {
+  font-family: var(--pg-font);
+  font-size: 6px;
+  color: #88a86c;
+  letter-spacing: 0.04em;
+  text-align: center;
+  margin: 2px 0 6px;
+}
+
+/* ─── Séparateur fin ─────────────────────────────────────────────────────────── */
+
+.pg-diag-sep {
+  width: 48px;
+  height: 1px;
+  background: linear-gradient(to right, transparent, #2e5220, transparent);
+  margin: 6px 0;
+  align-self: center;
+  flex-shrink: 0;
+}
+
+/* ─── Conteneur boutons ──────────────────────────────────────────────────────── */
+
+.pg-diag-btns {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  animation: pg-slide-up 0.28s ease-out 0.16s both;
+}
+
+.pg-diag-btn-row {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  align-items: center;
+  margin: 2px 0;
+}
+
+/* ─── Bouton texte pur — aucune boîte ───────────────────────────────────────── */
+
+.pg-diag-btn {
+  position: relative;
+  font-family: var(--pg-font);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: #9fd47a;
+  background: none;
+  border: 0;
+  padding: 6px 12px;
+  cursor: pointer;
+  text-align: center;
+  line-height: 1.4;
+  text-shadow: 0 0 5px rgba(120,220,60,0.15), 0 2px 3px rgba(0,0,0,0.95);
+  transition: color 0.1s, text-shadow 0.1s;
+  -webkit-tap-highlight-color: transparent;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.pg-diag-btn:hover {
+  color: var(--pg-green-hi);
+  text-shadow: 0 0 12px rgba(160,232,92,0.65), 0 2px 3px rgba(0,0,0,0.95);
+}
+
+.pg-diag-btn:active { color: #fff; }
+
+/* CTA vert — REPRENDRE / REJOUER */
+.pg-diag-btn-primary {
+  font-size: 11px;
+  color: #a6e85c;
+  letter-spacing: 0.15em;
+  text-shadow: 0 0 10px rgba(166,232,92,0.5), 0 2px 3px rgba(0,0,0,0.95);
+  padding: 8px 12px;
+}
+.pg-diag-btn-primary:hover {
+  color: #d0f890;
+  text-shadow: 0 0 20px rgba(166,232,92,0.9), 0 0 40px rgba(100,200,40,0.4), 0 2px 3px rgba(0,0,0,0.95);
+}
+
+/* CTA or — CLASSEMENT */
+.pg-diag-btn-gold {
+  font-size: 11px;
+  color: #ffd24a;
+  letter-spacing: 0.15em;
+  text-shadow: 0 0 10px rgba(255,210,74,0.5), 0 2px 3px rgba(0,0,0,0.95);
+  padding: 8px 12px;
+}
+.pg-diag-btn-gold:hover {
+  color: #fff7c8;
+  text-shadow: 0 0 16px #ffd24a, 0 0 32px #ffaa00, 0 2px 3px rgba(0,0,0,0.95);
+}
+
+/* Discret — seed / menu / rejouer seed */
+.pg-diag-btn-muted {
+  font-size: 7px;
+  color: #88a86c;
+  letter-spacing: 0.08em;
+  text-shadow: 0 2px 3px rgba(0,0,0,0.95);
+}
+.pg-diag-btn-muted:hover {
+  color: #a6e85c;
+  text-shadow: 0 0 8px rgba(120,220,60,0.4), 0 2px 3px rgba(0,0,0,0.95);
+}
+
+/* Pill ON/OFF inline dans le bouton musique */
+.pg-diag-toggle-pill {
+  font-family: var(--pg-font);
+  font-size: 6px;
+  padding: 2px 7px;
+  border: 1px solid;
+  letter-spacing: 0.06em;
+  line-height: 1.4;
+  flex-shrink: 0;
+}

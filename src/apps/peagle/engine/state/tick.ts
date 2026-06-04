@@ -40,6 +40,7 @@ export function tick(s: GameState): TickResult {
     updateBucket(s, 1); // le panier se déplace pendant l'intro
     if (s.animClock >= s.introEndT) {
       s.phase = "aim";
+      s.aimStartClock = s.animClock;
       return { events, syncUI: true, orangeLeft: s.orangeLeft };
     }
     return { events, syncUI: false, orangeLeft: s.orangeLeft };
@@ -86,6 +87,13 @@ export function tick(s: GameState): TickResult {
   const inClutch = s.balls > 0 && s.balls <= s.effectiveClutchThreshold;
   if (inClutch) s.clutchPulse = (s.clutchPulse + 0.08) % (Math.PI * 2);
   else s.clutchPulse = 0;
+
+  // duskProgress monte 0→1 proportionnellement aux œufs dépensés, indépendamment du fever.
+  const duskTarget = s.startBalls > 0
+    ? Math.max(0, Math.min(1, (s.startBalls - s.balls) / s.startBalls))
+    : 0;
+  s.duskProgress += (duskTarget - s.duskProgress) * 0.05;
+  if (Math.abs(duskTarget - s.duskProgress) < 0.001) s.duskProgress = duskTarget;
 
   // Screen shake
   if (s.trauma > 0) s.trauma = Math.max(0, s.trauma - TRAUMA_DECAY);

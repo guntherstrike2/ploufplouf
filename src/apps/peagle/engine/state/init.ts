@@ -89,13 +89,18 @@ export function makeInitialState(
     orangeLeft,
 
     startBalls: baseBalls,
+    duskProgress: 0,
     runUpgrades: [...upgrades],
     effectiveBallR,
     effectiveClutchThreshold: CLUTCH_THRESHOLD,
     effectiveAimSteps,
     effectivePegBounce,
 
+    lastTurnHitCount: -1,
+    aimStartClock: 0,
+
     forestSeed: (runState.seed ^ 0xf0e5741b) >>> 0,
+    levelWonAt: 0,
 
     rng,
   };

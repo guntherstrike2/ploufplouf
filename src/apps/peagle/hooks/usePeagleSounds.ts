@@ -452,6 +452,26 @@ export function usePeagleSounds() {
     noise(ctx, dest, 0.020, 0.03, 400, 0.015, 0.8);
   }, [cd]);
 
+  /**
+   * Feu d'artifice — sifflement montant + pop d'éclatement + étincelles.
+   * Joué périodiquement pendant la phase de victoire.
+   */
+  const playFirework = useCallback(() => {
+    const r = cd(); if (!r) return;
+    const { ctx, dest } = r;
+    const baseFreq = 160 + Math.random() * 120;
+    // Sifflement montant
+    tone(ctx, dest, baseFreq, 0.18, "sine", 0.10, 0, 1400 + Math.random() * 900);
+    // Pop d'éclatement (bruit)
+    noise(ctx, dest, 0.09, 0.16, 1600 + Math.random() * 1000, 0.18, 1.5);
+    // Étincelles aiguës
+    const sparkFreq = 700 + Math.random() * 500;
+    detuned(ctx, dest, sparkFreq,        14, 0.13, "sine", 0.09, 0.18);
+    detuned(ctx, dest, sparkFreq * 1.52, 10, 0.10, "sine", 0.06, 0.21);
+    // Sub pop pour le "coup"
+    tone(ctx, dest, 110, 0.09, "sine", 0.14, 0.18, 50);
+  }, [cd]);
+
   // ── Launcher ────────────────────────────────────────────────────────────────
 
   /**
@@ -483,5 +503,6 @@ export function usePeagleSounds() {
     playUpgradePick,
     playUpgradeSkip,
     playGrab,
+    playFirework,
   };
 }

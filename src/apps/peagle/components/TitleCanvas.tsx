@@ -9,7 +9,7 @@ import {
   getActiveBall,
 } from "../engine/assets";
 import { BALL_R } from "../engine/constants";
-import { eagleFace } from "../renderer/face";
+import { eagleFace, getFaceMood, titleFaceCtx, type FaceContext, type FaceMood } from "../renderer/face";
 
 // ─── Écran-titre animé (canvas) ──────────────────────────────────────────────
 // Intro "juicy" : l'aigle débarque en vol (ailes qui battent), puis le titre
@@ -399,6 +399,15 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, getBeat
     let cssW = 0;
     let cssH = 0;
 
+    // Moods aléatoires stables tirés une seule fois à l'init — un par peek pigeon + un pour l'aigle
+    const peekMoodIds = [Math.floor(Math.random() * 7), Math.floor(Math.random() * 7), Math.floor(Math.random() * 7)];
+    const introMoodIdx = Math.floor(Math.random() * 7);
+
+    // Flash de mood occasionnel en idle (écran-titre)
+    let moodFlashIdx = -1;   // -1 = pas de flash actif
+    let moodFlashEnd = 0;
+    let nextMoodFlash = EAGLE_IN + 2.5 + Math.random() * 6; // premier flash ~3-9s après l'atterrissage
+
     // Offscreen réutilisé pour le reflet (shine) qui balaie le titre en boucle.
     // On y peint une bande diagonale blanche puis on la masque par la forme des
     // lettres (destination-in) → un vrai glint pixel-net clippé au logo.
@@ -677,6 +686,23 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, getBeat
     canvas.addEventListener("pointerdown", skip);
     window.addEventListener("keydown", onKey);
 
+    // Construit un FaceContext "posé" selon le mood d'intro tiré au sort.
+    // Pendant EAGLE_IN + ~0.9s, l'aigle tient cette expression avant de
+    // passer en idle normal.
+    function buildIntroFaceCtx(idx: number, elapsed: number): FaceContext {
+      const base = titleFaceCtx(elapsed, 0, 0);
+      switch (idx) {
+        case 0: return { ...base, won: true };         // étoile + jubilation
+        case 1: return { ...base, bigCombo: true };    // smug arrogant
+        case 2: return { ...base, hitMag: 12 };        // impact excité
+        case 3: return { ...base, lowBalls: true };    // sourcils inquiets
+        case 4: return { ...base, zeroPeg: true };     // rage
+        case 5: return { ...base, aimIdleSec: 8 };    // somnolent
+        case 6: return { ...base, oneBall: true };     // larmes dramatiques
+        default: return base;
+      }
+    }
+
     function drawEagle(elapsed: number) {
       if (!body || !wing) return;
       const restX = cssW / 2;
@@ -785,16 +811,26 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, getBeat
 
       // Corps
       ctx!.drawImage(body, -bodyCols / 2, -bodyRows / 2);
-      // Tête Doom — même mascotte que le HUD et le lanceur en jeu
-      eagleFace(ctx!, 0, -13, {
-        blink: recoil < 0.1 && ponte < 0.1 && (elapsed % 3.8) < 0.12,
-        open: ponte > 0.2 ? ponte : 0,
-        brow: "flat",
-        eyeRed: false,
-        wide: recoil > 3,
-        look: Math.sin(elapsed * 0.7) * 1.2,
-        pop: Math.min(1, recoil / 7),
-      });
+      // Tête Doom — mood aléatoire pendant l'intro, flash occasionnel en idle
+      const INTRO_HOLD = EAGLE_IN + 0.9;
+      let faceCtx: FaceContext;
+      if (elapsed < INTRO_HOLD) {
+        faceCtx = buildIntroFaceCtx(introMoodIdx, elapsed);
+      } else {
+        // Déclenche un nouveau flash si l'heure est venue
+        if (moodFlashIdx === -1 && elapsed >= nextMoodFlash) {
+          moodFlashIdx = Math.floor(Math.random() * 7);
+          moodFlashEnd = elapsed + 1.5 + Math.random() * 1.5;
+          nextMoodFlash = moodFlashEnd + 6 + Math.random() * 10;
+        }
+        if (moodFlashIdx !== -1 && elapsed < moodFlashEnd) {
+          faceCtx = buildIntroFaceCtx(moodFlashIdx, elapsed);
+        } else {
+          moodFlashIdx = -1;
+          faceCtx = titleFaceCtx(elapsed, recoil, ponte);
+        }
+      }
+      eagleFace(ctx!, 0, -13, getFaceMood(faceCtx));
       ctx!.restore();
     }
 
@@ -1716,16 +1752,14 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, getBeat
       function drawPeekHead(
         sx: number, sy: number,
         rotation: number, bob: number,
-        blink: boolean, open: number,
-        brow: "flat" | "angry" | "up",
-        wide: boolean, pop: number,
+        mood: FaceMood,
       ) {
         ctx!.save();
         ctx!.translate(sx, sy);
         ctx!.rotate(rotation + bob);
         ctx!.scale(peekScale, peekScale);
         ctx!.imageSmoothingEnabled = false;
-        eagleFace(ctx!, 0, 0, { blink, open, brow, eyeRed: false, wide, look: 0, pop });
+        eagleFace(ctx!, 0, 0, mood);
         ctx!.restore();
       }
 
@@ -1774,15 +1808,11 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, getBeat
 
         if (pigElapsed >= END) continue; // hors écran, ne pas dessiner
 
-        const hf    = Math.max(0, (ph - PEEK_IN) / PEEK_HOLD);
-        const blink = hf > 0.5 && (pigElapsed % 2.8) < 0.11;
-        const bob   = hf > 0 ? Math.sin(pigElapsed * 4.5) * 0.06 : 0;
-        const open  = pi === 1 ? (hf > 0.2 ? 0.45 : 0) : (hf > 0.3 ? 0.15 : 0);
-        const brow  = pi === 1 && hf > 0.1 ? "up" : "flat";
-        const wide  = pi === 1 && hf > 0.1;
-        const pop   = pi === 1 && hf > 0.1 ? 0.12 : 0;
+        const hf  = Math.max(0, (ph - PEEK_IN) / PEEK_HOLD);
+        const bob = hf > 0 ? Math.sin(pigElapsed * 4.5) * 0.06 : 0;
+        const mood = getFaceMood(buildIntroFaceCtx(peekMoodIds[pi]!, pigElapsed));
 
-        drawPeekHead(cx2, cy2, rotationForSide(cfg.side), bob, blink, open, brow, wide, pop);
+        drawPeekHead(cx2, cy2, rotationForSide(cfg.side), bob, mood);
       }
     }
 

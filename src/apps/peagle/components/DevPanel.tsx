@@ -26,15 +26,18 @@ export const DEFAULT_DEV_CONFIG: DevConfig = {
   upgrades: [],
 };
 
+export type DevTriggerScreen = "day" | "night" | "win" | "lose" | "new-record";
+
 interface DevPanelProps {
   initial?: DevConfig;
   onClose: () => void;
   onLaunch: (cfg: DevConfig) => void;
+  onTriggerScreen?: (screen: DevTriggerScreen) => void;
 }
 
 const ALL_UPGRADES = Object.keys(UPGRADES) as UpgradeId[];
 
-export function DevPanel({ initial, onClose, onLaunch }: DevPanelProps) {
+export function DevPanel({ initial, onClose, onLaunch, onTriggerScreen }: DevPanelProps) {
   const [cfg, setCfg] = useState<DevConfig>(initial ?? DEFAULT_DEV_CONFIG);
   const { openApp } = useOpenApp();
 
@@ -162,6 +165,67 @@ export function DevPanel({ initial, onClose, onLaunch }: DevPanelProps) {
           >
             🎨 GALERIE D&apos;ASSETS
           </button>
+
+          {onTriggerScreen && (
+            <>
+              <div className="pg-sep" style={{ marginBottom: 10 }} />
+              <div style={{ ...label, marginBottom: 8 }}>DÉCLENCHER ÉCRAN</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 6 }}>
+                {(
+                  [
+                    { id: "day",   icon: "☀", text: "JOUR",     color: "#ffdd66" },
+                    { id: "night", icon: "🌙", text: "NUIT",     color: "#88aaff" },
+                    { id: "win",   icon: "★",  text: "VICTOIRE", color: "#44cc88" },
+                    { id: "lose",  icon: "✕",  text: "DÉFAITE",  color: "#cc4444" },
+                  ] as const
+                ).map(({ id, icon, text, color }) => (
+                  <button
+                    key={id}
+                    onClick={() => { onTriggerScreen(id); onClose(); }}
+                    style={{
+                      padding: "7px 0",
+                      fontFamily: "var(--pg-font)",
+                      fontSize: 8,
+                      cursor: "pointer",
+                      background: PG.surface2,
+                      color,
+                      borderWidth: 1,
+                      borderStyle: "solid",
+                      borderTopColor: PG.hi,
+                      borderLeftColor: PG.hi,
+                      borderBottomColor: PG.sh,
+                      borderRightColor: PG.sh,
+                      letterSpacing: "0.04em",
+                    }}
+                  >
+                    {icon} {text}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => { onTriggerScreen("new-record"); onClose(); }}
+                style={{
+                  width: "100%",
+                  padding: "7px 0",
+                  marginBottom: 8,
+                  fontFamily: "var(--pg-font)",
+                  fontSize: 8,
+                  cursor: "pointer",
+                  background: PG.surface2,
+                  color: "#ff88ff",
+                  borderWidth: 1,
+                  borderStyle: "solid",
+                  borderTopColor: PG.hi,
+                  borderLeftColor: PG.hi,
+                  borderBottomColor: PG.sh,
+                  borderRightColor: PG.sh,
+                  letterSpacing: "0.04em",
+                }}
+              >
+                ★ NEW RECORD
+              </button>
+            </>
+          )}
 
           <div className="pg-sep" style={{ marginBottom: 12 }} />
 

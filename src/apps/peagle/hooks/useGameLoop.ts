@@ -22,6 +22,7 @@ interface UseGameLoopOptions {
   runStateRef: RefObject<RunState>;
   devConfigRef: RefObject<DevConfig | null>;
   pausedRef: RefObject<boolean>;
+  bestScoreRef: RefObject<number>;
   onUiSync: (ui: UiState) => void;
   onOrangeTotalChange: (total: number) => void;
   onBestScore: (score: number) => void;
@@ -62,6 +63,7 @@ export function useGameLoop({
   runStateRef,
   devConfigRef,
   pausedRef,
+  bestScoreRef,
   onUiSync,
   onOrangeTotalChange,
   onBestScore,
@@ -73,6 +75,7 @@ export function useGameLoop({
   const stateRef = useRef<GameState>(makeInitialState(1, runStateRef.current, false, 0));
   const animRef = useRef<number>(0);
   const orangeTotalRef = useRef(0);
+  const devNewRecordRef = useRef(false);
 
   // Refs stables pour les callbacks — mutées en useLayoutEffect pour rester à jour
   const onScoreSubmitRef = useRef(onScoreSubmit);
@@ -88,8 +91,19 @@ export function useGameLoop({
     playPegHit, playOrangePegHit, playBumperHit,
     playWallBounce, playBucketCatch, playJackpot,
     playLevelClear, playPegClear, playGameOver,
-    playGrab,
+    playGrab, playFirework,
   } = usePeagleSounds();
+
+  // Ref stable pour playFirework (utilisé dans la boucle rAF sans le mettre en dep)
+  const playFireworkRef = useRef(playFirework);
+  useLayoutEffect(() => { playFireworkRef.current = playFirework; });
+
+  // Trigger times des feux d'artifice (correspondant aux BURSTS dans celebration.ts)
+  const FW_TRIGS = [0.55, 1.15, 1.80, 2.50, 3.20, 4.00, 4.80] as const;
+
+  // Tracks which firework triggers have already played for the current win
+  const fwPlayedRef = useRef<Set<number>>(new Set());
+  const wonAtTrackedRef = useRef(-1);
 
   const handleEvent = useCallback((ev: GameEvent) => {
     switch (ev.kind) {
@@ -173,6 +187,7 @@ export function useGameLoop({
     orangeTotalRef.current = newState.pegs.filter(isTarget).length;
     onOrangeTotalChange(orangeTotalRef.current);
     stateRef.current = newState;
+    devNewRecordRef.current = false;
     syncUI();
   }, [syncUI, onOrangeTotalChange, runStateRef, devConfigRef]);
 
@@ -323,6 +338,7 @@ export function useGameLoop({
           theme: resolveTheme(),
           showHitboxes: devConfigRef.current?.showHitboxes ?? false,
           orangeTotal: orangeTotalRef.current,
+          isNewRecord: devNewRecordRef.current || (s.phase === "won" && s.score > 0 && s.score >= bestScoreRef.current),
         });
         animRef.current = requestAnimationFrame(frame);
         return;
@@ -338,10 +354,26 @@ export function useGameLoop({
       for (const ev of events) handleEvent(ev);
       if (shouldSync) syncUI(orangeLeft);
 
+      // Feux d'artifice sonores — déclenche un son à chaque burst visuel
+      if (s.phase === "won" && s.levelWonAt > 0) {
+        if (s.levelWonAt !== wonAtTrackedRef.current) {
+          wonAtTrackedRef.current = s.levelWonAt;
+          fwPlayedRef.current.clear();
+        }
+        const wonAge = s.animClock - s.levelWonAt;
+        for (const trig of FW_TRIGS) {
+          if (!fwPlayedRef.current.has(trig) && wonAge >= trig) {
+            fwPlayedRef.current.add(trig);
+            playFireworkRef.current();
+          }
+        }
+      }
+
       drawFrame(ctx, stateRef.current, getAngle(), orangeLeft, {
         theme: resolveTheme(),
         showHitboxes: devConfigRef.current?.showHitboxes ?? false,
         orangeTotal: orangeTotalRef.current,
+        isNewRecord: devNewRecordRef.current || (s.phase === "won" && s.score > 0 && s.score >= bestScoreRef.current),
       });
 
       // Curseur dynamique : main ouverte au survol de l'aigle, main fermée pendant
@@ -367,5 +399,34 @@ export function useGameLoop({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [handleEvent, syncUI]);
 
-  return { stateRef, handlePointerDown, handlePointerMove, handlePointerUp, resetGame, nextLevel, skipLevel };
+  const forceWin = useCallback(() => {
+    const s = stateRef.current;
+    s.phase = "won";
+    s.levelWonAt = s.animClock;
+    syncUI();
+  }, [syncUI]);
+
+  const forceNewRecord = useCallback(() => {
+    const s = stateRef.current;
+    if (s.score === 0) s.score = 5000;
+    s.phase = "won";
+    s.levelWonAt = s.animClock;
+    devNewRecordRef.current = true;
+    syncUI();
+  }, [syncUI]);
+
+  const forceLose = useCallback(() => {
+    stateRef.current.phase = "lost";
+    syncUI();
+  }, [syncUI]);
+
+  const forceDay = useCallback(() => {
+    stateRef.current.duskProgress = 0;
+  }, []);
+
+  const forceNight = useCallback(() => {
+    stateRef.current.duskProgress = 1;
+  }, []);
+
+  return { stateRef, handlePointerDown, handlePointerMove, handlePointerUp, resetGame, nextLevel, skipLevel, forceWin, forceLose, forceDay, forceNight, forceNewRecord };
 }

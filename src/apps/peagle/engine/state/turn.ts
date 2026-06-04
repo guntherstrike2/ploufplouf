@@ -10,6 +10,7 @@ export function endOfTurn(s: GameState, events: GameEvent[]): void {
   // particules + onde de choc) au moment où ils quittent le tableau, au lieu de
   // s'effacer silencieusement. C'est LE moment « pop » satisfaisant.
   const cleared = s.pegs.filter(p => p.hit);
+  s.lastTurnHitCount = cleared.length;
   for (const p of cleared) {
     const orange = p.kind === "orange";
     spawnParticles(s, p.x, p.y, orange, orange ? 12 : 7);
@@ -38,6 +39,7 @@ export function endOfTurn(s: GameState, events: GameEvent[]): void {
     events.push({ kind: "best-score", score: s.score });
 
     s.phase = "won";
+    s.levelWonAt = s.animClock;
     s.message = `NIVEAU ${s.level} TERMINÉ !`;
     events.push({ kind: "sound", id: "level-clear" });
     events.push({ kind: "level-won" });
@@ -52,6 +54,7 @@ export function endOfTurn(s: GameState, events: GameEvent[]): void {
 
   } else {
     s.phase = "aim";
+    s.aimStartClock = s.animClock;
     if (cleared.length > 0) events.push({ kind: "sound", id: "peg-clear" });
   }
 }

@@ -12,7 +12,7 @@ import { MainMenu } from "./components/MainMenu";
 import { UpgradePicker } from "./components/UpgradePicker";
 import { SidePanel } from "./components/SidePanel";
 import { DevPanel } from "./components/DevPanel";
-import type { DevConfig } from "./components/DevPanel";
+import type { DevConfig, DevTriggerScreen } from "./components/DevPanel";
 import { W } from "./engine/constants";
 import type { UiState, LeaderboardEntry, UpgradeId } from "./engine/types";
 import type { RunState } from "./engine/roguelite";
@@ -45,12 +45,18 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     if (typeof window === "undefined") return 0;
     return parseInt(localStorage.getItem("peagle98_best") ?? "0", 10);
   });
+  const bestScoreRef = useRef(bestScore);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [lbLoading, setLbLoading] = useState(false);
   const [scoreSubmitted, setScoreSubmitted] = useState(false);
 
   // Offre d'upgrade entre deux niveaux
   const [upgradeOffer, setUpgradeOffer] = useState<UpgradeId[] | null>(null);
+  const upgradeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cancelUpgradeTimer = useCallback(() => {
+    if (upgradeTimerRef.current) { clearTimeout(upgradeTimerRef.current); upgradeTimerRef.current = null; }
+  }, []);
 
   // ── Screen transition overlay (simple CSS transition, pas de keyframes) ──
   const [overlayOpaque, setOverlayOpaque] = useState(false);
@@ -106,16 +112,22 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
   }, [user, scoreSubmitted]);
 
   const handleLevelWon = useCallback(() => {
-    setUpgradeOffer(generateUpgradeOffer(runStateRef.current.upgrades, runStateRef.current.seed));
-  }, []);
+    cancelUpgradeTimer();
+    const offer = generateUpgradeOffer(runStateRef.current.upgrades, runStateRef.current.seed);
+    upgradeTimerRef.current = setTimeout(() => {
+      upgradeTimerRef.current = null;
+      setUpgradeOffer(offer);
+    }, 3000);
+  }, [cancelUpgradeTimer]);
 
   const recordBestScore = useCallback((score: number) => {
     setBestScore(prev => {
       if (score <= prev) return prev;
+      bestScoreRef.current = score;
       try { localStorage.setItem("peagle98_best", String(score)); } catch { /* quota / private mode */ }
       return score;
     });
-  }, []);
+  }, [bestScoreRef]);
 
   const { musicMuted, toggleMusic, fadeOutAndRestart, fadeToGameTrack, fadeToClutchTrack, getBeat } = useMusic(screen !== "loading");
 
@@ -132,12 +144,13 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
   const handleUiSync = useCallback((uiState: UiState) => setUi(uiState), []);
   const handleOrangeTotalChange = useCallback((total: number) => setUi(u => ({ ...u, orangeTotal: total })), []);
 
-  const { handlePointerDown, handlePointerMove, handlePointerUp, resetGame, nextLevel, skipLevel } = useGameLoop({
+  const { handlePointerDown, handlePointerMove, handlePointerUp, resetGame, nextLevel, skipLevel, forceWin, forceLose, forceDay, forceNight, forceNewRecord } = useGameLoop({
     canvasRef,
     mouseRef,
     runStateRef,
     devConfigRef,
     pausedRef,
+    bestScoreRef,
     onUiSync: handleUiSync,
     onOrangeTotalChange: handleOrangeTotalChange,
     onBestScore: recordBestScore,
@@ -147,19 +160,22 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
   });
 
   const handleUpgradePick = useCallback((id: UpgradeId) => {
+    cancelUpgradeTimer();
     runStateRef.current = { ...runStateRef.current, upgrades: [...runStateRef.current.upgrades, id] };
     setUpgradeOffer(null);
     fadeToGameTrack();
     nextLevel();
-  }, [nextLevel, fadeToGameTrack]);
+  }, [nextLevel, fadeToGameTrack, cancelUpgradeTimer]);
 
   const handleUpgradeSkip = useCallback(() => {
+    cancelUpgradeTimer();
     setUpgradeOffer(null);
     fadeToGameTrack();
     nextLevel();
-  }, [nextLevel, fadeToGameTrack]);
+  }, [nextLevel, fadeToGameTrack, cancelUpgradeTimer]);
 
   const startRun = useCallback((seedOverride?: number) => {
+    cancelUpgradeTimer();
     setHasSeenIntro(true);
     devConfigRef.current = null;
     setDevSessionActive(false);
@@ -174,9 +190,10 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     setPaused(false);
     fadeToGameTrack();
     transitionTo("game");
-  }, [resetGame, transitionTo, fadeToGameTrack]);
+  }, [resetGame, transitionTo, fadeToGameTrack, cancelUpgradeTimer]);
 
   const handleDevLaunch = useCallback((cfg: DevConfig) => {
+    cancelUpgradeTimer();
     setHasSeenIntro(true);
     devConfigRef.current = cfg;
     const run = { ...makeInitialRunState(), upgrades: cfg.upgrades };
@@ -190,15 +207,16 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     setPaused(false);
     fadeToGameTrack();
     transitionTo("game");
-  }, [resetGame, transitionTo, fadeToGameTrack]);
+  }, [resetGame, transitionTo, fadeToGameTrack, cancelUpgradeTimer]);
 
   const handleGoToMenu = useCallback(() => {
+    cancelUpgradeTimer();
     fadeOutAndRestart();
     transitionTo("menu", () => {
       setUpgradeOffer(null);
       setPaused(false);
     });
-  }, [transitionTo, fadeOutAndRestart]);
+  }, [transitionTo, fadeOutAndRestart, cancelUpgradeTimer]);
 
   const handleGoToLeaderboard = useCallback(() => {
     setHasSeenIntro(true);
@@ -209,31 +227,45 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
   }, [transitionTo, fetchLeaderboard]);
 
   const handleReplay = useCallback(() => {
+    cancelUpgradeTimer();
     const run = makeInitialRunState();
     runStateRef.current = run;
+    devConfigRef.current = null;
     setCurrentSeed(run.seed);
     resetGame(false);
     setScoreSubmitted(false);
     setUpgradeOffer(null);
     setPaused(false);
+    setDevSessionActive(false);
     fadeToGameTrack();
-  }, [resetGame, fadeToGameTrack]);
+  }, [resetGame, fadeToGameTrack, cancelUpgradeTimer]);
 
   // Rejouer avec exactement le même seed (upgrades remises à zéro).
   const handleReplaySeed = useCallback(() => {
+    cancelUpgradeTimer();
     const seed = runStateRef.current.seed;
     runStateRef.current = makeRunStateWithSeed(seed);
+    devConfigRef.current = null;
     // setCurrentSeed reste inchangé (même seed)
     resetGame(false);
     setScoreSubmitted(false);
     setUpgradeOffer(null);
     setPaused(false);
+    setDevSessionActive(false);
     fadeToGameTrack();
-  }, [resetGame, fadeToGameTrack]);
+  }, [resetGame, fadeToGameTrack, cancelUpgradeTimer]);
 
   const handleAssetsReady = useCallback(() => {
     transitionTo("menu");
   }, [transitionTo]);
+
+  const handleTriggerScreen = useCallback((s: DevTriggerScreen) => {
+    if (s === "win") forceWin();
+    else if (s === "lose") forceLose();
+    else if (s === "day") forceDay();
+    else if (s === "new-record") forceNewRecord();
+    else forceNight();
+  }, [forceWin, forceLose, forceDay, forceNight, forceNewRecord]);
 
   // Callbacks stables passés à GameCanvas (mémoïsé) — évite de casser sa memo.
   const handleResume = useCallback(() => setPaused(false), []);
@@ -287,6 +319,7 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
           <DevPanel
             onClose={() => setShowDevPanelInGame(false)}
             onLaunch={handleDevLaunch}
+            onTriggerScreen={handleTriggerScreen}
           />
         )}
 

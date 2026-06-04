@@ -43,13 +43,16 @@ function EagleLogoCanvas() {
       ctx!.imageSmoothingEnabled = false;
 
       eagleFace(ctx!, FACE_CX, FACE_CY, {
-        blink: (elapsed % 3.8) < 0.12,
+        blink: (elapsed % 3.8) < 0.12 ? "both" : "none",
         open: 0,
         brow: "flat",
         eyeRed: false,
         wide: false,
         look: Math.sin(elapsed * 0.7) * 1.2,
         pop: 0,
+        starEyes: false,
+        tears: false,
+        drowsyEyes: false,
       });
 
       raf = requestAnimationFrame(draw);

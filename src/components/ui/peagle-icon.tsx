@@ -25,13 +25,16 @@ export function PeagleIcon({ size }: { size: number }) {
     ctx.scale(scale, scale);
 
     eagleFace(ctx, 0, 0, {
-      blink: false,
+      blink: "none",
       open: 0,
       brow: "flat",
       eyeRed: false,
       wide: false,
       look: 0,
       pop: 0,
+      starEyes: false,
+      tears: false,
+      drowsyEyes: false,
     });
   }, [size]);
 

@@ -3,7 +3,7 @@ import { getActiveBall } from "../engine/assets";
 import type { BallStyle } from "../engine/assets";
 import type { GameState } from "../engine/types";
 import type { GameTheme, PegTheme } from "../engine/game-theme";
-import { eagleFace, getFaceMood } from "./face";
+import { eagleFace, getFaceMood, gameFaceCtx } from "./face";
 
 // ─── HUD in-canvas — épuré ───────────────────────────────────────────────────
 //
@@ -128,7 +128,7 @@ export function drawHud(
   const lowBalls = s.balls > 0 && s.balls <= 2;
   const pulse = 0.5 + 0.5 * Math.sin(s.animClock * 6);
   const egg = getActiveBall();
-  const face = getFaceMood(s);
+  const face = getFaceMood(gameFaceCtx(s));
 
   ensureHudGrads(ctx);
 

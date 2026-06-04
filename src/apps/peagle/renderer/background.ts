@@ -1495,38 +1495,6 @@ const LAYER_INTRO_OFFSETS = [-70, 100, 125, 150, 80, 180] as const;
 const LAYER_INTRO_DELAYS  = [0.80, 0.18, 0.40, 0.60, 0.04, 1.00] as const;
 const SUN_INTRO_DELAY     = 0.25;
 
-// ─── Lever de soleil (forêt, mode normal) ─────────────────────────────────────
-// Le soleil monte depuis sous l'horizon jusqu'à sa position finale. Une lueur
-// orangée pulse à l'horizon (derrière les arbres), un voile nuit se dissipe.
-const SUNRISE_DURATION = 3.4;
-
-function sunriseT(animClock: number): number {
-  return Math.min(1, animClock / SUNRISE_DURATION);
-}
-
-// Lueur chaude à l'horizon (derrière nuages/arbres). Pic à t≈0.35, puis se dissipe.
-function drawSunriseBg(ctx: CanvasRenderingContext2D, t: number): void {
-  const peak = t < 0.35 ? t / 0.35 : 1 - (t - 0.35) / 0.65;
-  if (peak < 0.008) return;
-  for (let row = 0; row < 14; row++) {
-    const rt = row / 14;
-    const a = peak * 0.55 * (1 - rt * rt);
-    const g = Math.round(55 + rt * 75);
-    ctx.fillStyle = `rgba(255,${g},8,${a.toFixed(3)})`;
-    ctx.fillRect(0, GROUND_Y - 130 + row * 10, W, 12);
-  }
-  ctx.fillStyle = `rgba(255,105,75,${(peak * 0.16).toFixed(3)})`;
-  ctx.fillRect(0, 15, W, Math.round(GROUND_Y * 0.52));
-}
-
-// Voile sombre prédawn sur tout l'écran (au-dessus de tout). Disparaît vite.
-function drawSunriseFg(ctx: CanvasRenderingContext2D, t: number): void {
-  const fade = 1 - easeOutCubic(t);
-  if (fade < 0.006) return;
-  ctx.fillStyle = `rgba(10,4,38,${(fade * 0.70).toFixed(3)})`;
-  ctx.fillRect(0, 0, W, H);
-}
-
 // ─── Coucher / lever de lune (transitions fever forêt) ────────────────────────
 // Quand fever s'active  : soleil descend + corps céleste fever monte + ciel s'assombrit.
 // Quand fever se désactive : corps céleste descend + soleil remonte + ciel s'éclaircit.
@@ -1553,18 +1521,23 @@ function updateClutchTransition(animClock: number, clutchMode: boolean): { t: nu
 }
 
 // Lueur orangée au coucher de soleil / lever de lune. Pic à t≈0.35.
+// Gradient continu haut→bas pour éviter toute ligne de séparation visible.
 function drawDuskBg(ctx: CanvasRenderingContext2D, t: number): void {
   const peak = t < 0.35 ? t / 0.35 : 1 - (t - 0.35) / 0.65;
   if (peak < 0.008) return;
-  for (let row = 0; row < 14; row++) {
-    const rt = row / 14;
-    const a = peak * 0.55 * (1 - rt * rt);
-    const g = Math.round(40 + rt * 55);
+  const rows = 20;
+  for (let row = 0; row < rows; row++) {
+    const rt = row / rows; // 0 = haut du ciel, 1 = sol
+    // Alpha monte de 0.14 (haut) à 0.55 (horizon) via une courbe quadratique
+    const a = peak * (0.14 + 0.41 * rt * rt);
+    if (a < 0.003) continue;
+    // Couleur : rouge-orange en haut (g=70), orange plus chaud en bas (g=40)
+    const g = Math.round(70 - rt * 30);
     ctx.fillStyle = `rgba(255,${g},0,${a.toFixed(3)})`;
-    ctx.fillRect(0, GROUND_Y - 130 + row * 10, W, 12);
+    const y = Math.round(rt * GROUND_Y);
+    const rh = Math.round(GROUND_Y / rows) + 2;
+    ctx.fillRect(0, y, W, rh);
   }
-  ctx.fillStyle = `rgba(255,70,30,${(peak * 0.14).toFixed(3)})`;
-  ctx.fillRect(0, 15, W, Math.round(GROUND_Y * 0.52));
 }
 
 // Assombrissement progressif avant que le fever mode s'enclenche.
@@ -1685,7 +1658,9 @@ function drawForetLayers(
   ctx: CanvasRenderingContext2D, s: GameState, clutchMode: boolean, bg: BgTheme, preClutchDusk: number,
 ): void {
   // État de transition fever calculé avant tout — pilote le choix des couches.
-  const { t: clutchT } = updateClutchTransition(s.animClock, clutchMode);
+  // Sur game over (lost), on force la transition terminée pour éviter les effets dusk.
+  const { t: rawClutchT } = updateClutchTransition(s.animClock, clutchMode);
+  const clutchT = s.phase === "lost" ? 1 : rawClutchT;
   const inDusk = clutchT < 1;
 
   // Pendant la transition, on garde les couches SOURCE (avant la bascule) pour
@@ -1713,35 +1688,16 @@ function drawForetLayers(
     // Soleil / lune après le ciel (i=0), avant les nuages (i=1)
     if (i === 1) {
       if (!clutchMode) {
-        // ═══ MODE JOUR ═══
-        if (inDusk) {
-          // Sortie du fever : soleil remonte, corps fever descend
-          const sunOffY = Math.round((1 - easeInOutCubic(clutchT)) * (GROUND_Y + 40 - SUN_Y));
-          ctx.save(); ctx.translate(0, sunOffY);
-          drawCelestialBody(ctx, s, false, "foret");
-          ctx.restore();
-          const moonOffY = Math.round(easeInOutCubic(clutchT) * (GROUND_Y + 40 - CLUTCH_BODY_Y));
-          ctx.save(); ctx.translate(0, moonOffY);
-          drawCelestialBody(ctx, s, true, "foret");
-          ctx.restore();
-          drawDuskBg(ctx, 1 - clutchT);
-        } else {
-          // Lever de soleil au début du niveau
-          const sr = sunriseT(s.animClock);
-          const sunOffY = Math.round((1 - easeInOutCubic(sr)) * (GROUND_Y + 40 - SUN_Y));
-          ctx.save(); ctx.translate(0, sunOffY);
-          drawCelestialBody(ctx, s, false, "foret");
-          ctx.restore();
-          if (sr < 1) drawSunriseBg(ctx, sr);
-        }
+        // ═══ MODE JOUR ═══ — soleil statique + décalage pré-fever
+        const preDusk = Math.round(s.duskProgress * 180);
+        ctx.save(); ctx.translate(0, preDusk);
+        drawCelestialBody(ctx, s, false, "foret");
+        ctx.restore();
+        if (inDusk) drawDuskBg(ctx, 1 - clutchT);
       } else {
         // ═══ MODE FEVER ═══
         if (inDusk) {
-          // Entrée du fever : soleil se couche, corps fever se lève
-          const sunOffY = Math.round(easeInOutCubic(clutchT) * (GROUND_Y + 40 - SUN_Y));
-          ctx.save(); ctx.translate(0, sunOffY);
-          drawCelestialBody(ctx, s, false, "foret");
-          ctx.restore();
+          // Entrée du fever : lune monte depuis le bas
           const moonOffY = Math.round((1 - easeInOutCubic(clutchT)) * (GROUND_Y + 40 - CLUTCH_BODY_Y));
           ctx.save(); ctx.translate(0, moonOffY);
           drawCelestialBody(ctx, s, true, "foret");
@@ -1794,16 +1750,12 @@ function drawForetLayers(
   drawAmbientLeaves(ctx, s, clutchMode, leaves);
   drawFireflies(ctx, s, clutchMode, fireflies);
 
-  // Voiles plein-écran : lever de soleil (début niveau) ou crépuscule/aube (transitions fever)
+  // Voiles plein-écran : crépuscule/aube (transitions fever) + assombrissement pré-fever
   if (!clutchMode) {
     if (inDusk) {
       drawDuskFg(ctx, clutchT, false); // retour jour : éclaircissement
-    } else {
-      const sr = sunriseT(s.animClock);
-      if (sr < 1) drawSunriseFg(ctx, sr); // lever de soleil de début de niveau
-      // Assombrissement progressif pré-fever : le ciel se voile à mesure qu'on
-      // dépense les oranges (preClutchDusk 0→1 jusqu'au seuil de 3 oranges).
-      if (preClutchDusk > 0.02 && sr >= 1) drawPreClutchDuskOverlay(ctx, preClutchDusk);
+    } else if (preClutchDusk > 0.02) {
+      drawPreClutchDuskOverlay(ctx, preClutchDusk);
     }
   } else if (inDusk) {
     drawDuskFg(ctx, clutchT, true); // entrée fever : assombrissement

@@ -3,7 +3,7 @@ import { computeAimLine } from "../engine/physics";
 import { getActiveBird, getActiveBucket, getActiveAssetId, EAGLE_BODY, EAGLE_WING, EAGLE_WING_PIVOT, EAGLE_WING_ANCHOR } from "../engine/assets";
 import type { BirdSprite, BucketStyle } from "../engine/assets";
 import type { GameState } from "../engine/types";
-import { eagleFace, getFaceMood } from "./face";
+import { eagleFace, getFaceMood, gameFaceCtx } from "./face";
 
 // ── Offscreen canvas pour l'aigle — isole le corps des ailes/pattes ─────────
 // Le corps a des pixels '.' transparents sur ses bords. Sans isolation, les ailes
@@ -394,7 +394,7 @@ export function drawLauncher(ctx: CanvasRenderingContext2D, s: GameState, aimAng
       drawBirdSkin(ctx, EAGLE_BODY, 0, 0, 1);
     }
     // Tête Doom réactive par-dessus le sprite — même expressions que le HUD
-    eagleFace(ctx, 0, -13, getFaceMood(s));
+    eagleFace(ctx, 0, -13, getFaceMood(gameFaceCtx(s)));
   } else {
     // Autres oiseaux : grille unique, taille cible ~48px.
     const skin = getActiveBird();
@@ -431,7 +431,7 @@ interface NestGeom {
 function nestGeom(cx: number, cy: number, w: number, h: number): NestGeom {
   cx = Math.round(cx);
   const nW = w + 16;
-  const nH = Math.round(h * 1.95);
+  const nH = Math.round(h * 1.5);
   const bot = Math.round(cy + h * 0.5);
   const top = bot - nH;
   const rimRx = nW / 2;
@@ -443,7 +443,7 @@ function nestGeom(cx: number, cy: number, w: number, h: number): NestGeom {
   const cavBot = bot - 2;
   const cavH = cavBot - cavOpenY;
   const eggRx = Math.round(cavHW * 0.54);
-  const eggRy = Math.round(cavH * 0.47);
+  const eggRy = Math.max(10, Math.round(cavH * 0.52));
   const eggCy = cavBot - eggRy - 1;
   return {
     cx, nW, nH, bot, top, rimRx, rimRy, rimThick, rimCy,
@@ -463,10 +463,13 @@ function drawNestBody(ctx: CanvasRenderingContext2D, g: NestGeom, style: BucketS
     ctx.fillRect(cx - Math.round(sw / 2), bot + i, sw, 1);
   }
 
-  // ── Corps — cuvette U de base (nestDark) ──────────────────────────────────
+  // ── Corps — bucket rectangulaire (nestDark) ──────────────────────────────
   for (let y = top; y < bot; y++) {
     const t = (y - top) / nH;
-    const rHW = Math.round((nW / 2) * (0.38 + 0.62 * Math.sqrt(t)));
+    // Parois droites avec petit chanfrein pixel-art au fond
+    const rHW = t < 0.82
+      ? Math.round((nW / 2) * 0.92)
+      : Math.round((nW / 2) * (0.92 - 0.18 * ((t - 0.82) / 0.18)));
     ctx.fillStyle = style.nestDark;
     ctx.fillRect(cx - rHW, y, rHW * 2, 1);
   }
@@ -475,7 +478,9 @@ function drawNestBody(ctx: CanvasRenderingContext2D, g: NestGeom, style: BucketS
   ctx.fillStyle = style.nestMid;
   for (let y = top; y < bot; y++) {
     const t = (y - top) / nH;
-    const rHW = Math.round((nW / 2) * (0.38 + 0.62 * Math.sqrt(t)));
+    const rHW = t < 0.82
+      ? Math.round((nW / 2) * 0.92)
+      : Math.round((nW / 2) * (0.92 - 0.18 * ((t - 0.82) / 0.18)));
     const rX = cx - rHW;
     for (let x = rX; x < rX + rHW * 2; x++) {
       if (((x + y) % 7 + 7) % 7 < 2) ctx.fillRect(x, y, 1, 1);
@@ -486,19 +491,22 @@ function drawNestBody(ctx: CanvasRenderingContext2D, g: NestGeom, style: BucketS
   ctx.fillStyle = style.nestLight;
   for (let y = top; y < bot; y++) {
     const t = (y - top) / nH;
-    const rHW = Math.round((nW / 2) * (0.38 + 0.62 * Math.sqrt(t)));
+    const rHW = t < 0.82
+      ? Math.round((nW / 2) * 0.92)
+      : Math.round((nW / 2) * (0.92 - 0.18 * ((t - 0.82) / 0.18)));
     const rX = cx - rHW;
     for (let x = rX; x < rX + rHW * 2; x++) {
       if (((x - y + 1000) % 9) < 2) ctx.fillRect(x, y, 1, 1);
     }
   }
 
-  // ── Rebord — anneau elliptique 3D ─────────────────────────────────────────
-  // Anneau dessiné en scan-lines : pour chaque dy, bras gauche + bras droit
-  // La couleur varie selon dy : plus clair en haut (lumière rasante), sombre en bas
+  // ── Rebord rectangulaire 3D ──────────────────────────────────────────────
+  // Rebord quasi-carré : plein sur toute la hauteur, chanfrein seulement aux coins extrêmes
   for (let dy = -rimRy; dy <= rimRy; dy++) {
     const y = Math.round(rimCy + dy);
-    const outerHW = Math.round(rimRx * Math.sqrt(Math.max(0, 1 - (dy / rimRy) ** 2)));
+    const absDyN = Math.abs(dy) / rimRy;
+    const chamfer = Math.max(0, absDyN - 0.7) / 0.3;
+    const outerHW = Math.round(rimRx * (1 - chamfer * 0.40));
     if (outerHW <= 0) continue;
     const innerHW = Math.max(0, outerHW - rimThick);
     const shade = dy < -rimRy * 0.55 ? style.nestRim
@@ -635,8 +643,6 @@ function drawNest(
   cx: number, cy: number,
   w: number, h: number,
   style: BucketStyle,
-  flash: boolean,
-  animClock: number,
 ): void {
   const g = nestGeom(cx, cy, w, h);
   const off = getNestBodyOffscreen(cy, w, h, style);
@@ -646,14 +652,14 @@ function drawNest(
   } else {
     drawNestBody(ctx, g, style); // fallback SSR / pas de document
   }
-  drawNestEgg(ctx, g, style, flash, animClock);
+  // drawNestEgg supprimé — l'œuf n'est plus affiché dans le nid
 }
 
 export function drawBuckets(ctx: CanvasRenderingContext2D, s: GameState): void {
   const bucketMidY = H - BUCKET_H / 2 - 4;
   const bucket = getActiveBucket();
   ctx.save();
-  drawNest(ctx, s.bucket + BUCKET_W / 2, bucketMidY, BUCKET_W, BUCKET_H + 4, bucket, s.bucketFlash > 0, s.animClock);
+  drawNest(ctx, s.bucket + BUCKET_W / 2, bucketMidY, BUCKET_W, BUCKET_H + 4, bucket);
   ctx.restore();
 
   // Sol herbeux sous les nids
