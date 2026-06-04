@@ -234,12 +234,12 @@ export function usePeagleSounds() {
 
   /** Petit cri — teaser pendant l'intro. `rate` fourni par l'appelant (pitch qui
    *  escalade d'un peek à l'autre) ; sinon pitch random ±22% par défaut. */
-  const playEagleCryShort = useCallback((vol = 0.5, rate?: number) => {
+  const playEagleCryShort = useCallback((vol = 0.35, rate?: number) => {
     playSample(CRY_SHORT, vol, rate ?? 0.78 + Math.random() * 0.44);
   }, [playSample]);
 
   /** Gros cri — l'aigle débarque vraiment. `rate` < 1 = pitch grave (ex: défaite dégoûtée). */
-  const playEagleCryLong = useCallback((vol = 0.9, rate = 1) => {
+  const playEagleCryLong = useCallback((vol = 0.6, rate = 1) => {
     playSample(CRY_LONG, vol, rate);
   }, [playSample]);
 

@@ -190,6 +190,8 @@ export interface UiState {
   combo: number;
   level: number;
   stars: number;
+  /** Fièvre/nuit : peu d'œufs restants à lancer (= s.balls <= effectiveClutchThreshold). */
+  clutch: boolean;
 }
 
 export interface LeaderboardEntry {

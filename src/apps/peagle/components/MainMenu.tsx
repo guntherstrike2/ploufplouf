@@ -88,7 +88,7 @@ export function MainMenu({
         skipIntro={skipIntro}
         onMenuReveal={() => { setShowMenu(true); playMenuReveal(); }}
         onImpact={handleImpact}
-        onEagleCry={(v, rate) => (v === "long" ? playEagleCryLong() : playEagleCryShort(0.5, rate))}
+        onEagleCry={(v, rate) => (v === "long" ? playEagleCryLong() : playEagleCryShort(0.35, rate))}
         getBeat={getBeat}
       />
 

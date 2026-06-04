@@ -38,7 +38,7 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
   const pausedRef = useRef(paused);
   const [ui, setUi] = useState<UiState>({
     balls: 12, score: 0, orangeLeft: 0, orangeTotal: 0,
-    phase: "aim", message: "", combo: 0, level: 1, stars: 0,
+    phase: "aim", message: "", combo: 0, level: 1, stars: 0, clutch: false,
   });
   const [currentSeed, setCurrentSeed] = useState<number>(EMPTY_RUN.seed);
 
@@ -146,7 +146,7 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
   // Transitions musicales fever : détecte l'entrée en fever pour démarrer le fever track,
   // et revient au game track dès que le fever se termine (pegs orange tous touchés ou niveau perdu).
   const prevInClutchRef = useRef(false);
-  const inClutch = screen === "game" && ui.orangeLeft > 0 && ui.orangeLeft <= 3;
+  const inClutch = screen === "game" && ui.clutch;
   useEffect(() => {
     if (screen !== "game") { prevInClutchRef.current = false; return; }
     if (inClutch && !prevInClutchRef.current) {

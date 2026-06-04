@@ -88,9 +88,14 @@ export function tick(s: GameState): TickResult {
   if (inClutch) s.clutchPulse = (s.clutchPulse + 0.08) % (Math.PI * 2);
   else s.clutchPulse = 0;
 
-  // duskProgress monte 0→1 proportionnellement aux œufs dépensés, indépendamment du fever.
+  // duskProgress monte 0→1 proportionnellement aux œufs perdus, indépendamment du fever.
+  // L'œuf en vol ne compte PAS comme dépensé : tant qu'il vole (ou jusqu'à ce qu'il
+  // soit définitivement perdu), on le rajoute au compte. S'il retombe dans le panier,
+  // il est rendu → la nuit ne tombe pas. Elle ne bascule donc qu'à la perte réelle.
+  const ballsInFlight = s.ball?.active ? 1 : 0;
+  const ballsRemaining = s.balls + ballsInFlight;
   const duskTarget = s.startBalls > 0
-    ? Math.max(0, Math.min(1, (s.startBalls - s.balls) / s.startBalls))
+    ? Math.max(0, Math.min(1, (s.startBalls - ballsRemaining) / s.startBalls))
     : 0;
   s.duskProgress += (duskTarget - s.duskProgress) * 0.05;
   if (Math.abs(duskTarget - s.duskProgress) < 0.001) s.duskProgress = duskTarget;
