@@ -227,9 +227,9 @@ export function getFaceMood(ctx: FaceContext): FaceMood {
   // Rage : a raté TOUS les pegs le tour dernier, hors situation critique
   const rage = zeroPeg && !lowBalls && !inClutch && !won;
 
-  // Blink / wink — désactivé en fever, victoire ou somnolence
+  // Blink / wink — désactivé en fever, victoire, somnolence ou pendant un cri
   let blink: FaceMood["blink"] = "none";
-  if (!justHit && !inClutch && !won && !sleepy && ponte < 0.1) {
+  if (!justHit && !inClutch && !won && !sleepy && !screeching && ponte < 0.1) {
     const blinkT = animClock % 3.2;
     if (blinkT < 0.12) {
       // Pseudo-aléatoire stable par cycle (fhash-style)
