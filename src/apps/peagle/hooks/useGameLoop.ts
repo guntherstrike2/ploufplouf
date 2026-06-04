@@ -418,8 +418,11 @@ export function useGameLoop({
 
   const forceLose = useCallback(() => {
     stateRef.current.phase = "lost";
+    stateRef.current.lostAt = stateRef.current.animClock;
+    playGameOver();
+    playEagleCryLong(0.8, 0.62); // cri grave dégoûté, comme un vrai game over
     syncUI();
-  }, [syncUI]);
+  }, [syncUI, playGameOver, playEagleCryLong]);
 
   const forceDay = useCallback(() => {
     stateRef.current.duskProgress = 0;

@@ -39,10 +39,26 @@ export interface FaceContext {
   aimIdleSec: number;   // secondes en aim sans tirer (somnolence)
   bigCombo: boolean;    // combo ≥ 5 en cours (smug)
   oneBall: boolean;     // 1 seul œuf restant (larmes)
-  screech: number;      // 0..1 cri en cours (écran-titre) → force le bec grand ouvert
+  screech: number;      // 0..1 cri en cours → force le bec grand ouvert
+  lost: boolean;        // game over → tête dégoûtée (sourcils féroces + paupières lourdes)
 }
 
 export function gameFaceCtx(s: GameState): FaceContext {
+  const lost = s.phase === "lost";
+
+  // Game over : l'aigle pousse un cri grave dégoûté → bec grand ouvert ~2.2s
+  // (attaque vive, léger flutter, fermeture douce), puis il boude bec fermé.
+  let screech = 0;
+  if (lost && s.lostAt > 0) {
+    const t = s.animClock - s.lostAt;
+    if (t >= 0 && t < 2.2) {
+      const atk = Math.min(1, t / 0.06);
+      const rel = Math.min(1, (2.2 - t) / 0.3);
+      const flutter = 0.85 + 0.15 * Math.sin(t * 26);
+      screech = Math.max(0, Math.min(1, atk * rel * flutter));
+    }
+  }
+
   return {
     animClock: s.animClock,
     hitMag: s.hitFreezeFrames,
@@ -54,7 +70,8 @@ export function gameFaceCtx(s: GameState): FaceContext {
     aimIdleSec: s.phase === "aim" ? s.animClock - s.aimStartClock : 0,
     bigCombo: s.combo >= 5,
     oneBall: s.balls === 1,
-    screech: 0,
+    screech,
+    lost,
   };
 }
 
@@ -71,6 +88,7 @@ export function titleFaceCtx(elapsed: number, recoil: number, ponte: number): Fa
     bigCombo: false,
     oneBall: false,
     screech: 0,
+    lost: false,
   };
 }
 
@@ -213,7 +231,7 @@ export function eagleFace(ctx: CanvasRenderingContext2D, cx: number, cy: number,
 // Dérive l'expression depuis un FaceContext (jeu ou écran-titre).
 export function getFaceMood(ctx: FaceContext): FaceMood {
   const { animClock, hitMag, inClutch, lowBalls, zeroPeg, ponte,
-          won, aimIdleSec, bigCombo, oneBall, screech } = ctx;
+          won, aimIdleSec, bigCombo, oneBall, screech, lost } = ctx;
   const screeching = screech > 0.01;
   const pulse = 0.5 + 0.5 * Math.sin(animClock * 6);
   const justHit = hitMag > 0;
@@ -229,7 +247,7 @@ export function getFaceMood(ctx: FaceContext): FaceMood {
 
   // Blink / wink — désactivé en fever, victoire, somnolence ou pendant un cri
   let blink: FaceMood["blink"] = "none";
-  if (!justHit && !inClutch && !won && !sleepy && !screeching && ponte < 0.1) {
+  if (!justHit && !inClutch && !won && !sleepy && !screeching && !lost && ponte < 0.1) {
     const blinkT = animClock % 3.2;
     if (blinkT < 0.12) {
       // Pseudo-aléatoire stable par cycle (fhash-style)
@@ -247,6 +265,7 @@ export function getFaceMood(ctx: FaceContext): FaceMood {
   // Sourcils (priorité décroissante)
   let brow: FaceMood["brow"];
   if (won)                       brow = "happy";
+  else if (lost)                 brow = "angry";   // défaite : sourcils féroces (dégoût)
   else if (sleepy)               brow = "drowsy";
   else if (rage)                 brow = "angry";
   else if (inClutch || burst)    brow = "angry";
@@ -272,12 +291,13 @@ export function getFaceMood(ctx: FaceContext): FaceMood {
     eyeRed: inClutch || rage,
     wide: (justHit && !sleepy) || screeching,
     look: justHit || inClutch ? 0
+        : lost                      ? -1.0                 // défaite : détourne le regard, écœuré
         : sleepy                    ? 0.4                  // regard tombant côté
         : bigCombo && !worried      ? 1.0                  // smug = regard de côté
         : Math.sin(animClock * 0.6) * 1.2,
     pop: Math.min(1, hitMag / 9),
     starEyes: won,
     tears: oneBall && !won,
-    drowsyEyes: sleepy,
+    drowsyEyes: sleepy || lost,                            // paupières lourdes = mine dégoûtée
   };
 }

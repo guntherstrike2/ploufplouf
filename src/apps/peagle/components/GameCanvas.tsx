@@ -27,6 +27,9 @@ function GameOverMascot({ size = 100 }: { size?: number }) {
     let raf = 0;
     let startT = 0;
 
+    // Humeur tirée au hasard à chaque game over : 0 énervé, 1 dégoûté, 2 triste.
+    const variant = Math.floor(Math.random() * 3);
+
     function frame(now: number) {
       if (!startT) startT = now;
       const t = (now - startT) / 1000;
@@ -34,29 +37,64 @@ function GameOverMascot({ size = 100 }: { size?: number }) {
       ctx!.clearRect(0, 0, 28, 32);
       ctx!.imageSmoothingEnabled = false;
 
-      // Regard qui dérive lentement sur le côté (dédain)
-      const look = 0.65 + 0.55 * Math.sin(t * 0.38);
+      // Cri d'entrée : bec grand ouvert ~2.2s, synchro avec le cri grave joué
+      // sur le game over (attaque vive, flutter, fermeture douce).
+      const crying = t < 2.2;
 
-      // Clignement lent et rare
+      // Traits propres à chaque humeur (sourcils, yeux, regard, larmes).
+      let brow: FaceMood["brow"];
+      let eyeRed = false, wide = false, tears = false, look: number;
+      if (variant === 0) {
+        // ÉNERVÉ : yeux rouges écarquillés, glare frontal qui tremble de rage
+        brow = "angry"; eyeRed = true; wide = true;
+        look = Math.sin(t * 9) * 0.6;
+      } else if (variant === 1) {
+        // DÉGOÛTÉ : sourcils féroces, regard fuyant de dédain
+        brow = "angry";
+        look = 0.65 + 0.55 * Math.sin(t * 0.38);
+      } else {
+        // TRISTE : sourcils inquiets, larmes, regard bas qui dérive
+        brow = "up"; tears = true;
+        look = Math.sin(t * 0.5) * 0.5;
+      }
+
+      // Clignement lent et rare — suspendu pendant le cri (glare/sanglot soutenu)
       const blinkT = t % 6.4;
-      const blink: FaceMood["blink"] = blinkT < 0.13 ? "both" : "none";
+      const blink: FaceMood["blink"] = (!crying && blinkT < 0.13) ? "both" : "none";
 
-      // Bec qui s'ouvre brièvement (soupir de dégoût) toutes les ~7s
-      const beakCycle = t % 7.0;
-      const open = beakCycle > 4.2 && beakCycle < 5.1
-        ? 0.32 * Math.sin(((beakCycle - 4.2) / 0.9) * Math.PI)
-        : 0;
+      // Le cri d'entrée porte selon l'humeur : ample et sec pour l'énervé,
+      // plus retenu pour le triste.
+      const cryAmp = variant === 0 ? 1.0 : variant === 2 ? 0.72 : 0.9;
+
+      let open: number;
+      if (crying) {
+        const atk = Math.min(1, t / 0.06);
+        const rel = Math.min(1, (2.2 - t) / 0.3);
+        const flutter = 0.85 + 0.15 * Math.sin(t * (variant === 0 ? 34 : 26));
+        open = Math.max(0, Math.min(1, atk * rel * flutter)) * cryAmp;
+      } else if (variant === 0) {
+        // énervé : petits squawks secs répétés (« il rage encore »)
+        const c = t % 1.6;
+        open = c < 0.18 ? 0.5 * Math.sin((c / 0.18) * Math.PI) : 0;
+      } else if (variant === 1) {
+        // dégoûté : soupir occasionnel toutes les ~7s
+        const c = t % 7.0;
+        open = c > 4.2 && c < 5.1 ? 0.32 * Math.sin(((c - 4.2) / 0.9) * Math.PI) : 0;
+      } else {
+        // triste : bec entrouvert qui tremblote (sanglot)
+        open = Math.max(0, 0.1 + 0.1 * Math.sin(t * 5.5));
+      }
 
       const mood: FaceMood = {
         blink,
         open,
-        brow: "angry",
-        eyeRed: false,
-        wide: false,
+        brow,
+        eyeRed,
+        wide,
         look,
         pop: 0,
         starEyes: false,
-        tears: false,
+        tears,
         drowsyEyes: false,
       };
 

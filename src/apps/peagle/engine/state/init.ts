@@ -101,6 +101,7 @@ export function makeInitialState(
 
     forestSeed: (runState.seed ^ 0xf0e5741b) >>> 0,
     levelWonAt: 0,
+    lostAt: 0,
 
     rng,
   };

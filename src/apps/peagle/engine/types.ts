@@ -169,6 +169,10 @@ export interface GameState {
   // animClock value at the moment the level was won (0 = not yet won)
   levelWonAt: number;
 
+  // animClock au moment du game over (0 = pas encore perdu) — pilote le cri + la
+  // tête dégoûtée de l'aigle pendant la défaite.
+  lostAt: number;
+
   // RNG seedé de la simulation : tout l'aléatoire gameplay/cosmétique (particules,
   // oiseaux, jitter des textes, étoiles) passe par ici plutôt que Math.random(),
   // pour que la partie soit reproductible à seed + entrées identiques. Re-seedé

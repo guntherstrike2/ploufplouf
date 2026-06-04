@@ -48,6 +48,7 @@ export function endOfTurn(s: GameState, events: GameEvent[]): void {
     // Plus d'œufs : game over
     events.push({ kind: "best-score", score: s.score });
     s.phase = "lost";
+    s.lostAt = s.animClock;
     s.message = "GAME OVER";
     events.push({ kind: "sound", id: "game-over" });
     events.push({ kind: "level-lost", score: s.score });
