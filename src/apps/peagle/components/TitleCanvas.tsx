@@ -1850,7 +1850,15 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, onEagle
         if (pigElapsed >= END) continue; // hors écran, ne pas dessiner
 
         const hf  = Math.max(0, (ph - PEEK_IN) / PEEK_HOLD);
-        const bob = hf > 0 ? Math.sin(pigElapsed * 4.5) * 0.06 : 0;
+        // Amplitude du balancement : nulle à l'entrée, pleine pendant le hold,
+        // puis éteinte pendant la sortie → la tête se recache bien droite
+        // (comme à l'entrée) au lieu de pencher sur le côté.
+        let bobAmp = hf > 0 ? 1 : 0;
+        if (ph >= PEEK_IN + PEEK_HOLD) {
+          const op = Math.min(1, (ph - PEEK_IN - PEEK_HOLD) / PEEK_OUT);
+          bobAmp = 1 - op;
+        }
+        const bob = bobAmp * Math.sin(pigElapsed * 4.5) * 0.06;
         const peekCtx = buildIntroFaceCtx(peekMoodIds[pi]!, pigElapsed);
         peekCtx.screech = currentScreech; // bec ouvert sur le petit cri du peek
         const mood = getFaceMood(peekCtx);
