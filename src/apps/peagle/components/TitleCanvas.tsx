@@ -619,6 +619,13 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, onEagle
     let badgeKnockV = 0;  // vitesse du ressort
     let badgeFlash = 0;   // 0..1 éclat à l'impact
     let beat = 0;         // énergie basse fréquence courante [0..1] — synchronisation musicale
+    let prevBeat = 0;     // beat du frame précédent → détection d'onset (front montant)
+    // Groove du titre = ressort sous-amorti piloté par les onsets. Coller la
+    // position au `beat` brut donnait un mouvement sec/saccadé ; ici chaque kick
+    // injecte une impulsion et le titre rebondit puis se stabilise (overshoot juteux).
+    let grooveY = 0;      // déplacement vertical (px) — repos = 0
+    let grooveV = 0;      // vitesse du ressort
+    let groovePop = 0;    // pop d'échelle [0..~0.18] qui retombe entre les beats
 
     // ─── Œufs lâchés par l'aigle (gag idle) ──────────────────────────────────
     // De temps en temps, une fois posé en vol stationnaire, l'aigle « pond »
@@ -1043,7 +1050,7 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, onEagle
       const letterW = GW * u;
       const totalW = WORD.length * letterW + (WORD.length - 1) * gap;
       const baseX = Math.round((cssW - totalW) / 2);
-      const baseY = Math.round(cssH * 0.46 + beat * 5);
+      const baseY = Math.round(cssH * 0.46 + grooveY);
 
       // pulse global après intro
       const settledFor = elapsed - lastLetterLand;
@@ -1097,7 +1104,7 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, onEagle
         // squash & stretch : enfoncée (knockY>0) → plus large + plus courte ; en
         // rebond (knockY<0) → plus fine + plus haute. Conserve ~le volume.
         const sq = Math.max(-0.32, Math.min(0.45, knockY * 0.011));
-        const popScale = 1 + flash[i] * 0.16;             // pop d'échelle bref à l'impact
+        const popScale = 1 + flash[i] * 0.16 + groovePop; // pop d'échelle (impact + groove)
         const scaleX = (1 + sq * 0.55) * popScale;
         const scaleY = squashY * (1 - sq) * popScale;     // squashY = étirement d'atterrissage
         // flottement idle en vague : fond doucement une fois le logo posé
@@ -1247,7 +1254,7 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, onEagle
         // Bounce indépendant du badge : squash/stretch + wobble piloté par son
         // propre ressort (badgeKnock/badgeKnockV/badgeFlash). Combiné au pop d'intro.
         const sq = Math.max(-0.32, Math.min(0.45, badgeKnock * 0.011));
-        const pop = (1 + badgeFlash * 0.16) * scl;
+        const pop = (1 + badgeFlash * 0.16 + groovePop) * scl;
         const bScaleX = (1 + sq * 0.55) * pop;
         const bScaleY = (1 - sq) * pop;
         const badgeFloatFade = bp >= 1 ? Math.min(1, (elapsed - BADGE_AT - 0.4) / 0.7) : 0;
@@ -1979,6 +1986,20 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, onEagle
 
       // Échantillon musical — toutes les draw functions accèdent à `beat` en closure
       beat = getBeatRef.current?.() ?? 0;
+
+      // Groove du titre : un onset (front montant du beat) donne un coup de pied
+      // au ressort → pop vers le haut puis rebond amorti (juteux), au lieu de
+      // suivre l'enveloppe brute (sec). Sous-amorti (zeta≈0.25) pour l'overshoot.
+      const beatRise = Math.max(0, beat - prevBeat);
+      prevBeat = beat;
+      if (beatRise > 0.04) {
+        grooveV -= beatRise * 320;                 // impulsion vers le haut
+        grooveV = Math.max(grooveV, -300);         // borne le coup le plus fort
+        groovePop = Math.min(0.2, groovePop + beatRise * 0.3);
+      }
+      grooveV += (-190 * grooveY - 7 * grooveV) * dt; // ressort sous-amorti
+      grooveY += grooveV * dt;
+      groovePop *= Math.pow(0.0015, dt);              // retombe vite entre les beats
 
       ctx!.save();
       ctx!.clearRect(0, 0, cssW, cssH);
