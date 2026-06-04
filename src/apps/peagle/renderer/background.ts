@@ -1525,19 +1525,19 @@ function updateClutchTransition(animClock: number, clutchMode: boolean): { t: nu
 function drawDuskBg(ctx: CanvasRenderingContext2D, t: number): void {
   const peak = t < 0.35 ? t / 0.35 : 1 - (t - 0.35) / 0.65;
   if (peak < 0.008) return;
-  const rows = 20;
-  for (let row = 0; row < rows; row++) {
-    const rt = row / rows; // 0 = haut du ciel, 1 = sol
-    // Alpha monte de 0.14 (haut) à 0.55 (horizon) via une courbe quadratique
+  // Vrai dégradé linéaire : aucun chevauchement de bandes → pas de ligne rouge
+  // visible à chaque jointure. Alpha monte de 0.14 (haut) à 0.55 (horizon).
+  const grad = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
+  const STOPS = 8;
+  for (let i = 0; i <= STOPS; i++) {
+    const rt = i / STOPS; // 0 = haut du ciel, 1 = sol
     const a = peak * (0.14 + 0.41 * rt * rt);
-    if (a < 0.003) continue;
     // Couleur : rouge-orange en haut (g=70), orange plus chaud en bas (g=40)
     const g = Math.round(70 - rt * 30);
-    ctx.fillStyle = `rgba(255,${g},0,${a.toFixed(3)})`;
-    const y = Math.round(rt * GROUND_Y);
-    const rh = Math.round(GROUND_Y / rows) + 2;
-    ctx.fillRect(0, y, W, rh);
+    grad.addColorStop(rt, `rgba(255,${g},0,${a.toFixed(3)})`);
   }
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, GROUND_Y);
 }
 
 // Assombrissement progressif avant que le fever mode s'enclenche.
@@ -1553,15 +1553,20 @@ function drawPreClutchDuskOverlay(ctx: CanvasRenderingContext2D, progress: numbe
   ctx.fillStyle = `rgba(8,3,30,${darkA.toFixed(3)})`;
   ctx.fillRect(0, 0, W, H);
 
-  // Lueur orangée/rouge à l'horizon — chaleur du coucher de soleil naissant
-  for (let row = 0; row < 10; row++) {
-    const rt = row / 10;
+  // Lueur orangée/rouge à l'horizon — chaleur du coucher de soleil naissant.
+  // Dégradé continu (et non des bandes empilées) pour éviter les traits rouges
+  // visibles à chaque jointure de rectangle.
+  const glowTop = GROUND_Y - 100;
+  const grad = ctx.createLinearGradient(0, glowTop, 0, GROUND_Y + 10);
+  const STOPS = 8;
+  for (let i = 0; i <= STOPS; i++) {
+    const rt = i / STOPS;
     const a = t2 * 0.30 * (1 - rt * rt);
-    if (a < 0.003) continue;
     const g = Math.round(55 + rt * 50);
-    ctx.fillStyle = `rgba(255,${g},15,${a.toFixed(3)})`;
-    ctx.fillRect(0, GROUND_Y - 100 + row * 11, W, 14);
+    grad.addColorStop(rt, `rgba(255,${g},15,${a.toFixed(3)})`);
   }
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, glowTop, W, GROUND_Y + 10 - glowTop);
 }
 
 // Voile sombre plein-écran : s'assombrit (entering=true) ou s'éclaircit (entering=false).
