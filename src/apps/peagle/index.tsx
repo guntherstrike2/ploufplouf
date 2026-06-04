@@ -109,8 +109,18 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ score, won }),
       });
+      // Rafraîchit le classement avec le score fraîchement enregistré, pour que
+      // l'écran de game over montre la position réelle du joueur.
+      fetchLeaderboard();
     } catch { /* silent */ }
-  }, [user, scoreSubmitted]);
+  }, [user, scoreSubmitted, fetchLeaderboard]);
+
+  // À l'entrée en défaite, on précharge le classement (même pour les joueurs non
+  // connectés, qui voient le top sans y figurer). La soumission rafraîchit ensuite.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (ui.phase === "lost") fetchLeaderboard();
+  }, [ui.phase, fetchLeaderboard]);
 
   const handleLevelWon = useCallback(() => {
     cancelUpgradeTimer();
@@ -339,6 +349,8 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
                 ui={ui}
                 bestScore={bestScore}
                 currentSeed={currentSeed}
+                leaderboard={leaderboard}
+                lbLoading={lbLoading}
                 user={user}
                 isAdmin={isAdmin}
                 showDevTools={isAdmin && devSessionActive}

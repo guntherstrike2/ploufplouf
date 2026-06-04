@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState, useMemo, useCallback, memo } from "react";
 import type { RefObject, PointerEvent } from "react";
-import type { UiState } from "../engine/types";
+import type { UiState, LeaderboardEntry } from "../engine/types";
 import { W, H } from "../engine/constants";
 import { PG } from "../styles";
 import { formatSeed } from "../engine/roguelite";
@@ -194,11 +194,106 @@ const LOSE_QUIPS = [
   "Pas de chance. Ou de talent. L'aigle ne tranche pas.",
 ];
 
+// ─── Mini-classement diégétique pour le game over ───────────────────────────
+// Une ligne du ciel des chasseurs : rang, nom, score (joueur courant surligné).
+function RankRow({ entry, rank, me }: { entry: LeaderboardEntry; rank: number; me: boolean }) {
+  const name = entry.displayUsername || entry.username || entry.name;
+  const badgeCls =
+    rank === 1 ? "pg-lb-badge pg-lb-badge-gold"
+    : rank === 2 ? "pg-lb-badge pg-lb-badge-silver"
+    : rank === 3 ? "pg-lb-badge pg-lb-badge-bronze"
+    : "pg-lb-badge pg-lb-badge-plain";
+  return (
+    <div className={`pg-go-rank-row${me ? " pg-go-rank-me" : ""}`}>
+      <span className={badgeCls} style={{ width: 18, height: 18, fontSize: 7 }}>{rank}</span>
+      <span className="pg-go-rank-name">
+        {name}{me && <span className="pg-go-rank-you"> · vous</span>}
+      </span>
+      <span className="pg-go-rank-score">{entry.score.toLocaleString()}</span>
+    </div>
+  );
+}
+
+// Montre la place du joueur dans le ciel des chasseurs, calé sur l'esthétique
+// flottante de l'overlay (pas de gros panneau). On affiche le podium, puis la
+// ligne du joueur s'il est plus bas, le tout sans casser le rythme score → quip.
+function GameOverRanking({
+  entries,
+  loading,
+  currentUserId,
+  playerScore,
+  isLoggedIn,
+}: {
+  entries: LeaderboardEntry[];
+  loading: boolean;
+  currentUserId?: string;
+  playerScore: number;
+  isLoggedIn: boolean;
+}) {
+  if (loading && entries.length === 0) {
+    return (
+      <div className="pg-go-rank">
+        <div className="pg-go-rank-hint">Lecture du registre des chasseurs…</div>
+      </div>
+    );
+  }
+
+  if (entries.length === 0) {
+    return (
+      <div className="pg-go-rank">
+        <div className="pg-go-rank-hint">Premier sang. Le ciel n&rsquo;a pas encore de maître.</div>
+      </div>
+    );
+  }
+
+  const myIdx = currentUserId ? entries.findIndex((e) => e.userId === currentUserId) : -1;
+
+  // Podium (top 3) toujours visible ; on ajoute la ligne du joueur s'il est plus bas.
+  const podium = entries.slice(0, 3);
+  const showMyRow = myIdx >= 3;
+  const showOutside = isLoggedIn && myIdx === -1;
+
+  return (
+    <div className="pg-go-rank">
+      <div className="pg-go-rank-label">CIEL DES CHASSEURS</div>
+      {podium.map((e, i) => (
+        <RankRow key={e.userId} entry={e} rank={i + 1} me={i === myIdx} />
+      ))}
+
+      {showMyRow && (
+        <>
+          <div className="pg-go-rank-ell">⋮</div>
+          <RankRow entry={entries[myIdx]!} rank={myIdx + 1} me />
+        </>
+      )}
+
+      {showOutside && (
+        <>
+          <div className="pg-go-rank-ell">⋮</div>
+          <div className="pg-go-rank-row pg-go-rank-me">
+            <span className="pg-lb-badge pg-lb-badge-plain" style={{ width: 18, height: 18, fontSize: 7 }}>—</span>
+            <span className="pg-go-rank-name">
+              vous<span className="pg-go-rank-you"> · hors top 10</span>
+            </span>
+            <span className="pg-go-rank-score">{playerScore.toLocaleString()}</span>
+          </div>
+        </>
+      )}
+
+      {!isLoggedIn && (
+        <div className="pg-go-rank-hint">Connectez-vous pour marquer votre nid au classement.</div>
+      )}
+    </div>
+  );
+}
+
 interface GameCanvasProps {
   canvasRef: RefObject<HTMLCanvasElement | null>;
   ui: UiState;
   bestScore: number;
   currentSeed: number;
+  leaderboard: LeaderboardEntry[];
+  lbLoading: boolean;
   user: { name?: string | null; email?: string | null; id?: string } | null;
   isAdmin?: boolean;
   showDevTools?: boolean;
@@ -223,6 +318,8 @@ function GameCanvasComponent({
   ui,
   bestScore,
   currentSeed,
+  leaderboard,
+  lbLoading,
   user,
   isAdmin,
   showDevTools,
@@ -411,6 +508,15 @@ function GameCanvasComponent({
             <div className="pg-quip-lux" style={{ marginBottom: 8, maxWidth: "min(260px, 82%)" }}>
               &ldquo;{quip}&rdquo;
             </div>
+
+            {/* Mini-classement — la place du joueur, montrée sur place */}
+            <GameOverRanking
+              entries={leaderboard}
+              loading={lbLoading}
+              currentUserId={user?.id}
+              playerScore={ui.score}
+              isLoggedIn={!!user}
+            />
 
             <div className="pg-diag-sep" />
 

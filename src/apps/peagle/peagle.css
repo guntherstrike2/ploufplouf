@@ -1647,6 +1647,98 @@
   margin: 2px 0 6px;
 }
 
+/* ─── Mini-classement game over ─────────────────────────────────────────────── */
+
+.pg-go-rank {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1px;
+  width: min(248px, 84%);
+  margin: 2px 0 6px;
+  padding: 8px 10px;
+  box-sizing: border-box;
+  border-top: 1px solid rgba(96,64,16,0.45);
+  border-bottom: 1px solid rgba(96,64,16,0.45);
+  background:
+    linear-gradient(to bottom, rgba(20,28,10,0.42), rgba(6,12,4,0.42));
+  animation: pg-slide-up 0.3s ease-out 0.22s both;
+}
+
+.pg-go-rank-label {
+  font-family: var(--pg-font);
+  font-size: 6px;
+  color: #c9a23a;
+  letter-spacing: 0.16em;
+  text-align: center;
+  margin-bottom: 5px;
+  text-shadow: 0 0 8px rgba(220,180,50,0.3), 0 1px 0 rgba(0,0,0,0.9);
+}
+
+.pg-go-rank-row {
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 2px 4px;
+}
+
+.pg-go-rank-me {
+  background: rgba(126,209,58,0.14);
+  box-shadow: inset 0 0 0 1px rgba(126,209,58,0.28);
+}
+
+.pg-go-rank-name {
+  font-family: var(--pg-font);
+  font-size: 7px;
+  color: #d7f5b8;
+  letter-spacing: 0.04em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pg-go-rank-me .pg-go-rank-name {
+  color: #a6e85c;
+  text-shadow: 0 0 8px rgba(143,224,74,0.45);
+}
+
+.pg-go-rank-you {
+  color: #4f8a26;
+}
+
+.pg-go-rank-me .pg-go-rank-you {
+  color: #7ed13a;
+}
+
+.pg-go-rank-score {
+  font-family: var(--pg-font);
+  font-size: 8px;
+  font-weight: bold;
+  color: #f2e6c2;
+  text-align: right;
+  text-shadow: 0 1px 0 rgba(0,0,0,0.9);
+}
+
+.pg-go-rank-ell {
+  font-family: var(--pg-font);
+  font-size: 8px;
+  color: #88a86c;
+  text-align: center;
+  line-height: 0.7;
+  letter-spacing: 0.1em;
+}
+
+.pg-go-rank-hint {
+  font-family: var(--pg-font);
+  font-size: 6px;
+  color: #88a86c;
+  letter-spacing: 0.06em;
+  text-align: center;
+  line-height: 1.6;
+  margin-top: 4px;
+}
+
 /* ─── Séparateur fin ─────────────────────────────────────────────────────────── */
 
 .pg-diag-sep {
