@@ -10,8 +10,13 @@ import { useSoundContext } from "@/lib/contexts/sound-context";
 let _player: AudioPlayer | null = null;
 let _analyser: AnalyserNode | null = null;
 let _freqData: Uint8Array | null = null;
-let _prevEnergy = 0; // énergie du frame précédent (pour le flux spectral)
-let _beatPulse = 0;  // sortie lissée [0..1]
+
+// ─── État de l'analyse multi-bandes (persiste entre frames) ───────────────────
+const NB_BARS = 22; // nombre de barres de l'equalizer renvoyées chaque frame
+const _spectrum = new Float32Array(NB_BARS);
+let _prevKickE = 0, _prevMidE = 0, _prevTrebE = 0; // énergie band précédente (flux)
+let _kickP = 0, _midP = 0, _trebP = 0;             // pulses d'onset lissés [0..1]
+let _bassP = 0, _levelP = 0;                        // énergies soutenues lissées [0..1]
 
 const MENU_TRACK  = "/sounds/peagle-theme.mp3";
 const GAME_TRACK  = "/sounds/peagle-track1.mp3";
@@ -19,49 +24,88 @@ const CLUTCH_TRACK = "/sounds/fever-track.mp3";
 const FADE = 0.35;
 const CLUTCH_FADE = 0.18; // transition plus courte pour l'effet "coup de théâtre"
 
-// Détection de beat par flux spectral — appelé chaque frame depuis TitleCanvas.
-//
-// Principe : au lieu de lire l'énergie brute (qui reste élevée sur une note tenue),
-// on calcule la DIFFÉRENCE positive entre frames consécutives. Seuls les transitoires
-// (kick, onset de note, attaque) créent un flux positif → les notes tenues sont ignorées.
-// Résultat : une valeur [0..1] qui pulse sur chaque beat réel, zéro entre les beats.
-export function getMenuBeat(): number {
-  if (!_analyser || !_freqData) return 0;
+// Décomposition fréquentielle de la musique — appelée chaque frame par TitleCanvas.
+// Chaque élément de l'écran-titre réagit à une bande différente : le titre rebondit
+// sur le KICK, la forêt/lune respirent sur la BASSE, le badge dodeline sur les MÉDIUMS,
+// les étoiles flashent sur les AIGUS, et un equalizer pulse à l'horizon (spectre brut).
+export interface BeatBands {
+  /** Onset sub-basse (~0–170 Hz) — le « boum » du kick, percutant. */
+  kick: number;
+  /** Énergie basse soutenue (~170–520 Hz) — groove de fond, fait « respirer » la scène. */
+  bass: number;
+  /** Onset médium (~520 Hz–1.9 kHz) — caisse claire / synthés, dodeline le badge. */
+  mid: number;
+  /** Onset aigu (~1.9–9 kHz) — charley / cymbales, fait scintiller étoiles & étincelles. */
+  treble: number;
+  /** RMS plein spectre lissé — intensité globale (vignette, glow ambiant). */
+  level: number;
+  /** Spectre log-compressé en NB_BARS barres [0..1] — pour l'equalizer décoratif. */
+  spectrum: Float32Array;
+}
+
+const _bands: BeatBands = { kick: 0, bass: 0, mid: 0, treble: 0, level: 0, spectrum: _spectrum };
+
+/** RMS d'une plage de bins [from, to) normalisé [0..1]. */
+function bandRms(data: Uint8Array, from: number, to: number): number {
+  const lo = Math.max(0, Math.floor(from));
+  const hi = Math.min(data.length, Math.ceil(to));
+  if (hi <= lo) return 0;
+  let s = 0;
+  for (let i = lo; i < hi; i++) { const v = data[i]! / 255; s += v * v; }
+  return Math.sqrt(s / (hi - lo));
+}
+
+/** Enveloppe d'onset : attaque vive si l'énergie monte, déclin rapide sinon. */
+function onsetEnv(prev: number, flux: number, attack: number, decay: number): number {
+  const onset = flux * 7; // amplifie le flux pour un pulse net même sur un mix doux
+  return onset > prev ? prev + (onset - prev) * attack : prev * decay;
+}
+
+export function getMenuBeat(): BeatBands {
+  if (!_analyser || !_freqData) {
+    // Pas de musique : tout retombe doucement vers 0 (pas de figement brutal)
+    _kickP *= 0.8; _midP *= 0.8; _trebP *= 0.8; _bassP *= 0.8; _levelP *= 0.8;
+    for (let b = 0; b < NB_BARS; b++) _spectrum[b]! *= 0.8;
+    _bands.kick = _kickP; _bands.bass = _bassP; _bands.mid = _midP;
+    _bands.treble = _trebP; _bands.level = _levelP;
+    return _bands;
+  }
   _analyser.getByteFrequencyData(_freqData as Uint8Array<ArrayBuffer>);
+  const data = _freqData;
+  const bins = _analyser.frequencyBinCount; // 256 avec fftSize=512 (~86 Hz/bin à 44.1 kHz)
 
-  const bins = _analyser.frequencyBinCount; // 256 avec fftSize=512
+  // ── Énergies par bande (fractions des bins) ──────────────────────────────────
+  const kickE = bandRms(data, 0, bins * 0.02);            // ~0–170 Hz
+  const bassE = bandRms(data, bins * 0.02, bins * 0.06);  // ~170–520 Hz
+  const midE  = bandRms(data, bins * 0.06, bins * 0.22);  // ~520 Hz–1.9 kHz
+  const trebE = bandRms(data, bins * 0.22, bins * 0.75);  // ~1.9–9 kHz
+  const level = bandRms(data, 0, bins * 0.75);
 
-  // Bande 1 — kick / sub-basse (~0–260 Hz) : premiers 3% des bins
-  const bassN = Math.max(3, Math.floor(bins * 0.03));
-  let bassRms = 0;
-  for (let i = 0; i < bassN; i++) bassRms += (_freqData[i]! / 255) ** 2;
-  bassRms = Math.sqrt(bassRms / bassN);
+  // ── Onsets (kick / mid / treble) via flux spectral positif ───────────────────
+  _kickP = onsetEnv(_kickP, Math.max(0, kickE - _prevKickE), 0.85, 0.74); _prevKickE = kickE;
+  _midP  = onsetEnv(_midP,  Math.max(0, midE  - _prevMidE),  0.82, 0.76); _prevMidE  = midE;
+  _trebP = onsetEnv(_trebP, Math.max(0, trebE - _prevTrebE), 0.78, 0.62); _prevTrebE = trebE;
 
-  // Bande 2 — basse / synthés bas (~260–860 Hz) : bins 3%–10%
-  const midN = Math.max(bassN + 2, Math.floor(bins * 0.10));
-  let midRms = 0;
-  for (let i = bassN; i < midN; i++) midRms += (_freqData[i]! / 255) ** 2;
-  midRms = Math.sqrt(midRms / (midN - bassN));
+  // ── Énergies soutenues (basse + niveau global) : lissage exponentiel ─────────
+  _bassP  += (Math.min(1, bassE * 1.7) - _bassP) * 0.22;
+  _levelP += (Math.min(1, level * 1.4) - _levelP) * 0.16;
 
-  // Énergie combinée (basse dominante pour les grooves kick)
-  const energy = bassRms * 0.72 + midRms * 0.28;
-
-  // Flux spectral : seule la montée d'énergie compte (= onset / transitoire)
-  const flux = Math.max(0, energy - _prevEnergy);
-  _prevEnergy = energy;
-
-  // Amplification du flux → amplitude de beat nette même sur un mix peu saturé
-  const onset = flux * 6;
-
-  // Attaque ultra-rapide, déclin rapide (~2–3 frames à 60fps = ~40ms half-life)
-  // → grooves percutants, retombe à 0 entre les beats
-  if (onset > _beatPulse) {
-    _beatPulse += (onset - _beatPulse) * 0.85;
-  } else {
-    _beatPulse *= 0.76;
+  // ── Spectre log-compressé pour l'equalizer ───────────────────────────────────
+  const specMax = bins * 0.72;
+  for (let b = 0; b < NB_BARS; b++) {
+    const i0 = Math.pow(b / NB_BARS, 1.8) * specMax;
+    const i1 = Math.pow((b + 1) / NB_BARS, 1.8) * specMax;
+    const e = Math.min(1, bandRms(data, i0, Math.max(i0 + 1, i1)) * 1.5);
+    // Montée rapide, descente lente → barres qui « tombent » comme un vrai EQ
+    _spectrum[b] = e > _spectrum[b]! ? e : _spectrum[b]! + (e - _spectrum[b]!) * 0.3;
   }
 
-  return Math.min(1, _beatPulse);
+  _bands.kick = Math.min(1, _kickP);
+  _bands.bass = _bassP;
+  _bands.mid = Math.min(1, _midP);
+  _bands.treble = Math.min(1, _trebP);
+  _bands.level = _levelP;
+  return _bands;
 }
 
 export function useMusic(enabled = false) {
@@ -95,8 +139,9 @@ export function useMusic(enabled = false) {
       _analyser?.disconnect();
       _analyser = null;
       _freqData = null;
-      _prevEnergy = 0;
-      _beatPulse = 0;
+      _prevKickE = _prevMidE = _prevTrebE = 0;
+      _kickP = _midP = _trebP = _bassP = _levelP = 0;
+      _spectrum.fill(0);
     };
   }, [init, enabled]);
 

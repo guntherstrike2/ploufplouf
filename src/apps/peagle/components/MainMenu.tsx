@@ -6,6 +6,7 @@ import { usePeagleSounds } from "../hooks/usePeagleSounds";
 import { DevPanel } from "./DevPanel";
 import type { DevConfig } from "./DevPanel";
 import { TitleCanvas } from "./TitleCanvas";
+import type { BeatBands } from "../hooks/useMusic";
 import { parseSeed } from "../engine/roguelite";
 import { PG } from "../styles";
 
@@ -18,7 +19,7 @@ interface MainMenuProps {
   musicMuted: boolean;
   onToggleMusic: () => void;
   skipIntro?: boolean;
-  getBeat?: () => number;
+  getBeat?: () => BeatBands;
 }
 
 export function MainMenu({

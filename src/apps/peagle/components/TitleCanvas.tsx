@@ -10,6 +10,7 @@ import {
 } from "../engine/assets";
 import { BALL_R } from "../engine/constants";
 import { eagleFace, getFaceMood, titleFaceCtx, type FaceContext, type FaceMood } from "../renderer/face";
+import type { BeatBands } from "../hooks/useMusic";
 
 // ─── Écran-titre animé (canvas) ──────────────────────────────────────────────
 // Intro "juicy" : l'aigle débarque en vol (ailes qui battent), puis le titre
@@ -364,8 +365,9 @@ interface TitleCanvasProps {
   /** Cri d'aigle ponctuel : "short" = peeks teaser de l'intro, "long" = l'aigle débarque.
       `rate` = pitch de lecture (1 = normal) ; les petits cris escaladent peek après peek. */
   onEagleCry?: (variant: "short" | "long", rate?: number) => void;
-  /** Retourne l'énergie basse fréquence de la musique [0..1] — grooves le décor au rythme. */
-  getBeat?: () => number;
+  /** Décomposition fréquentielle de la musique (kick/basse/médium/aigus/spectre) — chaque
+      élément de l'écran-titre groove sur une bande différente. */
+  getBeat?: () => BeatBands;
 }
 
 export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, onEagleCry, getBeat }: TitleCanvasProps) {
@@ -618,8 +620,22 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, onEagle
     let badgeKnock = 0;   // déplacement vertical (px)
     let badgeKnockV = 0;  // vitesse du ressort
     let badgeFlash = 0;   // 0..1 éclat à l'impact
-    let beat = 0;         // énergie basse fréquence courante [0..1] — synchronisation musicale
-    let prevBeat = 0;     // beat du frame précédent → détection d'onset (front montant)
+    // Bandes musicales courantes (remplies chaque frame depuis getBeat).
+    // `beat` reste l'alias de la BASSE soutenue — le décor (forêt, lune, aigle qui
+    // plane) « respire » dessus, comme avant. Les autres bandes pilotent des effets
+    // dédiés : kick → rebond du titre + headbang de l'aigle ; mid → wiggle du badge ;
+    // treble → scintillement étoiles/étincelles ; level → vignette/glow ambiant.
+    let beat = 0;         // = bands.bass (énergie basse soutenue [0..1])
+    let kick = 0;         // onset sub-basse [0..1]
+    let midBand = 0;      // onset médium [0..1]
+    let treble = 0;       // onset aigu [0..1]
+    let level = 0;        // RMS plein spectre lissé [0..1]
+    let spectrum: Float32Array | null = null; // spectre log pour l'equalizer
+    let prevKick = 0;     // kick du frame précédent → front montant
+    let prevMid = 0;      // mid du frame précédent → front montant
+    // Headbang de l'aigle : ressort vertical kické par le kick (l'aigle hoche du chef).
+    let headBang = 0;     // déplacement vertical (px) — repos = 0
+    let headBangV = 0;    // vitesse du ressort
     // Groove du titre = ressort sous-amorti piloté par les onsets. Coller la
     // position au `beat` brut donnait un mouvement sec/saccadé ; ici chaque kick
     // injecte une impulsion et le titre rebondit puis se stabilise (overshoot juteux).
@@ -672,11 +688,12 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, onEagle
       for (let i = 0; i < PEEK_COUNT; i++) {
         const s = randSide(prev);
         prev = s;
-        const isLast = i === PEEK_COUNT - 1;
         const pos = 0.25 + Math.random() * 0.50;
-        // Dernier peek : repart du même bord/position → l'aigle entre exactement là
+        // La tête se recache toujours bien droite : elle repart par le même bord
+        // et à la même position qu'à l'entrée (sortie perpendiculaire, pas en
+        // diagonale). Pour le dernier peek ça cale aussi le départ de l'aigle.
         const exitSide = s;
-        const exitPos = isLast ? pos : 0.25 + Math.random() * 0.50;
+        const exitPos = pos;
         out.push({ side: s, pos, exitSide, exitPos });
       }
       return out;
@@ -784,7 +801,8 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, onEagle
       } else {
         const idle = elapsed - EAGLE_IN;
         ex = restX;
-        ey = restY + Math.sin(idle * 2.2) * 5 * (1 + beat * 0.7) - recoil; // plane (bob amplifié par le beat)
+        // plane (bob amplifié par la basse) + headbang qui plonge la tête sur le kick
+        ey = restY + Math.sin(idle * 2.2) * 5 * (1 + beat * 0.7) - recoil + headBang;
         scl = targetScale;
         flapSpeed = recoil > 0.3 ? 22 : 6.5; // bat plus fort juste après la ponte
         flapAmp = (recoil > 0.3 ? 0.5 : 0.3) * (1 + beat * 0.5);
@@ -1405,11 +1423,15 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, onEagle
         const popP  = Math.min(1, dt / 0.20);
         const flash = Math.max(0, 1 - dt / 0.10); // éclat très bref au pop
         const tw = 0.3 + 0.7 * Math.abs(Math.sin(elapsed * st.speed + st.phase));
+        // Scintillement aigu : chaque étoile flashe sur les charleys/cymbales, avec
+        // un seuil propre (via sa phase) → elles ne s'allument pas toutes en même
+        // temps mais clignotent comme un ciel qui « danse » sur les hi-hats.
+        const trebTwinkle = treble * (0.5 + 0.5 * Math.sin(st.phase * 3.1 + elapsed * 6));
         const sx = Math.round(st.nx * cssW);
         const sy = Math.round(st.ny * cssH * 0.55);
-        const rFlash = st.r + Math.round(flash * 5); // rayon élargi à l'impact
+        const rFlash = st.r + Math.round(flash * 5) + (trebTwinkle > 0.45 ? 1 : 0); // élargi à l'impact / sur un aigu fort
         ctx!.fillStyle = st.col;
-        ctx!.globalAlpha = Math.min(1, tw * st.bright * popP + flash * 2.8);
+        ctx!.globalAlpha = Math.min(1, tw * st.bright * popP + flash * 2.8 + trebTwinkle * st.bright * 1.1);
         ctx!.fillRect(sx - (rFlash - st.r), sy - (rFlash - st.r), rFlash * 2, rFlash * 2);
         if (flash < 0.01 && st.r > 1) {
           ctx!.globalAlpha = tw * st.bright * 0.20 * popP;
@@ -1530,6 +1552,84 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, onEagle
         }
       }
 
+    }
+
+    // ─── Aurore boréale — rubans qui respirent sur la BASSE ───────────────────
+    // Trois voiles lumineux ondulants dans le ciel nocturne. Au repos ils sont à
+    // peine là ; sur les nappes de basse ils gonflent et s'illuminent → la scène
+    // « respire » au rythme du groove.
+    const _auroraRibbons = [
+      { y: 0.30, amp: 0.020, col: [90, 210, 150] as const, sp: 0.42, ph: 0.0 },
+      { y: 0.37, amp: 0.028, col: [70, 180, 210] as const, sp: -0.30, ph: 1.7 },
+      { y: 0.44, amp: 0.024, col: [200, 180, 95] as const, sp: 0.55, ph: 3.1 },
+    ];
+    function drawAurora(elapsed: number) {
+      const b = beat; // basse soutenue
+      const baseA = 0.04 + b * 0.24;
+      if (baseA < 0.02) return;
+      ctx!.save();
+      ctx!.globalCompositeOperation = "lighter";
+      const steps = 30;
+      for (const r of _auroraRibbons) {
+        const yc = cssH * r.y;
+        const amp = cssH * r.amp * (0.6 + b * 1.8);
+        const h = cssH * 0.06 * (0.7 + b * 0.9);
+        ctx!.beginPath();
+        ctx!.moveTo(-20, yc + h);
+        for (let i = 0; i <= steps; i++) {
+          const x = (i / steps) * cssW;
+          const wob = Math.sin(i * 0.5 + elapsed * r.sp + r.ph) * amp
+                    + Math.sin(i * 0.21 + elapsed * r.sp * 1.7) * amp * 0.5;
+          ctx!.lineTo(x, yc + wob);
+        }
+        ctx!.lineTo(cssW + 20, yc + h);
+        ctx!.closePath();
+        const [cr, cg, cb] = r.col;
+        const grad = ctx!.createLinearGradient(0, yc - amp - h, 0, yc + h);
+        grad.addColorStop(0, `rgba(${cr},${cg},${cb},0)`);
+        grad.addColorStop(0.45, `rgba(${cr},${cg},${cb},${baseA.toFixed(3)})`);
+        grad.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
+        ctx!.fillStyle = grad;
+        ctx!.fill();
+      }
+      ctx!.restore();
+    }
+
+    // ─── Equalizer décoratif — lumières qui pulsent derrière la forêt ──────────
+    // Le spectre brut de la musique en barres lumineuses, calées sur la ligne
+    // d'horizon. La forêt (dessinée juste après) masque le bas → seules les crêtes
+    // dépassent au-dessus des cimes, comme des lumières de festival au loin. 🎚️
+    function drawEqualizer() {
+      if (!spectrum) return;
+      const n = spectrum.length;
+      const baseY = cssH * 0.72;     // ancrées dans la forêt (le bas est masqué)
+      const maxH = cssH * 0.17;
+      const bw = cssW / n;
+      ctx!.save();
+      ctx!.globalCompositeOperation = "lighter";
+      ctx!.imageSmoothingEnabled = false;
+      for (let i = 0; i < n; i++) {
+        const v = spectrum[i]!;
+        if (v < 0.03) continue;
+        const h = v * maxH;
+        const x = Math.round(i * bw);
+        const w = Math.max(1, Math.round(bw) - 1);
+        // teinte par fréquence : grave = ambre, médium = vert/or, aigu = cyan
+        const t = i / (n - 1);
+        const [cr, cg, cb] = t < 0.33 ? [255, 150, 60] : t < 0.66 ? [180, 230, 90] : [90, 210, 230];
+        const grad = ctx!.createLinearGradient(0, baseY, 0, baseY - h);
+        grad.addColorStop(0, `rgba(${cr},${cg},${cb},0)`);
+        grad.addColorStop(0.6, `rgba(${cr},${cg},${cb},${(0.06 + v * 0.22).toFixed(3)})`);
+        grad.addColorStop(1, `rgba(${cr},${cg},${cb},${(0.12 + v * 0.34).toFixed(3)})`);
+        ctx!.fillStyle = grad;
+        ctx!.fillRect(x, baseY - h, w, h);
+        // point lumineux net à la crête
+        ctx!.globalAlpha = Math.min(1, 0.35 + v);
+        ctx!.fillStyle = `rgb(${cr},${cg},${cb})`;
+        ctx!.fillRect(x, Math.round(baseY - h), w, 1);
+        ctx!.globalAlpha = 1;
+      }
+      ctx!.restore();
     }
 
     // ─── Écran "Gunther Studio présente" ──────────────────────────────────────
@@ -1887,9 +1987,12 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, onEagle
     }
 
     function drawVignette() {
+      // La vignette « respire » avec l'intensité globale : plus la musique pompe,
+      // plus elle s'ouvre (scène qui s'éclaire), plus elle se referme dans les creux.
+      const dark = 0.55 - level * 0.18;
       const g = ctx!.createRadialGradient(cssW / 2, cssH * 0.42, cssH * 0.2, cssW / 2, cssH / 2, cssH * 0.75);
       g.addColorStop(0, "rgba(0,0,0,0)");
-      g.addColorStop(1, "rgba(0,0,0,0.55)");
+      g.addColorStop(1, `rgba(0,0,0,${dark.toFixed(3)})`);
       ctx!.fillStyle = g;
       ctx!.fillRect(0, 0, cssW, cssH);
     }
@@ -1996,28 +2099,42 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, onEagle
         }
       }
 
-      // Échantillon musical — toutes les draw functions accèdent à `beat` en closure
-      beat = getBeatRef.current?.() ?? 0;
+      // Échantillon musical — décompose en bandes ; les draw functions lisent
+      // `beat`/`kick`/`midBand`/`treble`/`level`/`spectrum` en closure.
+      const bands = getBeatRef.current?.();
+      beat = bands?.bass ?? 0;     // basse soutenue → respiration du décor (alias historique)
+      kick = bands?.kick ?? 0;     // onset sub-basse → rebond du titre + headbang
+      midBand = bands?.mid ?? 0;   // onset médium → wiggle du badge
+      treble = bands?.treble ?? 0; // onset aigu → scintillements
+      level = bands?.level ?? 0;   // intensité globale → vignette/glow
+      spectrum = bands?.spectrum ?? null;
 
-      // Groove du titre : un onset (front montant du beat) donne un coup de pied
-      // au ressort → pop vers le haut puis rebond amorti (juteux), au lieu de
-      // suivre l'enveloppe brute (sec). Sous-amorti (zeta≈0.25) pour l'overshoot.
-      const beatRise = Math.max(0, beat - prevBeat);
-      prevBeat = beat;
-      if (beatRise > 0.04) {
-        grooveV -= beatRise * 210;                 // impulsion vers le haut (adoucie)
-        grooveV = Math.max(grooveV, -190);         // borne le coup le plus fort
-        groovePop = Math.min(0.14, groovePop + beatRise * 0.22);
-        // Badge : wiggle rotationnel alterné gauche/droite + pulse propre
-        grooveBadgeRotV += grooveBadgeDir * beatRise * 5.5;
-        grooveBadgeDir = -grooveBadgeDir;
-        badgePulse = Math.min(0.14, badgePulse + beatRise * 0.22);
+      // Groove du titre — piloté par le KICK : chaque coup de grosse caisse donne
+      // une impulsion au ressort (sous-amorti, overshoot juteux) → le mot rebondit
+      // pile sur le beat puis se stabilise. L'aigle hoche du chef sur le même kick.
+      const kickRise = Math.max(0, kick - prevKick);
+      prevKick = kick;
+      if (kickRise > 0.04) {
+        grooveV -= kickRise * 240;                 // impulsion vers le haut
+        grooveV = Math.max(grooveV, -220);         // borne le coup le plus fort
+        groovePop = Math.min(0.16, groovePop + kickRise * 0.26);
+        headBangV += kickRise * 150;               // l'aigle plonge la tête sur le kick
       }
-      // Ressort plus mou (k=110) et un peu plus amorti (c=8) → mouvement ample et
-      // smooth au lieu du retour sec ; le pop retombe plus doucement aussi.
+      // Badge — piloté par les MÉDIUMS (caisse claire / synthés) : dodeline gauche/droite
+      const midRise = Math.max(0, midBand - prevMid);
+      prevMid = midBand;
+      if (midRise > 0.05) {
+        grooveBadgeRotV += grooveBadgeDir * midRise * 6.5;
+        grooveBadgeDir = -grooveBadgeDir;
+        badgePulse = Math.min(0.16, badgePulse + midRise * 0.24);
+      }
+      // Ressort du titre (k=110, c=8) → mouvement ample et smooth.
       grooveV += (-110 * grooveY - 8 * grooveV) * dt;
       grooveY += grooveV * dt;
       groovePop *= Math.pow(0.02, dt);                // retombe en douceur entre les beats
+      // Ressort du headbang de l'aigle (un peu plus raide → hochement net)
+      headBangV += (-170 * headBang - 10 * headBangV) * dt;
+      headBang += headBangV * dt;
       // Ressort de rotation du badge (indépendant)
       grooveBadgeRotV += (-150 * grooveBadgeRot - 9 * grooveBadgeRotV) * dt;
       grooveBadgeRot += grooveBadgeRotV * dt;
@@ -2026,7 +2143,9 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, onEagle
       ctx!.save();
       ctx!.clearRect(0, 0, cssW, cssH);
       drawBackdrop(mainElapsed);
+      drawAurora(mainElapsed);            // voiles basse-fréquence dans le ciel
       updateAndDrawShootingStars(mainElapsed, dt);
+      drawEqualizer();                    // barres de spectre derrière la forêt
       drawForest(mainElapsed);
       ctx!.translate(sx, sy);
       drawEagle(mainElapsed);
