@@ -12,8 +12,6 @@ let _analyser: AnalyserNode | null = null;
 let _freqData: Uint8Array | null = null;
 
 // ─── État de l'analyse multi-bandes (persiste entre frames) ───────────────────
-const NB_BARS = 22; // nombre de barres de l'equalizer renvoyées chaque frame
-const _spectrum = new Float32Array(NB_BARS);
 let _prevKickE = 0, _prevMidE = 0, _prevTrebE = 0; // énergie band précédente (flux)
 let _kickP = 0, _midP = 0, _trebP = 0;             // pulses d'onset lissés [0..1]
 let _bassP = 0, _levelP = 0;                        // énergies soutenues lissées [0..1]
@@ -25,9 +23,9 @@ const FADE = 0.35;
 const CLUTCH_FADE = 0.18; // transition plus courte pour l'effet "coup de théâtre"
 
 // Décomposition fréquentielle de la musique — appelée chaque frame par TitleCanvas.
-// Chaque élément de l'écran-titre réagit à une bande différente : le titre rebondit
-// sur le KICK, la forêt/lune respirent sur la BASSE, le badge dodeline sur les MÉDIUMS,
-// les étoiles flashent sur les AIGUS, et un equalizer pulse à l'horizon (spectre brut).
+// Chaque élément déjà présent à l'écran-titre réagit à une bande différente : le titre
+// rebondit sur le KICK, la forêt/lune respirent sur la BASSE, le badge dodeline sur les
+// MÉDIUMS, les étoiles flashent sur les AIGUS, la vignette pompe sur le niveau global.
 export interface BeatBands {
   /** Onset sub-basse (~0–170 Hz) — le « boum » du kick, percutant. */
   kick: number;
@@ -39,11 +37,9 @@ export interface BeatBands {
   treble: number;
   /** RMS plein spectre lissé — intensité globale (vignette, glow ambiant). */
   level: number;
-  /** Spectre log-compressé en NB_BARS barres [0..1] — pour l'equalizer décoratif. */
-  spectrum: Float32Array;
 }
 
-const _bands: BeatBands = { kick: 0, bass: 0, mid: 0, treble: 0, level: 0, spectrum: _spectrum };
+const _bands: BeatBands = { kick: 0, bass: 0, mid: 0, treble: 0, level: 0 };
 
 /** RMS d'une plage de bins [from, to) normalisé [0..1]. */
 function bandRms(data: Uint8Array, from: number, to: number): number {
@@ -65,7 +61,6 @@ export function getMenuBeat(): BeatBands {
   if (!_analyser || !_freqData) {
     // Pas de musique : tout retombe doucement vers 0 (pas de figement brutal)
     _kickP *= 0.8; _midP *= 0.8; _trebP *= 0.8; _bassP *= 0.8; _levelP *= 0.8;
-    for (let b = 0; b < NB_BARS; b++) _spectrum[b]! *= 0.8;
     _bands.kick = _kickP; _bands.bass = _bassP; _bands.mid = _midP;
     _bands.treble = _trebP; _bands.level = _levelP;
     return _bands;
@@ -89,16 +84,6 @@ export function getMenuBeat(): BeatBands {
   // ── Énergies soutenues (basse + niveau global) : lissage exponentiel ─────────
   _bassP  += (Math.min(1, bassE * 1.7) - _bassP) * 0.22;
   _levelP += (Math.min(1, level * 1.4) - _levelP) * 0.16;
-
-  // ── Spectre log-compressé pour l'equalizer ───────────────────────────────────
-  const specMax = bins * 0.72;
-  for (let b = 0; b < NB_BARS; b++) {
-    const i0 = Math.pow(b / NB_BARS, 1.8) * specMax;
-    const i1 = Math.pow((b + 1) / NB_BARS, 1.8) * specMax;
-    const e = Math.min(1, bandRms(data, i0, Math.max(i0 + 1, i1)) * 1.5);
-    // Montée rapide, descente lente → barres qui « tombent » comme un vrai EQ
-    _spectrum[b] = e > _spectrum[b]! ? e : _spectrum[b]! + (e - _spectrum[b]!) * 0.3;
-  }
 
   _bands.kick = Math.min(1, _kickP);
   _bands.bass = _bassP;
@@ -141,7 +126,6 @@ export function useMusic(enabled = false) {
       _freqData = null;
       _prevKickE = _prevMidE = _prevTrebE = 0;
       _kickP = _midP = _trebP = _bassP = _levelP = 0;
-      _spectrum.fill(0);
     };
   }, [init, enabled]);
 

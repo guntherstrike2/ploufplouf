@@ -630,7 +630,6 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, onEagle
     let midBand = 0;      // onset médium [0..1]
     let treble = 0;       // onset aigu [0..1]
     let level = 0;        // RMS plein spectre lissé [0..1]
-    let spectrum: Float32Array | null = null; // spectre log pour l'equalizer
     let prevKick = 0;     // kick du frame précédent → front montant
     let prevMid = 0;      // mid du frame précédent → front montant
     // Headbang de l'aigle : ressort vertical kické par le kick (l'aigle hoche du chef).
@@ -1554,84 +1553,6 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, onEagle
 
     }
 
-    // ─── Aurore boréale — rubans qui respirent sur la BASSE ───────────────────
-    // Trois voiles lumineux ondulants dans le ciel nocturne. Au repos ils sont à
-    // peine là ; sur les nappes de basse ils gonflent et s'illuminent → la scène
-    // « respire » au rythme du groove.
-    const _auroraRibbons = [
-      { y: 0.30, amp: 0.020, col: [90, 210, 150] as const, sp: 0.42, ph: 0.0 },
-      { y: 0.37, amp: 0.028, col: [70, 180, 210] as const, sp: -0.30, ph: 1.7 },
-      { y: 0.44, amp: 0.024, col: [200, 180, 95] as const, sp: 0.55, ph: 3.1 },
-    ];
-    function drawAurora(elapsed: number) {
-      const b = beat; // basse soutenue
-      const baseA = 0.04 + b * 0.24;
-      if (baseA < 0.02) return;
-      ctx!.save();
-      ctx!.globalCompositeOperation = "lighter";
-      const steps = 30;
-      for (const r of _auroraRibbons) {
-        const yc = cssH * r.y;
-        const amp = cssH * r.amp * (0.6 + b * 1.8);
-        const h = cssH * 0.06 * (0.7 + b * 0.9);
-        ctx!.beginPath();
-        ctx!.moveTo(-20, yc + h);
-        for (let i = 0; i <= steps; i++) {
-          const x = (i / steps) * cssW;
-          const wob = Math.sin(i * 0.5 + elapsed * r.sp + r.ph) * amp
-                    + Math.sin(i * 0.21 + elapsed * r.sp * 1.7) * amp * 0.5;
-          ctx!.lineTo(x, yc + wob);
-        }
-        ctx!.lineTo(cssW + 20, yc + h);
-        ctx!.closePath();
-        const [cr, cg, cb] = r.col;
-        const grad = ctx!.createLinearGradient(0, yc - amp - h, 0, yc + h);
-        grad.addColorStop(0, `rgba(${cr},${cg},${cb},0)`);
-        grad.addColorStop(0.45, `rgba(${cr},${cg},${cb},${baseA.toFixed(3)})`);
-        grad.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
-        ctx!.fillStyle = grad;
-        ctx!.fill();
-      }
-      ctx!.restore();
-    }
-
-    // ─── Equalizer décoratif — lumières qui pulsent derrière la forêt ──────────
-    // Le spectre brut de la musique en barres lumineuses, calées sur la ligne
-    // d'horizon. La forêt (dessinée juste après) masque le bas → seules les crêtes
-    // dépassent au-dessus des cimes, comme des lumières de festival au loin. 🎚️
-    function drawEqualizer() {
-      if (!spectrum) return;
-      const n = spectrum.length;
-      const baseY = cssH * 0.72;     // ancrées dans la forêt (le bas est masqué)
-      const maxH = cssH * 0.17;
-      const bw = cssW / n;
-      ctx!.save();
-      ctx!.globalCompositeOperation = "lighter";
-      ctx!.imageSmoothingEnabled = false;
-      for (let i = 0; i < n; i++) {
-        const v = spectrum[i]!;
-        if (v < 0.03) continue;
-        const h = v * maxH;
-        const x = Math.round(i * bw);
-        const w = Math.max(1, Math.round(bw) - 1);
-        // teinte par fréquence : grave = ambre, médium = vert/or, aigu = cyan
-        const t = i / (n - 1);
-        const [cr, cg, cb] = t < 0.33 ? [255, 150, 60] : t < 0.66 ? [180, 230, 90] : [90, 210, 230];
-        const grad = ctx!.createLinearGradient(0, baseY, 0, baseY - h);
-        grad.addColorStop(0, `rgba(${cr},${cg},${cb},0)`);
-        grad.addColorStop(0.6, `rgba(${cr},${cg},${cb},${(0.06 + v * 0.22).toFixed(3)})`);
-        grad.addColorStop(1, `rgba(${cr},${cg},${cb},${(0.12 + v * 0.34).toFixed(3)})`);
-        ctx!.fillStyle = grad;
-        ctx!.fillRect(x, baseY - h, w, h);
-        // point lumineux net à la crête
-        ctx!.globalAlpha = Math.min(1, 0.35 + v);
-        ctx!.fillStyle = `rgb(${cr},${cg},${cb})`;
-        ctx!.fillRect(x, Math.round(baseY - h), w, 1);
-        ctx!.globalAlpha = 1;
-      }
-      ctx!.restore();
-    }
-
     // ─── Écran "Gunther Studio présente" ──────────────────────────────────────
     function drawStudioScreen(elapsed: number) {
       const fadeIn  = Math.min(1, elapsed / 0.50);
@@ -2100,14 +2021,13 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, onEagle
       }
 
       // Échantillon musical — décompose en bandes ; les draw functions lisent
-      // `beat`/`kick`/`midBand`/`treble`/`level`/`spectrum` en closure.
+      // `beat`/`kick`/`midBand`/`treble`/`level` en closure.
       const bands = getBeatRef.current?.();
       beat = bands?.bass ?? 0;     // basse soutenue → respiration du décor (alias historique)
       kick = bands?.kick ?? 0;     // onset sub-basse → rebond du titre + headbang
       midBand = bands?.mid ?? 0;   // onset médium → wiggle du badge
       treble = bands?.treble ?? 0; // onset aigu → scintillements
       level = bands?.level ?? 0;   // intensité globale → vignette/glow
-      spectrum = bands?.spectrum ?? null;
 
       // Groove du titre — piloté par le KICK : chaque coup de grosse caisse donne
       // une impulsion au ressort (sous-amorti, overshoot juteux) → le mot rebondit
@@ -2143,9 +2063,7 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, onEagle
       ctx!.save();
       ctx!.clearRect(0, 0, cssW, cssH);
       drawBackdrop(mainElapsed);
-      drawAurora(mainElapsed);            // voiles basse-fréquence dans le ciel
       updateAndDrawShootingStars(mainElapsed, dt);
-      drawEqualizer();                    // barres de spectre derrière la forêt
       drawForest(mainElapsed);
       ctx!.translate(sx, sy);
       drawEagle(mainElapsed);
