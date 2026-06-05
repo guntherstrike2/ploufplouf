@@ -10,6 +10,22 @@ const PARTICLE_COLORS = {
 
 const LEAF_COLORS = ["#4ab832", "#7acc44", "#aadd22", "#c4cc22", "#88bb33", "#55cc44", "#a8e040"] as const;
 
+// ─── Pool d'objets Particle ──────────────────────────────────────────────────
+// Sur les gros combos, des centaines de particules sont créées puis jetées par
+// seconde. Recycler les objets (free-list) au lieu d'allouer/garbage évite le
+// churn GC responsable de micro-saccades — même logique que le ring-buffer de
+// la traînée de l'œuf.
+const _particlePool: Particle[] = [];
+
+function acquireParticle(): Particle {
+  return _particlePool.pop() ?? { x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 1, color: "#fff", size: 1 };
+}
+
+// Rend une particule morte au pool (taille bornée pour ne pas retenir de mémoire).
+export function releaseParticle(p: Particle): void {
+  if (_particlePool.length < BALANCE.particles.maxCount + 32) _particlePool.push(p);
+}
+
 export function spawnParticles(
   s: GameState,
   x: number,
@@ -25,22 +41,25 @@ export function spawnParticles(
     : PARTICLE_COLORS.normal;
 
   // Évince les plus anciennes en un seul splice (O(n)) plutôt qu'un shift par
-  // particule (O(n) × count) — évite un pic sur les gros combos.
+  // particule (O(n) × count) — évite un pic sur les gros combos. Les évincées
+  // retournent au pool pour réutilisation.
   const overflow = s.particles.length + count - BALANCE.particles.maxCount;
-  if (overflow > 0) s.particles.splice(0, overflow);
+  if (overflow > 0) {
+    for (let i = 0; i < overflow; i++) releaseParticle(s.particles[i]!);
+    s.particles.splice(0, overflow);
+  }
 
   for (let i = 0; i < count; i++) {
     const angle = s.rng() * Math.PI * 2;
     const speed = 1.5 + s.rng() * (bomb ? 6 : 3.5);
-    const p: Particle = {
-      x, y,
-      vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed - (bomb ? 2 : 1),
-      life: 1,
-      maxLife: 0.6 + s.rng() * (bomb ? 1.2 : 0.6),
-      color: colors[Math.floor(s.rng() * colors.length)]!,
-      size: 2 + s.rng() * (bomb ? 5 : 3),
-    };
+    const p = acquireParticle();
+    p.x = x; p.y = y;
+    p.vx = Math.cos(angle) * speed;
+    p.vy = Math.sin(angle) * speed - (bomb ? 2 : 1);
+    p.life = 1;
+    p.maxLife = 0.6 + s.rng() * (bomb ? 1.2 : 0.6);
+    p.color = colors[Math.floor(s.rng() * colors.length)]!;
+    p.size = 2 + s.rng() * (bomb ? 5 : 3);
     s.particles.push(p);
   }
 }
@@ -49,19 +68,22 @@ export function spawnParticles(
 // Feuilles légères qui s'envolent et retombent doucement.
 export function spawnLeafBurst(s: GameState, x: number, y: number, count = 5): void {
   const overflow = s.particles.length + count - BALANCE.particles.maxCount;
-  if (overflow > 0) s.particles.splice(0, overflow);
+  if (overflow > 0) {
+    for (let i = 0; i < overflow; i++) releaseParticle(s.particles[i]!);
+    s.particles.splice(0, overflow);
+  }
   for (let i = 0; i < count; i++) {
     const angle = s.rng() * Math.PI * 2;
     const speed = 0.5 + s.rng() * 1.8;
-    s.particles.push({
-      x, y,
-      vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed - 1.4,
-      life: 1,
-      maxLife: 0.9 + s.rng() * 1.1,
-      color: LEAF_COLORS[Math.floor(s.rng() * LEAF_COLORS.length)]!,
-      size: 2 + s.rng() * 2.5,
-    });
+    const p = acquireParticle();
+    p.x = x; p.y = y;
+    p.vx = Math.cos(angle) * speed;
+    p.vy = Math.sin(angle) * speed - 1.4;
+    p.life = 1;
+    p.maxLife = 0.9 + s.rng() * 1.1;
+    p.color = LEAF_COLORS[Math.floor(s.rng() * LEAF_COLORS.length)]!;
+    p.size = 2 + s.rng() * 2.5;
+    s.particles.push(p);
   }
 }
 

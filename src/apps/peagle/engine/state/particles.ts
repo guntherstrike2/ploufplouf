@@ -1,4 +1,5 @@
 import type { GameState } from "../types";
+import { releaseParticle } from "./effects";
 
 // Compaction in-place (write-index) plutôt que .filter() : pas de réallocation
 // de tableau par frame, cohérent avec le ring-buffer de la trail.
@@ -11,6 +12,7 @@ export function updateParticles(s: GameState, timeScale: number): void {
     p.vy += 0.12 * timeScale; p.vx *= Math.pow(0.97, timeScale);
     p.life -= (0.03 / p.maxLife) * timeScale;
     if (p.life > 0) ps[w++] = p;
+    else releaseParticle(p); // mort → retour au pool
   }
   ps.length = w;
 

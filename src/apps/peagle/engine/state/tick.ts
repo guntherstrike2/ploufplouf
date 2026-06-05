@@ -15,8 +15,14 @@ export interface TickResult {
   orangeLeft: number;
 }
 
+// Tableau d'events réutilisé entre les ticks : il est consommé de façon
+// synchrone par la boucle rAF (cf. useGameLoop) avant le tick suivant, donc on
+// peut le vider et le re-remplir sans allouer 60 tableaux/s.
+const _events: GameEvent[] = [];
+
 export function tick(s: GameState): TickResult {
-  const events: GameEvent[] = [];
+  const events = _events;
+  events.length = 0;
 
   s.animClock += 0.03;
 

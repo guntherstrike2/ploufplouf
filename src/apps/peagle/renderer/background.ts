@@ -1642,28 +1642,77 @@ interface ForetCacheEntry {
   midTrees:    MidTreeDef[];
 }
 
-let _foretCache: ForetCacheEntry | null = null;
+// Cache à plusieurs entrées (clé `clutchMode:seed`). On garde simultanément la
+// variante jour ET fever du seed courant → la bascule en fièvre devient un
+// cache-hit au lieu de reconstruire les 7 couches dans la frame rAF (gros
+// hoquet pile à l'entrée en fièvre). Les entrées d'un ancien seed sont purgées
+// au changement de niveau pour borner la mémoire (et libérer les OffscreenCanvas).
+const _foretCache = new Map<string, ForetCacheEntry>();
+let _foretCacheSeed: number | null = null;
+const _foretWarmScheduled = new Set<string>();
+
+function buildForetEntry(clutchMode: boolean, bg: BgTheme, seed: number): ForetCacheEntry {
+  const key        = `${clutchMode ? 1 : 0}:${seed}`;
+  const pal        = foretPalette(clutchMode, bg);
+  const leaves     = generateLeaves(seed ^ 0x1eaf7a11);
+  const fireflies  = generateFireflies(seed ^ 0x10f1f111);
+  const midResult  = buildForetMidLayer(clutchMode, seed ^ 0xbada55e1);
+  const foreResult = buildForetForeLayer(clutchMode);
+  const layers: ForetLayer[] = [
+    { canvas: buildForetSky(pal, clutchMode),                      parallax: 0,    shakeF: 0.10, drift: 0, tiled: false },
+    { canvas: buildForetClouds(pal, seed ^ 0x5eed1234),           parallax: 0.04, shakeF: 0.10, drift: 5, tiled: true  },
+    { canvas: buildForetHills(pal, clutchMode, seed ^ 0x41116000), parallax: 0.12, shakeF: 0.20, drift: 0, tiled: false },
+    { canvas: buildForetFarTrees(pal, seed),                      parallax: 0.22, shakeF: 0.30, drift: 0, tiled: false },
+    { canvas: midResult.canvas,                                    parallax: 0.40, shakeF: 0.55, drift: 0, tiled: false },
+    { canvas: buildForetGround(clutchMode, bg, seed ^ 0x60077a55), parallax: 0,    shakeF: 1.00, drift: 0, tiled: false },
+    { canvas: foreResult.canvas,                                   parallax: 0.70, shakeF: 1.00, drift: 0, tiled: false },
+  ];
+  return { key, layers, pal, leaves, fireflies, midTrees: midResult.trees };
+}
+
+function disposeForetEntry(e: ForetCacheEntry): void {
+  if (typeof OffscreenCanvas === "undefined") return;
+  for (const L of e.layers) {
+    if (L.canvas instanceof OffscreenCanvas) {
+      (L.canvas as OffscreenCanvas & { close(): void }).close();
+    }
+  }
+}
+
+// Précharge la variante opposée (jour ↔ fever) du seed courant pendant un temps
+// d'inactivité du navigateur → sort la reconstruction du chemin critique.
+function scheduleWarmSibling(clutchMode: boolean, bg: BgTheme, seed: number): void {
+  const sibKey = `${clutchMode ? 0 : 1}:${seed}`;
+  if (_foretCache.has(sibKey) || _foretWarmScheduled.has(sibKey)) return;
+  _foretWarmScheduled.add(sibKey);
+  const run = () => {
+    _foretWarmScheduled.delete(sibKey);
+    // Le seed a pu changer entre-temps (nouveau niveau) → on n'ajoute rien.
+    if (_foretCacheSeed === seed && !_foretCache.has(sibKey)) {
+      _foretCache.set(sibKey, buildForetEntry(!clutchMode, bg, seed));
+    }
+  };
+  if (typeof requestIdleCallback !== "undefined") requestIdleCallback(run, { timeout: 1500 });
+  else setTimeout(run, 200);
+}
 
 function getForetLayers(clutchMode: boolean, bg: BgTheme, seed: number): ForetCacheEntry {
-  const key = `${clutchMode ? 1 : 0}:${seed}`;
-  if (_foretCache === null || _foretCache.key !== key) {
-    const pal        = foretPalette(clutchMode, bg);
-    const leaves     = generateLeaves(seed ^ 0x1eaf7a11);
-    const fireflies  = generateFireflies(seed ^ 0x10f1f111);
-    const midResult  = buildForetMidLayer(clutchMode, seed ^ 0xbada55e1);
-    const foreResult = buildForetForeLayer(clutchMode);
-    const layers: ForetLayer[] = [
-      { canvas: buildForetSky(pal, clutchMode),                      parallax: 0,    shakeF: 0.10, drift: 0, tiled: false },
-      { canvas: buildForetClouds(pal, seed ^ 0x5eed1234),           parallax: 0.04, shakeF: 0.10, drift: 5, tiled: true  },
-      { canvas: buildForetHills(pal, clutchMode, seed ^ 0x41116000), parallax: 0.12, shakeF: 0.20, drift: 0, tiled: false },
-      { canvas: buildForetFarTrees(pal, seed),                      parallax: 0.22, shakeF: 0.30, drift: 0, tiled: false },
-      { canvas: midResult.canvas,                                    parallax: 0.40, shakeF: 0.55, drift: 0, tiled: false },
-      { canvas: buildForetGround(clutchMode, bg, seed ^ 0x60077a55), parallax: 0,    shakeF: 1.00, drift: 0, tiled: false },
-      { canvas: foreResult.canvas,                                   parallax: 0.70, shakeF: 1.00, drift: 0, tiled: false },
-    ];
-    _foretCache = { key, layers, pal, leaves, fireflies, midTrees: midResult.trees };
+  // Changement de seed (nouveau niveau) → purge des couches de l'ancien seed.
+  if (_foretCacheSeed !== seed) {
+    for (const e of _foretCache.values()) disposeForetEntry(e);
+    _foretCache.clear();
+    _foretWarmScheduled.clear();
+    _foretCacheSeed = seed;
   }
-  return _foretCache;
+  const key = `${clutchMode ? 1 : 0}:${seed}`;
+  let entry = _foretCache.get(key);
+  if (!entry) {
+    entry = buildForetEntry(clutchMode, bg, seed);
+    _foretCache.set(key, entry);
+  }
+  // Préchauffe la variante opposée hors du chemin critique (idle).
+  scheduleWarmSibling(clutchMode, bg, seed);
+  return entry;
 }
 
 let _scanlines: OffCanvas | null = null;
