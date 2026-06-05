@@ -1902,6 +1902,10 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, onEagle
         const peekCtx = buildIntroFaceCtx(peekMoodIds[pi]!, pigElapsed);
         peekCtx.screech = currentScreech; // bec ouvert sur le petit cri du peek
         const mood = getFaceMood(peekCtx);
+        // Le bec ne suit QUE l'enveloppe du petit cri : sans ça, les moods qui
+        // gardent la bouche entrouverte au repos (won, burst, bâillement, smug)
+        // laissaient le bec ouvert tout le peek, bien après la fin du cri.
+        mood.open = currentScreech;
 
         drawPeekHead(cx2, cy2, rotationForSide(cfg.side), bob, mood);
       }
