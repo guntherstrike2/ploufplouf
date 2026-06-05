@@ -22,6 +22,9 @@ interface UseGameLoopOptions {
   runStateRef: RefObject<RunState>;
   devConfigRef: RefObject<DevConfig | null>;
   pausedRef: RefObject<boolean>;
+  // True uniquement quand l'écran de jeu est visible. Sert à geler la boucle rAF
+  // (physique + rendu) sur les écrans menu/classement/loading où le canvas est masqué.
+  visibleRef: RefObject<boolean>;
   bestScoreRef: RefObject<number>;
   onUiSync: (ui: UiState) => void;
   onOrangeTotalChange: (total: number) => void;
@@ -63,6 +66,7 @@ export function useGameLoop({
   runStateRef,
   devConfigRef,
   pausedRef,
+  visibleRef,
   bestScoreRef,
   onUiSync,
   onOrangeTotalChange,
@@ -327,9 +331,18 @@ export function useGameLoop({
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext("2d")!;
+    // alpha:false → le fond couvre toujours tout le canvas, pas de compositing
+    // alpha avec la page chaque frame. desynchronized → moins de latence d'input.
+    const ctx = canvas.getContext("2d", { alpha: false, desynchronized: true })!;
 
     function frame() {
+      // Hors écran de jeu (menu, classement, loading) le canvas est masqué : on
+      // saute toute simulation et tout rendu — économise ~100% CPU/GPU hors partie.
+      if (!visibleRef.current) {
+        animRef.current = requestAnimationFrame(frame);
+        return;
+      }
+
       const s = stateRef.current;
 
       // Pause : on gèle la simulation mais on continue de rendre la frame courante

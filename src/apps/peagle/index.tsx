@@ -36,6 +36,8 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
   const [screen, setScreen] = useState<Screen>("loading");
   const [paused, setPaused] = useState(false);
   const pausedRef = useRef(paused);
+  // Visibilité de l'écran de jeu — pilote le gel de la boucle rAF (cf. useGameLoop).
+  const gameVisibleRef = useRef(false);
   const [ui, setUi] = useState<UiState>({
     balls: 12, score: 0, orangeLeft: 0, orangeTotal: 0,
     phase: "aim", message: "", combo: 0, level: 1, stars: 0, clutch: false,
@@ -89,6 +91,10 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
   useEffect(() => {
     pausedRef.current = paused;
   }, [paused]);
+
+  useEffect(() => {
+    gameVisibleRef.current = screen === "game";
+  }, [screen]);
 
   const fetchLeaderboard = useCallback(async () => {
     setLbLoading(true);
@@ -165,6 +171,7 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     runStateRef,
     devConfigRef,
     pausedRef,
+    visibleRef: gameVisibleRef,
     bestScoreRef,
     onUiSync: handleUiSync,
     onOrangeTotalChange: handleOrangeTotalChange,

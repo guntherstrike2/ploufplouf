@@ -1343,6 +1343,27 @@ function buildForetMidLayer(clutchMode: boolean, seed: number): { canvas: OffCan
   }
 
   trees.sort((a, b) => a.x - b.x);
+
+  // Couronnes bakées une fois dans le canvas de couche (statiques — plus de vent).
+  // Avant, elles étaient redessinées CHAQUE frame (boucle sur tous les arbres ×
+  // dizaines de fillRect chacun, cf. drawForetLayers) : c'était le plus gros coût
+  // CPU par frame sur le thème Forêt. Les baker ici supprime entièrement ce coût.
+  // Dessinées après le tri (ordre peintre gauche→droite) et au même z que les
+  // troncs → trunk + couronne enfin cohérents.
+  for (const tree of trees) {
+    if (tree.type === "oak") {
+      drawOakCanopy(ctx, tree.x, GROUND_Y, tree.h, tree.w, tree.leafDark, tree.leafMid, tree.leafHi);
+    } else if (tree.type === "pine") {
+      drawRectPine(ctx, tree.x, GROUND_Y, tree.h, tree.w,
+        tree.leafMid, tree.leafHi,
+        clutchMode ? "#030510" : "#071a0c",
+        tree.trunkCol,
+      );
+    } else {
+      drawShrubCanopy(ctx, tree.x, GROUND_Y, tree.h, tree.w, tree.leafDark, tree.leafMid, tree.leafHi);
+    }
+  }
+
   return { canvas, trees };
 }
 
@@ -1672,11 +1693,8 @@ function drawForetLayers(
   // éviter que le ciel change instantanément dès le 1er frame de fever.
   const effectiveClutchMode = inDusk ? !clutchMode : clutchMode;
   const cache = getForetLayers(effectiveClutchMode, bg, s.forestSeed);
-  const { layers, leaves, fireflies, midTrees } = cache;
+  const { layers, leaves, fireflies } = cache;
   const launchDelta = Math.max(-PARALLAX_CLAMP, Math.min(PARALLAX_CLAMP, s.launcherX - W / 2));
-
-  // Offsets sauvegardés pour les passes animées post-boucle
-  let midEx = 0, midEy = 0, midTy = 0;
 
   for (let i = 0; i < layers.length; i++) {
     const L  = layers[i]!;
@@ -1687,8 +1705,6 @@ function drawForetLayers(
     // Intro : translate pur (pas de scale → pas de distorsion)
     const spring = i === 0 ? 1 : introSpring(s.animClock, LAYER_INTRO_DELAYS[i - 1] ?? 0);
     const ty = i === 0 ? 0 : Math.round((1 - spring) * (LAYER_INTRO_OFFSETS[i - 1] ?? 0));
-
-    if (i === 4) { midEx = ex; midEy = ey; midTy = ty; }
 
     // Soleil / lune après le ciel (i=0), avant les nuages (i=1)
     if (i === 1) {
@@ -1729,26 +1745,6 @@ function drawForetLayers(
     } else {
       ctx.drawImage(L.canvas, Math.round(ex), Math.round(ey) + ty);
     }
-  }
-
-  // ── Couronnes d'arbres (statiques — plus de vent) ───────────────────────────
-  {
-    ctx.save();
-    ctx.translate(Math.round(midEx + LAYER_MARGIN), Math.round(midEy + VPAD) + midTy);
-    for (const tree of midTrees) {
-      if (tree.type === "oak") {
-        drawOakCanopy(ctx, tree.x, GROUND_Y, tree.h, tree.w, tree.leafDark, tree.leafMid, tree.leafHi);
-      } else if (tree.type === "pine") {
-        drawRectPine(ctx, tree.x, GROUND_Y, tree.h, tree.w,
-          tree.leafMid, tree.leafHi,
-          clutchMode ? "#030510" : "#071a0c",
-          tree.trunkCol,
-        );
-      } else {
-        drawShrubCanopy(ctx, tree.x, GROUND_Y, tree.h, tree.w, tree.leafDark, tree.leafMid, tree.leafHi);
-      }
-    }
-    ctx.restore();
   }
 
   // Feuilles ambiantes et lucioles (forêt vivante)
