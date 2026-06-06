@@ -20,11 +20,14 @@ export function updateParticles(s: GameState, timeScale: number): void {
   let wt = 0;
   for (let i = 0; i < ts.length; i++) {
     const t = ts[i]!;
-    t.y -= 1.3 * timeScale;
+    // Décélération physique : texte monte vite à la naissance, flotte en fin de vie.
+    t.y -= (0.5 + 2.2 * t.life * t.life) * timeScale;
     t.life -= 0.02 / t.maxLife;
     if (t.life > 0) ts[wt++] = t;
   }
   ts.length = wt;
+  // Plafond dur : garde les 10 textes les plus récents → lisibilité sur gros combos.
+  if (ts.length > 10) ts.splice(0, ts.length - 10);
 
   const rs = s.impactRings;
   let wr = 0;

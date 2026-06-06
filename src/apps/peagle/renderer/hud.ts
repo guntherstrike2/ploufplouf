@@ -26,6 +26,17 @@ const INK = {
   orange: "#ff9a4c", warn: "#ffc24a",
 } as const;
 
+// ── Score ticker + pop animation (module-level pour persister entre les frames) ──
+let _displayedScore = -1;   // score affiché (monte vers s.score par ticker)
+let _prevRealScore  = -1;   // détecte les hausses de score pour déclencher le pop
+let _scorePop = 0;          // 0→1 au déclenchement, décroît vers 0 (spring-pop)
+
+// easeOutBack locale — même recette que effects.ts, c1 doux pour le HUD.
+function hudEob(x: number): number {
+  const c1 = 2.8, c3 = c1 + 1, p = x - 1;
+  return 1 + c3 * p * p * p + c1 * p * p;
+}
+
 // ── Gradients cachés (créés une fois par contexte, réutilisés chaque frame) ──
 let _gradCtx: CanvasRenderingContext2D | null = null;
 let _vigGrad: CanvasGradient | null = null;
@@ -131,6 +142,18 @@ export function drawHud(
   const egg = getActiveBall();
   const face = getFaceMood(gameFaceCtx(s));
 
+  // ── Ticker + pop : initialisation et mise à jour ──
+  if (_displayedScore < 0 || s.score < _displayedScore) {
+    _displayedScore = s.score; _prevRealScore = s.score; _scorePop = 0;
+  }
+  if (s.score > _prevRealScore) _scorePop = Math.min(1, _scorePop + 0.45);
+  _prevRealScore = s.score;
+  _scorePop = Math.max(0, _scorePop - 0.07);
+  if (_displayedScore < s.score) {
+    const d = s.score - _displayedScore;
+    _displayedScore = Math.min(s.score, _displayedScore + Math.max(1, Math.min(Math.ceil(d * 0.25), 400)));
+  }
+
   ensureHudGrads(ctx);
 
   ctx.save();
@@ -166,9 +189,30 @@ export function drawHud(
   label(ctx, "NIVEAU", HX + 54, LABEL_Y);
   value(ctx, `${s.level}`, HX + 54, VALUE_Y, 15, INK.green);
 
-  // ── SCORE (héros) ──
+  // ── SCORE (héros) — ticker + squash & stretch + flash couleur ──
   label(ctx, "SCORE", HX + 108, LABEL_Y);
-  value(ctx, fmt(s.score), HX + 108, VALUE_Y, 19, INK.cream, true);
+  const scoreStr = fmt(Math.round(_displayedScore));
+  if (_scorePop > 0.01) {
+    const popPhase = hudEob(1 - _scorePop);   // 0 au déclenchement → 1 quand calé
+    const sc = 1 + (1 - popPhase) * 0.42;    // scale globale (1.42 → 1.0 avec overshoot)
+    const sx = 1 + (1 - popPhase) * 0.22;    // squash X : large au pop
+    const sy = 1 - (1 - popPhase) * 0.26;    // squash Y : court au pop
+    ctx.font = `bold 19px "MS Sans Serif", monospace`;
+    ctx.textBaseline = "middle"; ctx.textAlign = "left";
+    const tw = ctx.measureText(scoreStr).width;
+    const cx = HX + 108 + tw / 2;
+    ctx.save();
+    ctx.translate(cx, VALUE_Y);
+    ctx.scale(sc * sx, sc * sy);
+    ctx.translate(-cx, -VALUE_Y);
+    // Flash cream→blanc pendant le pop
+    const fa = Math.min(1, _scorePop * 2);
+    const flashColor = `rgb(245,${Math.round(236 + fa * 19)},${Math.round(202 + fa * 53)})`;
+    value(ctx, scoreStr, HX + 108, VALUE_Y, 19, flashColor, true);
+    ctx.restore();
+  } else {
+    value(ctx, scoreStr, HX + 108, VALUE_Y, 19, INK.cream, true);
+  }
 
   // ── CIBLES (sprite peg orange) ──
   label(ctx, "CIBLES", HX + 244, LABEL_Y);
