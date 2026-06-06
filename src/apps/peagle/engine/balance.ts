@@ -27,7 +27,7 @@ export const BALANCE = {
     jackpotBase: 5000,       // bonus de score = jackpotBase × niveau
     jackpotBalls: 3,         // œufs bonus offerts par un jackpot
     // TABLEAU VIDE : tous les pegs destructibles effacés (oranges + bleus).
-    clearBoardBonus: 6000,   // bonus = clearBoardBonus × niveau
+    clearBoardBonus: 10000,  // bonus = clearBoardBonus × niveau
   },
   trauma: {
     normalPeg: 0.08,
