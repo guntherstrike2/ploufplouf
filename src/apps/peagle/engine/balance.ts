@@ -3,6 +3,12 @@ export const BALANCE = {
   combo: {
     interval: 3,        // 1 palier de multiplicateur tous les 3 pegs touchés
   },
+  // Bonus de SÉRIE de paniers : récompense les rattrapages consécutifs qui ont
+  // chacun touché au moins un peg. Le bonus grimpe avec la longueur de la série.
+  bucketStreak: {
+    base: 250,          // bonus = base × (série − 1) × niveau (à partir de 2 d'affilée)
+    eggEvery: 3,        // +1 œuf tous les N rattrapages consécutifs
+  },
   wall: {
     traumaPerHit: 0.06, // screenshake quand l'œuf tape un mur
   },

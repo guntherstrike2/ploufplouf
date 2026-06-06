@@ -207,13 +207,45 @@ export function processBallPhysics(
     } else {
       s.balls += 1;
       s.trauma = Math.min(1, s.trauma + BALANCE.trauma.bucketCatch);
-      s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 14, text: "ŒUF SAUVÉ !", life: 1, maxLife: 1.8, color: "#00ffcc", combo: true, exclaim: true, fontSize: 16, spin: (s.rng() - 0.5) * 1.5 });
-      events.push({ kind: "sound", id: "victory" });
+
+      // `s.combo > 0` ⟺ l'œuf a touché au moins un peg ce tour-ci (le combo n'est
+      // remis à 0 qu'en fin de tour). C'est la condition d'un rattrapage « qualifiant ».
+      if (s.combo > 0) {
+        s.bucketStreak += 1;
+
+        if (s.bucketStreak >= 2) {
+          // Bonus de SÉRIE : grimpe à chaque rattrapage qualifiant consécutif.
+          const streakBonus = BALANCE.bucketStreak.base * (s.bucketStreak - 1) * s.level;
+          s.score += streakBonus;
+          s.flashWhite = Math.max(s.flashWhite, 0.4);
+          s.trauma = Math.min(1, s.trauma + 0.1);
+          spawnParticles(s, b.x, bucketTop, true, 10 + s.bucketStreak * 2);
+          spawnImpactRing(s, b.x, bucketTop, "#ffd700", Math.min(1, 0.4 + s.bucketStreak * 0.1));
+          s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 32, text: `SÉRIE ×${s.bucketStreak}`, life: 1, maxLife: 2, color: "#ffd700", combo: true, exclaim: true, fontSize: Math.min(26, 16 + s.bucketStreak), spin: (s.rng() - 0.5) * 1.2 });
+          s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 14, text: `+${streakBonus.toLocaleString()}`, life: 1, maxLife: 1.8, color: "#ffec80", combo: true, fontSize: 14 });
+        } else {
+          s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 14, text: "ŒUF SAUVÉ !", life: 1, maxLife: 1.8, color: "#00ffcc", combo: true, exclaim: true, fontSize: 16, spin: (s.rng() - 0.5) * 1.5 });
+        }
+
+        // +1 œuf bonus tous les N rattrapages d'affilée.
+        if (s.bucketStreak % BALANCE.bucketStreak.eggEvery === 0) {
+          s.balls += 1;
+          s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 50, text: "+1 ŒUF !", life: 1, maxLife: 2, color: "#00ffcc", combo: true, fontSize: 15 });
+        }
+
+        events.push({ kind: "sound", id: s.bucketStreak >= 2 ? "jackpot" : "victory" });
+      } else {
+        // Rattrapage direct, sans avoir touché de peg : ne compte pas, casse la série.
+        s.bucketStreak = 0;
+        s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 14, text: "ŒUF SAUVÉ !", life: 1, maxLife: 1.8, color: "#00ffcc", combo: true, exclaim: true, fontSize: 16, spin: (s.rng() - 0.5) * 1.5 });
+        events.push({ kind: "sound", id: "victory" });
+      }
     }
   }
 
-  // L'œuf sort de l'écran
+  // L'œuf sort de l'écran → œuf manqué, la série de paniers est rompue.
   if (b.active && b.y > H + 40) {
     b.active = false;
+    s.bucketStreak = 0;
   }
 }

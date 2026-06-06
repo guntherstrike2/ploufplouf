@@ -114,6 +114,9 @@ export interface GameState {
   bucketFlash: number;
   message: string;
   combo: number;
+  // Série de rattrapages au panier consécutifs ayant chacun touché ≥1 peg.
+  // Un panier sans peg touché, ou un œuf manqué (hors écran), remet à 0.
+  bucketStreak: number;
   scoreMultiplier: number;
   particles: Particle[];
   floatingTexts: FloatingText[];

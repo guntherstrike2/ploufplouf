@@ -61,6 +61,7 @@ export function makeInitialState(
     bucketFlash: 0,
     message: "",
     combo: 0,
+    bucketStreak: 0,
     scoreMultiplier: 1,
     particles: [],
     floatingTexts: [],
