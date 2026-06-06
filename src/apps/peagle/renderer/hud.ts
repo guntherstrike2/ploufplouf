@@ -207,7 +207,8 @@ export function drawHud(
     ctx.translate(-cx, -VALUE_Y);
     // Flash cream→blanc pendant le pop
     const fa = Math.min(1, _scorePop * 2);
-    const flashColor = `rgb(245,${Math.round(236 + fa * 19)},${Math.round(202 + fa * 53)})`;
+    // Flash vers blanc chaud (doré) : reste dans la palette cream/warm du HUD.
+    const flashColor = `rgb(${Math.round(245 + fa * 10)},${Math.round(236 + fa * 19)},${Math.round(202 + fa * 38)})`;
     value(ctx, scoreStr, HX + 108, VALUE_Y, 19, flashColor, true);
     ctx.restore();
   } else {
