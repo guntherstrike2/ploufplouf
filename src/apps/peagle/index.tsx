@@ -347,7 +347,7 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
 
         {/* Layout responsive : vertical (mobile) ou horizontal (16/9+) */}
         <div className="pg-game-layout peagle-root" style={{ flex: 1, overflow: "hidden", alignItems: "stretch" }}>
-          <SidePanel side="left" clutchMode={ui.balls > 0 && ui.balls <= 3} />
+          <SidePanel side="left" clutchMode={ui.clutch} />
 
           <div className="pg-canvas-area">
             <div style={{ position: "relative", flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -389,7 +389,7 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
             </div>
           </div>
 
-          <SidePanel side="right" clutchMode={ui.balls > 0 && ui.balls <= 3} />
+          <SidePanel side="right" clutchMode={ui.clutch} />
         </div>
       </div>
 

@@ -1,4 +1,5 @@
 import type { GameState } from "../engine/types";
+import { isClutchActive } from "../engine/clutch";
 
 // ─── Mascotte façon DOOM — tête d'aigle de face réactive ──────────────────────
 // Partagée entre le HUD (top-left), l'aigle lanceur et l'écran-titre.
@@ -62,7 +63,7 @@ export function gameFaceCtx(s: GameState): FaceContext {
   return {
     animClock: s.animClock,
     hitMag: s.hitFreezeFrames,
-    inClutch: s.balls > 0 && s.balls <= s.effectiveClutchThreshold,
+    inClutch: isClutchActive(s),
     lowBalls: s.balls > 0 && s.balls <= 2,
     zeroPeg: s.lastTurnHitCount === 0 && s.phase === "aim",
     ponte: 0,

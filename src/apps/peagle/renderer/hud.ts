@@ -3,6 +3,7 @@ import { getActiveBall } from "../engine/assets";
 import type { BallStyle } from "../engine/assets";
 import type { GameState } from "../engine/types";
 import type { GameTheme, PegTheme } from "../engine/game-theme";
+import { isClutchActive } from "../engine/clutch";
 import { eagleFace, getFaceMood, gameFaceCtx } from "./face";
 
 // ─── HUD in-canvas — épuré ───────────────────────────────────────────────────
@@ -124,7 +125,7 @@ export function drawHud(
   orangeTotal: number,
   theme: GameTheme,
 ): void {
-  const inClutch = s.balls > 0 && s.balls <= s.effectiveClutchThreshold;
+  const inClutch = isClutchActive(s);
   const lowBalls = s.balls > 0 && s.balls <= 2;
   const pulse = 0.5 + 0.5 * Math.sin(s.animClock * 6);
   const egg = getActiveBall();

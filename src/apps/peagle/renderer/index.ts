@@ -1,6 +1,7 @@
 import type { GameState } from "../engine/types";
 import type { GameTheme } from "../engine/game-theme";
 import { PEG_R } from "../engine/constants";
+import { isClutchActive } from "../engine/clutch";
 import { drawBackground } from "./background";
 import { drawPegs } from "./pegs";
 import { drawAimLine, drawLauncher, drawBuckets } from "./ui";
@@ -24,7 +25,7 @@ export function drawFrame(
   opts: RenderOpts,
 ): void {
   const { theme, showHitboxes = false, orangeTotal = 0 } = opts;
-  const inClutch = s.balls > 0 && s.balls <= s.effectiveClutchThreshold;
+  const inClutch = isClutchActive(s);
   const isLost = s.phase === "lost";
   const clutchIntensity = inClutch || isLost ? 1 : 0;
   // Intensité visuelle du ralenti dérivée de la vitesse du temps lissée.

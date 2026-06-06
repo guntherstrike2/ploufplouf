@@ -7,6 +7,7 @@ import { drawFrame } from "../renderer";
 import { PAUSE_HIT } from "../renderer/hud";
 import { resolveTheme, invalidateTheme } from "../engine/game-theme";
 import { tick } from "../engine/state/tick";
+import { isClutchActive } from "../engine/clutch";
 import { makeInitialState } from "../engine/state/init";
 import { refreshAssetCache, ASSETS_CHANGED_EVENT } from "../engine/assets";
 import { W, H, LAUNCHER_Y, LAUNCH_SPEED, LAUNCHER_MARGIN, LAUNCHER_GRAB_R } from "../engine/constants";
@@ -165,7 +166,7 @@ export function useGameLoop({
       combo: s.combo,
       level: s.level,
       stars: Math.floor(s.score / 10000),
-      clutch: s.balls > 0 && s.balls <= s.effectiveClutchThreshold,
+      clutch: isClutchActive(s),
     });
   }, [onUiSync]);
 

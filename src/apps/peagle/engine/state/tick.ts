@@ -7,6 +7,7 @@ import { updateParticles } from "./particles";
 import { updateBirds } from "./birds";
 import { processBallPhysics } from "./ball";
 import { endOfTurn } from "./turn";
+import { isClutchActive } from "../clutch";
 
 export interface TickResult {
   events: GameEvent[];
@@ -82,9 +83,11 @@ export function tick(s: GameState): TickResult {
 
   updateBucket(s, timeScale);
 
-  // Pulsation "fièvre" quand il reste peu d'œufs à tirer
+  // Pulsation "fièvre" quand il reste peu d'œufs à tirer. Comme le coucher de
+  // soleil (duskProgress), l'œuf en vol compte comme pas-encore-dépensé → lancer
+  // le dernier œuf ne déclenche pas la nuit ; seule sa perte réelle le fait.
   const orangeLeft = s.orangeLeft;
-  const inClutch = s.balls > 0 && s.balls <= s.effectiveClutchThreshold;
+  const inClutch = isClutchActive(s);
   if (inClutch) s.clutchPulse = (s.clutchPulse + 0.08) % (Math.PI * 2);
   else s.clutchPulse = 0;
 
