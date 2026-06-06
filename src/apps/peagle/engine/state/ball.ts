@@ -162,9 +162,24 @@ export function processBallPhysics(
         }
       } else {
         // Obstacle permanent (bumper) : reste en place, flash + cooldown anti-spam.
+        s.bumperChainShot += 1;
         p.cooldown = def.cooldownFrames;
         p.bump = 1;
-        p.scale = 1.5;
+        p.scale = 1.8;
+
+        // Score escaladant : chaque bumper du tir vaut 50% de plus que le précédent.
+        const bumperBonus = Math.round(earned * (s.bumperChainShot - 1) * 0.5);
+        s.score += bumperBonus;
+
+        // BUMPER FRENZY au 3e bumper du tir
+        if (s.bumperChainShot === 3) {
+          s.flashWhite = Math.max(s.flashWhite, 0.35);
+          s.hitFreezeFrames = Math.max(s.hitFreezeFrames, 10);
+          s.floatingTexts.push({ x: W / 2, y: H / 2 - 50, text: "BUMPER FRENZY !", life: 1, maxLife: 2, color: "#ff9900", combo: true, exclaim: true, fontSize: 22, spin: (s.rng() - 0.5) * 1.5 });
+        } else if (s.bumperChainShot === 5) {
+          s.flashWhite = Math.max(s.flashWhite, 0.5);
+          s.floatingTexts.push({ x: W / 2, y: H / 2 - 50, text: "BUMPER MANIAC !", life: 1, maxLife: 2, color: "#ff4400", combo: true, exclaim: true, fontSize: 24, spin: (s.rng() - 0.5) * 2 });
+        }
       }
 
       // Texte de score flottant

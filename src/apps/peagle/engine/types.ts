@@ -114,6 +114,8 @@ export interface GameState {
   bucketFlash: number;
   message: string;
   combo: number;
+  // Nombre de bumpers touchés dans le tir en cours — pour le score escaladant et FRENZY.
+  bumperChainShot: number;
   // Série de rattrapages au panier consécutifs ayant chacun touché ≥1 peg.
   // Un panier sans peg touché, ou un œuf manqué (hors écran), remet à 0.
   bucketStreak: number;

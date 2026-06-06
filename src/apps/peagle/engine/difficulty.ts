@@ -33,8 +33,8 @@ export function difficultyFor(level: number): DifficultyParams {
   // % d'oranges : 18% → 36%, croissance douce.
   const orangePct = clamp(0.18 + (L - 1) * 0.02, 0.18, 0.36);
 
-  // Bumpers : apparaissent au niveau 3, +1 tous les 2 niveaux, plafonnés à 8.
-  const bumperCount = L < 3 ? 0 : clamp(Math.floor((L - 1) / 2), 1, 8);
+  // Bumpers : apparaissent au niveau 2, progression rapide, plafonnés à 14.
+  const bumperCount = L < 2 ? 0 : clamp(Math.floor((L - 1) * 0.9), 1, 14);
 
   // Remplissage de plus en plus serré : 26px → 20px.
   const fillSpacing = clamp(26 - (L - 1) * 0.4, 20, 26);

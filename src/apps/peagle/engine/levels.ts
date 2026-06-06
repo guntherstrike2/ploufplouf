@@ -248,6 +248,95 @@ function directlyReachable(pegs: Peg[]): Set<Peg> {
   return set;
 }
 
+// ─── Placement structuré des bumpers ─────────────────────────────────────────
+// Au lieu de choisir des pegs au hasard, on cherche des candidats normaux puis
+// on les regroupe en patterns (paire/couloir, triangle, arc) pour créer des
+// zones de rebond intéressantes. On complète avec des singletons si besoin.
+
+function distSq(a: Peg, b: Peg): number {
+  return (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
+}
+
+function placeBumpersStructured(rng: Rng, pegs: Peg[], count: number): void {
+  if (count <= 0) return;
+
+  // Candidats : pegs normaux dans la zone jouable (pas trop hauts, pas trop bas)
+  const candidates = pegs.filter(p => p.kind === "normal" && p.y > 160 && p.y < 460);
+  if (candidates.length === 0) return;
+
+  const placed = new Set<Peg>();
+
+  // ── Helper : trouve le voisin normal le plus proche dans une plage de distance ──
+  const nearNeighbor = (anchor: Peg, minD: number, maxD: number): Peg | null => {
+    let best: Peg | null = null;
+    let bd = Infinity;
+    const min2 = minD * minD, max2 = maxD * maxD;
+    for (const p of candidates) {
+      if (p === anchor || placed.has(p)) continue;
+      const d = distSq(anchor, p);
+      if (d >= min2 && d <= max2 && d < bd) { bd = d; best = p; }
+    }
+    return best;
+  };
+
+  // ── Pattern 1 : couloirs (deux bumpers alignés horizontalement ~40-70px) ──
+  // Simule deux boutons de flipper — la balle peut ricocher entre eux.
+  const tryLane = (): boolean => {
+    const pool = shuffle(rng, candidates.filter(p => !placed.has(p)));
+    for (const anchor of pool) {
+      const partner = nearNeighbor(anchor, 38, 72);
+      if (partner && Math.abs(anchor.y - partner.y) < 20) {
+        anchor.kind = "bumper"; partner.kind = "bumper";
+        placed.add(anchor); placed.add(partner);
+        return true;
+      }
+    }
+    return false;
+  };
+
+  // ── Pattern 2 : triangle (un anchor + 2 voisins en V) ──
+  const tryTriangle = (): boolean => {
+    const pool = shuffle(rng, candidates.filter(p => !placed.has(p)));
+    for (const anchor of pool) {
+      const n1 = nearNeighbor(anchor, 30, 65);
+      if (!n1) continue;
+      const n2 = nearNeighbor(anchor, 30, 65);
+      if (!n2 || n2 === n1) continue;
+      anchor.kind = "bumper"; n1.kind = "bumper"; n2.kind = "bumper";
+      placed.add(anchor); placed.add(n1); placed.add(n2);
+      return true;
+    }
+    return false;
+  };
+
+  // ── Pattern 3 : singleton (fallback si plus assez de voisins) ──
+  const placeSingle = (): boolean => {
+    const pool = shuffle(rng, candidates.filter(p => !placed.has(p)));
+    if (pool.length === 0) return false;
+    pool[0]!.kind = "bumper";
+    placed.add(pool[0]!);
+    return true;
+  };
+
+  // Remplissage jusqu'au budget : on alterne patterns selon le nombre restant.
+  let remaining = count;
+  while (remaining >= 2) {
+    const patternRoll = rng();
+    if (remaining >= 3 && patternRoll < 0.4) {
+      if (tryTriangle()) { remaining -= 3; continue; }
+    }
+    if (patternRoll < 0.75) {
+      if (tryLane()) { remaining -= 2; continue; }
+    }
+    if (!placeSingle()) break;
+    remaining--;
+  }
+  while (remaining > 0) {
+    if (!placeSingle()) break;
+    remaining--;
+  }
+}
+
 // ─── Assignation des types de pegs (data-driven, voir peg-kinds.ts) ──────────
 
 function assignKinds(rng: Rng, pegs: Peg[], reachable: Set<Peg>, diff: DifficultyParams): void {
@@ -272,16 +361,9 @@ function assignKinds(rng: Rng, pegs: Peg[], reachable: Set<Peg>, diff: Difficult
     r[Math.floor(rng() * r.length)]!.kind = "orange";
   }
 
-  // Bumpers (obstacles permanents) parmi les pegs normaux restants.
-  let placed = 0;
-  for (const i of order) {
-    if (placed >= diff.bumperCount) break;
-    const p = pegs[i]!;
-    if (p.kind !== "normal" || p.y < 150) continue;
-    p.kind = "bumper";
-    placed++;
-  }
-
+  // Bumpers (obstacles permanents) : placement en patterns pour créer des
+  // couloirs et des triangles intéressants plutôt qu'une dispersion aléatoire.
+  placeBumpersStructured(rng, pegs, diff.bumperCount);
 }
 
 // ─── Fallback garanti ────────────────────────────────────────────────────────

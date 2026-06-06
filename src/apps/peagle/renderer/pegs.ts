@@ -94,18 +94,67 @@ function drawNormalPeg(ctx: CanvasRenderingContext2D, p: Peg, r: number, t: PegT
   }
 }
 
-// Bumper : obstacle permanent, légèrement plus gros, qui flashe quand on le
-// percute (p.bump 0..1). Jamais "hit" → toujours dessiné plein.
-function drawBumperPeg(ctx: CanvasRenderingContext2D, p: Peg, r: number, t: PegTheme): void {
+// Bumper : obstacle permanent — beaucoup plus gros et visuellement distinct
+// des pegs normaux. Forme diamant (carré tourné 45°) + croix centrale + glow
+// permanent pulsé même au repos.
+function drawBumperPeg(
+  ctx: CanvasRenderingContext2D,
+  p: Peg, r: number, t: PegTheme,
+  animClock: number,
+): void {
   const fill = p.bump > 0.4 ? (t.bumperHi ?? "#fff0a0") : (t.bumper ?? "#ffcc22");
   const hi = t.bumperHi ?? "#fff0a0";
   const dark = t.bumperDark ?? "#aa6600";
   const glow = t.bumperGlow ?? "#ffee66";
-  pixelSquare(ctx, p.x, p.y, r * 1.18, fill, hi, dark, glow, 5 + p.bump * 18);
-  // Plot central (cible du bumper)
+
+  // Glow pulsé même au repos (idle) — clairement différent d'un peg normal.
+  const idlePulse = (Math.sin(animClock * 2.8 + p.x * 0.05) * 0.5 + 0.5); // 0..1
+  const glowBlur = p.bump > 0 ? 8 + p.bump * 28 : 5 + idlePulse * 7;
+
+  const br = r * 1.5; // bumper rayon — nettement plus gros qu'un peg normal
   const cx = Math.round(p.x), cy = Math.round(p.y);
-  ctx.fillStyle = p.bump > 0.3 ? "#ffffff" : dark;
-  ctx.fillRect(cx - 1, cy - 1, 2, 2);
+
+  // ── Forme diamant : carré tourné 45° ──
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(Math.PI / 4);
+
+  // Glow externe
+  const s = Math.round(br * 2);
+  const hx = Math.round(-br), hy = Math.round(-br);
+  const g1 = Math.ceil(glowBlur * 0.3) | 0;
+  const g2 = Math.ceil(glowBlur * 0.6) | 0;
+  const g3 = Math.ceil(glowBlur) | 0;
+  ctx.fillStyle = glow;
+  ctx.globalAlpha = 0.30; ctx.fillRect(hx - g1, hy - g1, s + g1 * 2, s + g1 * 2);
+  ctx.globalAlpha = 0.14; ctx.fillRect(hx - g2, hy - g2, s + g2 * 2, s + g2 * 2);
+  ctx.globalAlpha = 0.07; ctx.fillRect(hx - g3, hy - g3, s + g3 * 2, s + g3 * 2);
+  ctx.globalAlpha = 1;
+
+  // Corps principal
+  ctx.fillStyle = fill;
+  ctx.fillRect(hx, hy, s, s);
+
+  // Bevel raised (Win98 style)
+  ctx.fillStyle = hi;
+  ctx.fillRect(hx, hy, s, 1);     // top
+  ctx.fillRect(hx, hy, 1, s);     // left
+  ctx.fillStyle = dark;
+  ctx.fillRect(hx, hy + s - 1, s, 1); // bottom
+  ctx.fillRect(hx + s - 1, hy, 1, s); // right
+
+  // Reflet coin (pixel-art)
+  ctx.fillStyle = "rgba(255,255,255,0.75)";
+  ctx.fillRect(hx + 1, hy + 1, 2, 1);
+  ctx.fillRect(hx + 1, hy + 1, 1, 2);
+
+  ctx.restore();
+
+  // ── Croix centrale (cible de bumper — style pinball) ──
+  const crossColor = p.bump > 0.3 ? "#ffffff" : dark;
+  ctx.fillStyle = crossColor;
+  ctx.fillRect(cx - 3, cy - 1, 6, 2); // barre horizontale
+  ctx.fillRect(cx - 1, cy - 3, 2, 6); // barre verticale
 }
 
 export function drawPegs(ctx: CanvasRenderingContext2D, s: GameState, inClutch: boolean, clutchIntensity: number, theme: GameTheme): void {
@@ -144,7 +193,7 @@ export function drawPegs(ctx: CanvasRenderingContext2D, s: GameState, inClutch: 
     if (p.popping) ctx.globalAlpha = p.popAlpha;
 
     if (p.kind === "orange") drawOrangePeg(ctx, p, r, inClutch, clutchIntensity, t);
-    else if (p.kind === "bumper") drawBumperPeg(ctx, p, r, t);
+    else if (p.kind === "bumper") drawBumperPeg(ctx, p, r, t, s.animClock);
     else drawNormalPeg(ctx, p, r, t);
 
     if (p.popping) {

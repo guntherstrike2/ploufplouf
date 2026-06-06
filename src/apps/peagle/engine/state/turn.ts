@@ -27,6 +27,7 @@ export function endOfTurn(s: GameState, events: GameEvent[]): void {
 
   s.pegs = s.pegs.filter(p => !p.hit);
   s.combo = 0;
+  s.bumperChainShot = 0;
   s.scoreMultiplier = 1;
 
   const remainingOrange = s.pegs.filter(isTarget).length;
