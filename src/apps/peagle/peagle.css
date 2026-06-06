@@ -1376,17 +1376,42 @@
   animation: pg-confetti-drift 5s linear infinite;
 }
 
-/* ─── Quip aigle luxueux (VT323) ─────────────────────────────────────────────── */
-.pg-quip-lux {
+/* ─── Bulle de BD de l'aigle ─────────────────────────────────────────────── */
+.pg-eagle-bubble {
+  position: relative;
+  background: #f5f0d8;
+  border: 2px solid #222;
+  border-radius: 10px;
+  padding: 9px 16px;
   font-family: var(--pg-font-ui);
-  font-size: 17px;
-  font-style: italic;
-  color: #7a9a60;
+  font-size: 15px;
+  color: #1a1a1a;
   text-align: center;
-  line-height: 1.45;
-  padding: 8px 14px;
-  border-left: 2px solid #1e3812;
-  border-right: 2px solid #1e3812;
+  line-height: 1.4;
+  margin-top: 8px;
+}
+
+/* Queue pointant vers le haut (vers l'aigle) */
+.pg-eagle-bubble::before {
+  content: '';
+  position: absolute;
+  top: -11px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 9px solid transparent;
+  border-right: 9px solid transparent;
+  border-bottom: 11px solid #222;
+}
+
+.pg-eagle-bubble::after {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-bottom: 9px solid #f5f0d8;
 }
 
 /* ─── Upgrade cards luxueuses ────────────────────────────────────────────────── */
