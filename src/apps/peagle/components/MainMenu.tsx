@@ -9,6 +9,8 @@ import { TitleCanvas } from "./TitleCanvas";
 import type { BeatBands } from "../hooks/useMusic";
 import { parseSeed } from "../engine/roguelite";
 import { PG } from "../styles";
+import { PatchNotes } from "./PatchNotes";
+import { PEAGLE_CURRENT_VERSION } from "../peagle-versions";
 
 interface MainMenuProps {
   isAdmin: boolean;
@@ -37,6 +39,7 @@ export function MainMenu({
   // Si skipIntro, le menu est directement visible (l'overlay de transition couvre le reveal)
   const [showMenu, setShowMenu] = useState(skipIntro);
   const [showSettings, setShowSettings] = useState(false);
+  const [showPatchNotes, setShowPatchNotes] = useState(false);
   const [seedInput, setSeedInput] = useState("");
   const [seedError, setSeedError] = useState(false);
   const { playMenuClick, playMenuHover, playMenuReveal, playTitleImpact, playEagleCryShort, playEagleCryLong } = usePeagleSounds();
@@ -101,6 +104,10 @@ export function MainMenu({
             onDevLaunch(cfg);
           }}
         />
+      )}
+
+      {showPatchNotes && (
+        <PatchNotes onClose={() => setShowPatchNotes(false)} />
       )}
 
       {/* Panneau Réglages — overlay pixel centré. */}
@@ -255,14 +262,20 @@ export function MainMenu({
         </button>
       </div>
 
-      {/* Bannière version — épinglée en bas de la fenêtre (footer). */}
+      {/* Bannière version — épinglée en bas, cliquable pour les notes de maj. */}
       {showMenu && (
-        <div className="pg-menu-footer">
-          <div className="pg-welcome-banner">
-            Thanks for testing
+        <div className="pg-menu-footer" style={{ pointerEvents: "auto" }}>
+          <button
+            className="pg-welcome-banner"
+            style={{ cursor: "pointer", border: "none", display: "block" }}
+            onPointerEnter={playMenuHover}
+            onClick={() => { playMenuClick(); setShowPatchNotes(true); }}
+            title="Voir les notes de mise à jour"
+          >
+            NOTES DE MAJ
             <br />
-            <span className="pg-alpha">V0.1.0(alpha)</span>
-          </div>
+            <span className="pg-alpha">V{PEAGLE_CURRENT_VERSION}</span>
+          </button>
         </div>
       )}
     </div>
