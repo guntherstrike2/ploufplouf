@@ -1,6 +1,6 @@
 import {
-  PEG_R, BUCKET_H, BUCKET_W, WALL_BOUNCE, GRAVITY, FRICTION,
-  SLOW_MO_DURATION, W, H,
+  PEG_R, BUCKET_W, WALL_BOUNCE, GRAVITY, FRICTION,
+  SLOW_MO_DURATION, W, H, BUCKET_CATCH_HALF_W, BUCKET_RIM_Y,
 } from "../constants";
 import { BALANCE } from "../balance";
 import type { GameState, Ball } from "../types";
@@ -184,9 +184,13 @@ export function processBallPhysics(
     }
   }
 
-  // Rattrapage par le panier
-  const bucketTop = H - BUCKET_H - 4;
-  if (b.y + s.effectiveBallR >= bucketTop && b.x >= s.bucket && b.x <= s.bucket + BUCKET_W) {
+  // Rattrapage par le panier — la hitbox épouse le nid dessiné (renderer/ui.ts) :
+  // largeur du rebord tressé (BUCKET_CATCH_HALF_W) et ligne de capture au niveau
+  // de l'ouverture visible (BUCKET_RIM_Y), au lieu du rectangle BUCKET_W étroit et
+  // trop bas d'avant.
+  const bucketTop = BUCKET_RIM_Y;
+  const bucketCx = s.bucket + BUCKET_W / 2;
+  if (b.y + s.effectiveBallR >= bucketTop && Math.abs(b.x - bucketCx) <= BUCKET_CATCH_HALF_W) {
     s.bucketFlash = 1;
     b.active = false;
 

@@ -1,4 +1,4 @@
-import { TRAUMA_DECAY, MAX_SHAKE, H, BUCKET_H } from "../constants";
+import { TRAUMA_DECAY, MAX_SHAKE, H, BUCKET_RIM_Y } from "../constants";
 import type { GameState } from "../types";
 import type { GameEvent } from "../events";
 import { updateBucket } from "./bucket";
@@ -66,7 +66,7 @@ export function tick(s: GameState): TickResult {
   // SURTOUT à l'approche du panier → le rattrapage / jackpot tombe pile au plus
   // lent. On prend le plus lent entre le burst de cassure et la proximité.
   if (s.orangeLeft === 0 && s.ball?.active) {
-    const bucketTop = H - BUCKET_H - 4;
+    const bucketTop = BUCKET_RIM_Y;
     const start = H * 0.5;
     const approach = Math.max(0, Math.min(1, (s.ball.y - start) / (bucketTop - start)));
     const eased = approach * approach * approach; // ne mord vraiment que tout près du panier
