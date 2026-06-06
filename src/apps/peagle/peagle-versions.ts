@@ -1,4 +1,4 @@
-export const PEAGLE_CURRENT_VERSION = "0.2.0";
+export const PEAGLE_CURRENT_VERSION = "0.3.0";
 
 export interface PeagleRelease {
   version: string;
@@ -7,6 +7,17 @@ export interface PeagleRelease {
 }
 
 export const PEAGLE_VERSIONS: PeagleRelease[] = [
+  {
+    version: "0.3.0",
+    releasedAt: "2026-06-06",
+    notes: [
+      "Rework complet des textes flottants : plus diegésiques et lisibles",
+      "Exclamations (JUICY!, TASTY!…) : pixel burst + dérive latérale organique",
+      "Box combo → badge banner sombre avec bandes colorées",
+      "Multiplicateur ×N affiché en doré dans les scores",
+      "Overlay patch notes in-game depuis le menu principal",
+    ],
+  },
   {
     version: "0.2.0",
     releasedAt: "2026-06-04",
