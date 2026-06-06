@@ -22,7 +22,7 @@ export class AudioPlayer {
   }
 
   /** Démarre la lecture. Si déjà en cours, stoppe avant de relancer. */
-  async play(url: string, options: { loop?: boolean; volume?: number; offset?: number } = {}): Promise<void> {
+  async play(url: string, options: { loop?: boolean; volume?: number; offset?: number; fadeIn?: number } = {}): Promise<void> {
     this.stop();
     const token = ++this.stopToken;
 
@@ -38,7 +38,13 @@ export class AudioPlayer {
 
     const ctx = getContext();
     const gainNode = ctx.createGain();
-    gainNode.gain.value = options.volume ?? 1;
+    const targetVol = options.volume ?? 1;
+    if (options.fadeIn && options.fadeIn > 0) {
+      gainNode.gain.setValueAtTime(0, ctx.currentTime);
+      gainNode.gain.linearRampToValueAtTime(targetVol, ctx.currentTime + options.fadeIn);
+    } else {
+      gainNode.gain.value = targetVol;
+    }
     gainNode.connect(this.channel.gain);
 
     const source = ctx.createBufferSource();

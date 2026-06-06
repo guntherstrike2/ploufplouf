@@ -6,8 +6,10 @@ import { getContext } from "@/lib/audio/engine";
 import { AudioPlayer } from "@/lib/audio/player";
 import { useSoundContext } from "@/lib/contexts/sound-context";
 
-// Survit aux remounts React — permet de killer la source précédente avant d'en créer une nouvelle
-let _player: AudioPlayer | null = null;
+// Deux players alternés pour les vrais crossfades (A fade-out pendant que B fade-in)
+let _playerA: AudioPlayer | null = null;
+let _playerB: AudioPlayer | null = null;
+let _activeSlot: 0 | 1 = 0;
 let _analyser: AnalyserNode | null = null;
 let _freqData: Uint8Array | null = null;
 
@@ -103,9 +105,11 @@ export function useMusic(enabled = false) {
     init();
     const channel = getChannel("peagle-music");
     channel.setVolume(1);
-    _player?.stop();
-    _player = new AudioPlayer(channel);
-    _player.play(MENU_TRACK, { loop: true });
+    _playerA?.stop(); _playerB?.stop();
+    _playerA = new AudioPlayer(channel);
+    _playerB = null;
+    _activeSlot = 0;
+    _playerA.play(MENU_TRACK, { loop: true });
 
     // Tap analyser sur le channel (ne perturbe pas le signal → branché en parallèle)
     _analyser?.disconnect();
@@ -119,8 +123,8 @@ export function useMusic(enabled = false) {
 
     return () => {
       if (crossfadeTimerRef.current !== null) clearTimeout(crossfadeTimerRef.current);
-      _player?.stop();
-      _player = null;
+      _playerA?.stop(); _playerA = null;
+      _playerB?.stop(); _playerB = null;
       _analyser?.disconnect();
       _analyser = null;
       _freqData = null;
@@ -131,15 +135,27 @@ export function useMusic(enabled = false) {
 
   const crossfadeTo = useCallback((track: string, fadeTime = FADE) => {
     if (musicMuted) return;
+    if (crossfadeTimerRef.current !== null) { clearTimeout(crossfadeTimerRef.current); crossfadeTimerRef.current = null; }
+
     const channel = getChannel("peagle-music");
-    channel.fadeOut(fadeTime);
-    if (crossfadeTimerRef.current !== null) clearTimeout(crossfadeTimerRef.current);
+    const nextSlot: 0 | 1 = _activeSlot === 0 ? 1 : 0;
+
+    // Fade out le player actif
+    const outgoing = _activeSlot === 0 ? _playerA : _playerB;
+    outgoing?.fadeTo(0, fadeTime);
+
+    // Démarre le nouveau player en fondu entrant simultané
+    const incoming = new AudioPlayer(channel);
+    if (nextSlot === 0) { _playerA = incoming; } else { _playerB = incoming; }
+    _activeSlot = nextSlot;
+    incoming.play(track, { loop: true, fadeIn: fadeTime });
+
+    // Stoppe l'ancien player une fois le fondu terminé
+    const ref = outgoing;
     crossfadeTimerRef.current = setTimeout(() => {
       crossfadeTimerRef.current = null;
-      channel.setVolume(0);
-      _player?.play(track, { loop: true });
-      channel.fadeIn(fadeTime);
-    }, fadeTime * 1000 + 50);
+      ref?.stop();
+    }, fadeTime * 1000 + 100);
   }, [musicMuted]);
 
   const fadeOutAndRestart  = useCallback(() => crossfadeTo(MENU_TRACK), [crossfadeTo]);
