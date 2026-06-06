@@ -158,9 +158,24 @@ export function useMusic(enabled = false) {
     }, fadeTime * 1000 + 100);
   }, [musicMuted]);
 
-  const fadeOutAndRestart  = useCallback(() => crossfadeTo(MENU_TRACK), [crossfadeTo]);
-  const fadeToGameTrack    = useCallback(() => crossfadeTo(GAME_TRACK), [crossfadeTo]);
-  const fadeToClutchTrack   = useCallback(() => crossfadeTo(CLUTCH_TRACK, CLUTCH_FADE), [crossfadeTo]);
+  const fadeOutAndRestart = useCallback(() => crossfadeTo(MENU_TRACK), [crossfadeTo]);
+  const fadeToGameTrack   = useCallback(() => crossfadeTo(GAME_TRACK), [crossfadeTo]);
+
+  // Cut brutal pour le game over — micro-ramp 30ms anti-crack, imperceptible
+  const cutToGameOverTrack = useCallback(() => {
+    if (musicMuted) return;
+    if (crossfadeTimerRef.current !== null) { clearTimeout(crossfadeTimerRef.current); crossfadeTimerRef.current = null; }
+    const channel = getChannel("peagle-music");
+    const nextSlot: 0 | 1 = _activeSlot === 0 ? 1 : 0;
+    const outgoing = _activeSlot === 0 ? _playerA : _playerB;
+    outgoing?.fadeTo(0, 0.03);
+    const ref = outgoing;
+    crossfadeTimerRef.current = setTimeout(() => { crossfadeTimerRef.current = null; ref?.stop(); }, 80);
+    const incoming = new AudioPlayer(channel);
+    if (nextSlot === 0) { _playerA = incoming; } else { _playerB = incoming; }
+    _activeSlot = nextSlot;
+    incoming.play(CLUTCH_TRACK, { loop: true });
+  }, [musicMuted]);
 
   const toggleMusic = useCallback(() => {
     setMusicMuted(prev => {
@@ -170,5 +185,5 @@ export function useMusic(enabled = false) {
     });
   }, []);
 
-  return { musicMuted, toggleMusic, fadeOutAndRestart, fadeToGameTrack, fadeToClutchTrack, getBeat: getMenuBeat };
+  return { musicMuted, toggleMusic, fadeOutAndRestart, fadeToGameTrack, cutToGameOverTrack, getBeat: getMenuBeat };
 }
