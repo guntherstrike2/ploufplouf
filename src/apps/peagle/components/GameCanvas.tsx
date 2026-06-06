@@ -290,7 +290,6 @@ function GameOverRanking({
 interface GameCanvasProps {
   canvasRef: RefObject<HTMLCanvasElement | null>;
   ui: UiState;
-  bestScore: number;
   currentSeed: number;
   leaderboard: LeaderboardEntry[];
   lbLoading: boolean;
@@ -316,7 +315,6 @@ interface GameCanvasProps {
 function GameCanvasComponent({
   canvasRef,
   ui,
-  bestScore,
   currentSeed,
   leaderboard,
   lbLoading,
@@ -372,7 +370,7 @@ function GameCanvasComponent({
   const isLost = ui.phase === "lost";
   const isWon = ui.phase === "won";
   const isGameOver = isLost || isWon;
-  const isRecord = ui.score > 0 && ui.score >= bestScore;
+  const isRecord = ui.isNewRecord;
   const displayUser = user?.name ?? user?.email ?? null;
   /* eslint-disable react-hooks/purity */
   const quip = useMemo(() => isWon

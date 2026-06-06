@@ -78,8 +78,8 @@ export const PEG_KINDS: Record<PegKind, PegKindDef> = {
   bumper: {
     destructible: false,
     isTarget: false,
-    bounceMult: 1.6,
-    impulse: 8.0,
+    bounceMult: 1.3,
+    impulse: 5.0,
     baseScore: 75,
     freezeFrames: 7,
     trauma: 0.22,

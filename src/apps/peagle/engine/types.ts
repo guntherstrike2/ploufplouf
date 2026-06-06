@@ -205,6 +205,8 @@ export interface UiState {
   stars: number;
   /** Fièvre/nuit : peu d'œufs restants à lancer (= s.balls <= effectiveClutchThreshold). */
   clutch: boolean;
+  /** Vrai uniquement si le score de cette partie dépasse strictement l'ancien record. */
+  isNewRecord: boolean;
 }
 
 export interface LeaderboardEntry {

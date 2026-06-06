@@ -40,7 +40,7 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
   const gameVisibleRef = useRef(false);
   const [ui, setUi] = useState<UiState>({
     balls: 12, score: 0, orangeLeft: 0, orangeTotal: 0,
-    phase: "aim", message: "", combo: 0, level: 1, stars: 0, clutch: false,
+    phase: "aim", message: "", combo: 0, level: 1, stars: 0, clutch: false, isNewRecord: false,
   });
   const [currentSeed, setCurrentSeed] = useState<number>(EMPTY_RUN.seed);
 
@@ -362,7 +362,6 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
               <GameCanvas
                 canvasRef={canvasRef}
                 ui={ui}
-                bestScore={bestScore}
                 currentSeed={currentSeed}
                 leaderboard={leaderboard}
                 lbLoading={lbLoading}

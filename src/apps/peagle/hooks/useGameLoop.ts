@@ -81,6 +81,7 @@ export function useGameLoop({
   const animRef = useRef<number>(0);
   const orangeTotalRef = useRef(0);
   const devNewRecordRef = useRef(false);
+  const confirmedNewRecordRef = useRef(false);
 
   // Refs stables pour les callbacks — mutées en useLayoutEffect pour rester à jour
   const onScoreSubmitRef = useRef(onScoreSubmit);
@@ -141,6 +142,7 @@ export function useGameLoop({
         onScoreSubmitRef.current(ev.score, false);
         break;
       case "best-score":
+        confirmedNewRecordRef.current = ev.score > bestScoreRef.current;
         onBestScore(ev.score);
         break;
       case "score-submit":
@@ -168,6 +170,7 @@ export function useGameLoop({
       level: s.level,
       stars: Math.floor(s.score / 10000),
       clutch: isClutchActive(s),
+      isNewRecord: confirmedNewRecordRef.current,
     });
   }, [onUiSync]);
 
@@ -196,6 +199,7 @@ export function useGameLoop({
     onOrangeTotalChange(orangeTotalRef.current);
     stateRef.current = newState;
     devNewRecordRef.current = false;
+    confirmedNewRecordRef.current = false;
     syncUI();
   }, [syncUI, onOrangeTotalChange, runStateRef, devConfigRef]);
 
@@ -356,7 +360,7 @@ export function useGameLoop({
           theme: resolveTheme(),
           showHitboxes: devConfigRef.current?.showHitboxes ?? false,
           orangeTotal: orangeTotalRef.current,
-          isNewRecord: devNewRecordRef.current || (s.phase === "won" && s.score > 0 && s.score >= bestScoreRef.current),
+          isNewRecord: devNewRecordRef.current || confirmedNewRecordRef.current,
         });
         animRef.current = requestAnimationFrame(frame);
         return;
