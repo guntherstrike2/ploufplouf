@@ -66,9 +66,10 @@ export function drawImpactRings(ctx: CanvasRenderingContext2D, s: GameState): vo
   ctx.restore();
 }
 
-// easeOutBack — dépassement élastique : démarre au-delà de 1 puis se cale.
-function easeOutBack(x: number): number {
-  const c1 = 2.4, c3 = c1 + 1;
+// easeOutBack — dépassement élastique paramétrable. c1 contrôle l'amplitude du
+// rebond : 3.0 = doux (22% overshoot), 4.5 = dramatique (44% overshoot).
+function easeOutBack(x: number, c1 = 3.0): number {
+  const c3 = c1 + 1;
   const p = x - 1;
   return 1 + c3 * p * p * p + c1 * p * p;
 }
@@ -76,31 +77,58 @@ function easeOutBack(x: number): number {
 export function drawFloatingTexts(ctx: CanvasRenderingContext2D, s: GameState): void {
   for (const t of s.floatingTexts) {
     if (t.y < -20 || t.y > H + 20) continue;
-    const age = 1 - t.life;                       // 0 à l'apparition
-    const lifeRatio = Math.min(1, t.life * 2);    // fondu en fin de vie
+    const age = 1 - t.life;
+    const lifeRatio = Math.min(1, t.life * 2);
     const fontSize = t.fontSize ?? (t.combo ? 13 : 11);
 
-    // Entrée élastique : pop avec dépassement (plus marqué pour les exclamations)
-    const appear = Math.min(1, age / (t.exclaim ? 0.24 : 0.18));
-    const eb = easeOutBack(appear);
+    // Overshoot calibré par type : exclaim = dramatique, combo = moyen, score = doux.
+    const appearDur = t.exclaim ? 0.24 : 0.18;
+    const appear = Math.min(1, age / appearDur);
+    const c1 = t.exclaim ? 4.5 : t.combo ? 3.5 : 3.0;
+    const eb = easeOutBack(appear, c1);
+
+    // Squash & stretch : eb clamped → pas de rebond sur les axes, seulement sur popScale.
+    // Spawn = large+court (encre qui claque), settle = normal, overshoot sur la scale globale.
+    const ebC = Math.min(1, eb);
+    const sqFac = 1 - ebC;                              // 1 au spawn → 0 quand calé
+    const scaleX = 1 + sqFac * (t.exclaim ? 0.15 : 0.22);
+    const scaleY = 1 - sqFac * (t.exclaim ? 0.18 : 0.27);
+
     let popScale = t.exclaim ? 0.35 + eb * 0.78 : 0.6 + eb * 0.45;
+
+    // Micro-rebond amorti après le pop initial — oscillation rapide qui s'estompe en ~0.3s.
+    const settleAge = Math.max(0, age - appearDur);
+    popScale *= 1 + Math.sin(settleAge * 32) * 0.055 * Math.exp(-settleAge * 14);
 
     ctx.save();
     ctx.globalAlpha = lifeRatio;
     ctx.translate(t.x, t.y);
 
     if (t.exclaim) {
-      // Inclinaison + petit battement vivant tant que le texte est jeune
-      const wobble = Math.sin(age * 16 + (t.spin ?? 0) * 3) * 0.05 * t.life;
+      // Inclinaison + battement cardiaque — amplitude renforcée
+      const wobble = Math.sin(age * 18 + (t.spin ?? 0) * 3) * 0.07 * t.life;
       ctx.rotate((t.spin ?? 0) * 0.05 + wobble);
-      popScale *= 1 + Math.sin(age * 20) * 0.05 * t.life;
+      popScale *= 1 + Math.sin(age * 22) * 0.065 * t.life;
     }
 
-    ctx.scale(popScale, popScale);
+    ctx.scale(popScale * scaleX, popScale * scaleY);
     ctx.font = `bold ${fontSize}px "MS Sans Serif", monospace`;
     ctx.textAlign = "center";
 
     if (t.exclaim) {
+      // Aberration chromatique : split R/B additif au spawn, fondu sur ~20 frames.
+      const caI = Math.max(0, 1 - age * t.maxLife * 2.5);
+      if (caI > 0.02) {
+        const caOff = Math.round(caI * 3.5);
+        ctx.save();
+        ctx.globalAlpha = lifeRatio * caI * 0.65;
+        ctx.globalCompositeOperation = "lighter";
+        ctx.fillStyle = "#ff1830";
+        ctx.fillText(t.text, -caOff, 0);
+        ctx.fillStyle = "#00e5ff";
+        ctx.fillText(t.text, caOff, 0);
+        ctx.restore();
+      }
       drawExclaimText(ctx, t.text, t.color, fontSize, lifeRatio);
     } else if (t.combo && fontSize >= 13) {
       const tw = ctx.measureText(t.text).width;
@@ -110,7 +138,7 @@ export function drawFloatingTexts(ctx: CanvasRenderingContext2D, s: GameState): 
       const bw = tw + ph * 2;
       const bh = fontSize + pv * 2;
 
-      ctx.fillStyle = "rgba(0,0,0,0.35)";
+      ctx.fillStyle = "rgba(0,0,0,0.48)";
       ctx.fillRect(bx + 2, by + 2, bw, bh);
       ctx.fillStyle = FACE;
       ctx.fillRect(bx, by, bw, bh);
@@ -124,8 +152,13 @@ export function drawFloatingTexts(ctx: CanvasRenderingContext2D, s: GameState): 
       ctx.fillStyle = t.color;
       ctx.fillText(t.text, 0, 0);
     } else {
-      ctx.fillStyle = "rgba(0,0,0,0.55)";
-      ctx.fillText(t.text, 1, 1);
+      // Contour pixel 8 directions : lisible sur n'importe quel fond, même dense.
+      ctx.fillStyle = "rgba(0,0,0,0.88)";
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+          if (dx || dy) ctx.fillText(t.text, dx, dy);
+        }
+      }
       ctx.fillStyle = t.color;
       ctx.fillText(t.text, 0, 0);
     }
