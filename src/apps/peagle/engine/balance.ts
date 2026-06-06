@@ -22,10 +22,12 @@ export const BALANCE = {
   score: {
     orangeBase: 100,
     normalBase: 10,
-    ballBonus: 1000,    // points par œuf restant en fin de niveau
+    ballBonus: 1000,         // points par œuf restant en fin de niveau
     // JACKPOT : l'œuf retombe dans le panier juste après la dernière proie.
-    jackpotBase: 5000,  // bonus de score = jackpotBase × niveau
-    jackpotBalls: 3,    // œufs bonus offerts par un jackpot
+    jackpotBase: 5000,       // bonus de score = jackpotBase × niveau
+    jackpotBalls: 3,         // œufs bonus offerts par un jackpot
+    // TABLEAU VIDE : tous les pegs destructibles effacés (oranges + bleus).
+    clearBoardBonus: 6000,   // bonus = clearBoardBonus × niveau
   },
   trauma: {
     normalPeg: 0.08,

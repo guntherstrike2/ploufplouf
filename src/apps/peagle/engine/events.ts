@@ -7,6 +7,7 @@ export type SoundId =
   | "peg-clear"                             // pegs effacés fin de tour
   | "level-clear"                           // niveau gagné
   | "jackpot"                               // dernière orange + bucket
+  | "clear-board"                           // tous les pegs destructibles effacés
   | "game-over";                            // plus d'œufs
 
 export type GameEvent =

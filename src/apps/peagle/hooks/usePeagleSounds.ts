@@ -543,6 +543,30 @@ export function usePeagleSounds() {
   // ── Launcher ────────────────────────────────────────────────────────────────
 
   /**
+   * TABLEAU VIDE — tous les pegs détruits, sensation "l'écran explose".
+   * – Whoosh de bruit large + sub boom + accord C-E-G-B étalé + pluie de sparkles
+   */
+  const playClearBoard = useCallback(() => {
+    const r = cd(); if (!r) return;
+    const { ctx, dest } = r;
+    // Sub boom massif
+    tone(ctx, dest, 65, 0.22, "sine", 0.36, 0, 28);
+    // Whoosh large
+    noise(ctx, dest, 0.18, 0.26, 900, 0, 0.8);
+    noise(ctx, dest, 0.10, 0.16, 2400, 0.04, 1.2);
+    // Accord étalé C-E-G-B-C' (pentatonique lumieux)
+    ([523, 659, 784, 988, 1047] as const).forEach((f, i) =>
+      detuned(ctx, dest, f, 10, 0.70, "sine", 0.13, 0.05 + i * 0.05),
+    );
+    fm(ctx, dest, 1047, 2, 0.9, 0.70, 0.15, 0.25);
+    // Pluie de sparkles aiguës (4 vagues décalées)
+    ([1568, 1976, 2637, 3136] as const).forEach((f, i) =>
+      detuned(ctx, dest, f, 8, 0.18, "sine", 0.08, 0.38 + i * 0.07),
+    );
+    noise(ctx, dest, 0.09, 0.08, 3000, 0.42, 2.2);
+  }, [cd]);
+
+  /**
    * Saisie de l'aigle — froissement de plumes avec ton doux.
    */
   const playGrab = useCallback(() => {
@@ -559,6 +583,7 @@ export function usePeagleSounds() {
     playWallBounce,
     playBucketCatch,
     playJackpot,
+    playClearBoard,
     playLevelClear,
     playPegClear,
     playGameOver,

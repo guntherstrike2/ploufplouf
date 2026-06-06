@@ -94,7 +94,7 @@ export function useGameLoop({
 
   const {
     playPegHit, playOrangePegHit, playBumperHit,
-    playWallBounce, playBucketCatch, playJackpot,
+    playWallBounce, playBucketCatch, playJackpot, playClearBoard,
     playLevelClear, playPegClear, playGameOver,
     playGrab, playFirework, playEagleCryLong,
   } = usePeagleSounds();
@@ -121,8 +121,9 @@ export function useGameLoop({
           case "bumper-hit":  playBumperHit(); break;
           case "wall-bounce": playWallBounce(); break;
           case "victory":     playBucketCatch(); break;
-          case "jackpot":     playJackpot(); break;
-          case "level-clear": playLevelClear(); break;
+          case "jackpot":      playJackpot(); break;
+          case "clear-board":  playClearBoard(); break;
+          case "level-clear":  playLevelClear(); break;
           case "peg-clear":   playPegClear(); break;
           case "game-over":   playEagleCryLong(0.55, 0.62); break; // cri grave, dégoûté — stinger déclenché via ui.phase
           // legacy fallbacks
@@ -148,7 +149,7 @@ export function useGameLoop({
     }
   }, [
     playPegHit, playOrangePegHit, playBumperHit,
-    playWallBounce, playBucketCatch, playJackpot,
+    playWallBounce, playBucketCatch, playJackpot, playClearBoard,
     playLevelClear, playPegClear, playGameOver,
     playEagleCryLong, onBestScore,
   ]);
