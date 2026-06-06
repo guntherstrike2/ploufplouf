@@ -112,6 +112,12 @@ export function processBallPhysics(
 
       s.combo += 1;
 
+      // Mémorise l'impact pour piloter l'expression de l'aigle (face.ts) : un hit
+      // sur cible orange déclenche la tête « proie ! » (yeux étoile), un peg normal
+      // le pop standard. Réinitialise aussi le compteur « vol dans le vide ».
+      s.lastHitClock = s.animClock;
+      s.lastHitWasOrange = def.isTarget;
+
       // Score : base × multiplicateur de combo
       const comboMult = Math.max(1, Math.floor(s.combo / BALANCE.combo.interval));
       const totalMult = comboMult * s.scoreMultiplier;

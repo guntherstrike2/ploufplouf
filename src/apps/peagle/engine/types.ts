@@ -166,6 +166,14 @@ export interface GameState {
   // animClock au moment où la phase "aim" a commencé — pour calculer l'inactivité (sleepy face).
   aimStartClock: number;
 
+  // Réactions de la tête d'aigle pendant le tir (pilotent les expressions de face.ts) :
+  // animClock du dernier peg touché, sa nature (orange = proie), le moment où l'œuf a
+  // été lancé (détection « vol dans le vide »), et le moment d'un tour totalement raté.
+  lastHitClock: number;        // -999 = aucun peg touché de la partie
+  lastHitWasOrange: boolean;   // le dernier peg touché était-il une cible orange ?
+  fireStartClock: number;      // animClock au lancer de l'œuf en cours
+  whiffAt: number;             // animClock d'un tour fini sans toucher un seul peg (0 = aucun)
+
   // Seed used to generate the procedural forest background (per run, derived from runState.seed)
   forestSeed: number;
 

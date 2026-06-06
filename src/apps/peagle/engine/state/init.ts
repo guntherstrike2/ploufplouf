@@ -100,6 +100,11 @@ export function makeInitialState(
     lastTurnHitCount: -1,
     aimStartClock: 0,
 
+    lastHitClock: -999,
+    lastHitWasOrange: false,
+    fireStartClock: 0,
+    whiffAt: 0,
+
     forestSeed: (runState.seed ^ 0xf0e5741b) >>> 0,
     levelWonAt: 0,
     lostAt: 0,

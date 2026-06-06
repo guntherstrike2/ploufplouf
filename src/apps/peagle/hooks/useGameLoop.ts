@@ -226,6 +226,7 @@ export function useGameLoop({
     s.ball = { x: s.launcherX, y: LAUNCHER_Y, vx: Math.cos(angle) * LAUNCH_SPEED, vy: Math.sin(angle) * LAUNCH_SPEED, active: true, trail: [], trailHead: 0, squash: 0 };
     s.balls -= 1;
     s.turnScoreStart = s.score;
+    s.fireStartClock = s.animClock;   // base du timer « vol dans le vide » (face.ts)
     s.phase = "firing";
     syncUI();
   }, [syncUI]);

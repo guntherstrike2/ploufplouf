@@ -11,6 +11,11 @@ export function endOfTurn(s: GameState, events: GameEvent[]): void {
   // s'effacer silencieusement. C'est LE moment « pop » satisfaisant.
   const cleared = s.pegs.filter(p => p.hit);
   s.lastTurnHitCount = cleared.length;
+
+  // Tour totalement raté (œuf perdu sans toucher un seul peg) → cri agacé de
+  // l'aigle pendant ~1s (face.ts lit whiffAt). On exclut les fins de partie où
+  // le cri de défaite/victoire prime déjà.
+  if (cleared.length === 0) s.whiffAt = s.animClock;
   for (const p of cleared) {
     const orange = p.kind === "orange";
     spawnParticles(s, p.x, p.y, orange, orange ? 12 : 7);

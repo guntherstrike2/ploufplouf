@@ -1,5 +1,6 @@
 import type { GameState } from "../engine/types";
 import { isClutchActive } from "../engine/clutch";
+import { W } from "../engine/constants";
 
 // ─── Mascotte façon DOOM — tête d'aigle de face réactive ──────────────────────
 // Partagée entre le HUD (top-left), l'aigle lanceur et l'écran-titre.
@@ -42,6 +43,12 @@ export interface FaceContext {
   oneBall: boolean;     // 1 seul œuf restant (larmes)
   screech: number;      // 0..1 cri en cours → force le bec grand ouvert
   lost: boolean;        // game over → tête dégoûtée (sourcils féroces + paupières lourdes)
+  firing: boolean;      // œuf en vol → l'aigle suit la trajectoire du regard
+  ballNx: number;       // -1..1 position horizontale de l'œuf (suivi des yeux)
+  voidTime: number;     // secondes de vol sans toucher de peg (anticipation inquiète)
+  orangeJoy: number;    // 0..1 jubilation décroissante après une cible orange touchée
+  whiff: number;        // 0..1 dépit décroissant après un tour totalement raté
+  whiffVariant: number; // graine stable d'un raté → choisit la tête (blasé/agacé/dépité/dédaigneux)
 }
 
 export function gameFaceCtx(s: GameState): FaceContext {
@@ -60,6 +67,20 @@ export function gameFaceCtx(s: GameState): FaceContext {
     }
   }
 
+  // Réactions de tir : suivi de l'œuf du regard, jubilation « proie ! » sur orange,
+  // anticipation quand l'œuf file dans le vide, dépit après un tour raté.
+  const firing = s.phase === "firing" && !!s.ball?.active;
+  const ballNx = s.ball ? Math.max(-1, Math.min(1, (s.ball.x - W / 2) / (W / 2))) : 0;
+  // Temps écoulé depuis le dernier contact (ou depuis le lancer) tant que l'œuf vole.
+  const voidTime = firing
+    ? Math.min(s.animClock - s.lastHitClock, s.animClock - s.fireStartClock)
+    : 0;
+  const orangeJoy = s.lastHitWasOrange ? Math.max(0, 1 - (s.animClock - s.lastHitClock) / 0.5) : 0;
+  const whiff = s.whiffAt > 0 ? Math.max(0, 1 - (s.animClock - s.whiffAt) / 1.1) : 0;
+  // Graine stable par raté (hash de l'instant) → tête tirée au sort, sans clignoter.
+  const h = Math.abs(Math.sin(s.whiffAt * 12.9898 + 78.233) * 43758.5453);
+  const whiffVariant = Math.floor((h - Math.floor(h)) * 4);
+
   return {
     animClock: s.animClock,
     hitMag: s.hitFreezeFrames,
@@ -73,6 +94,12 @@ export function gameFaceCtx(s: GameState): FaceContext {
     oneBall: s.balls === 1,
     screech,
     lost,
+    firing,
+    ballNx,
+    voidTime,
+    orangeJoy,
+    whiff,
+    whiffVariant,
   };
 }
 
@@ -90,6 +117,12 @@ export function titleFaceCtx(elapsed: number, recoil: number, ponte: number): Fa
     oneBall: false,
     screech: 0,
     lost: false,
+    firing: false,
+    ballNx: 0,
+    voidTime: 0,
+    orangeJoy: 0,
+    whiff: 0,
+    whiffVariant: 0,
   };
 }
 
@@ -232,12 +265,35 @@ export function eagleFace(ctx: CanvasRenderingContext2D, cx: number, cy: number,
 // Dérive l'expression depuis un FaceContext (jeu ou écran-titre).
 export function getFaceMood(ctx: FaceContext): FaceMood {
   const { animClock, hitMag, inClutch, lowBalls, zeroPeg, ponte,
-          won, aimIdleSec, bigCombo, oneBall, screech, lost } = ctx;
+          won, aimIdleSec, bigCombo, oneBall, screech, lost,
+          firing, ballNx, voidTime, orangeJoy, whiff, whiffVariant } = ctx;
   const screeching = screech > 0.01;
   const pulse = 0.5 + 0.5 * Math.sin(animClock * 6);
   const justHit = hitMag > 0;
   const burst = hitMag >= 8;
   const worried = lowBalls || zeroPeg;
+
+  // Réactions de tir (face.ts) :
+  //  • joy        → cible orange croquée : « PROIE ! » yeux étoile + bec ravi
+  //  • voidFlight → l'œuf file dans le vide sans rien toucher : anticipation tendue
+  //  • whiffReact → tour totalement raté : cri agacé bref
+  const joy = orangeJoy > 0.2;
+  const voidFlight = firing && voidTime > 0.45 && !justHit && !joy;
+  const whiffReact = whiff > 0.05 && !justHit && !won && !lost;
+
+  // Tête de raté tirée au sort (graine stable par raté) : plutôt blasé/dédaigneux
+  // qu'agacé, pour le côté « bon, peu importe » comique.
+  //   0 blasé total · 1 dépité (soupir) · 2 dédaigneux · 3 agacé
+  type WhiffStyle = { brow: FaceMood["brow"]; eyeRed: boolean; drowsy: boolean; open: number; look: number; pop: number };
+  let whiffStyle: WhiffStyle | null = null;
+  if (whiffReact) {
+    const v = ((whiffVariant % 4) + 4) % 4;
+    whiffStyle =
+      v === 0 ? { brow: "drowsy", eyeRed: false, drowsy: true,  open: 0,            look: 0.9, pop: 0 }
+    : v === 1 ? { brow: "up",     eyeRed: false, drowsy: false, open: 0.28,         look: 0.5, pop: 0 }
+    : v === 2 ? { brow: "smug",   eyeRed: false, drowsy: false, open: 0,            look: 1.0, pop: 0 }
+    :           { brow: "angry",  eyeRed: true,  drowsy: false, open: 0.45 * whiff, look: 0,   pop: whiff * 0.5 };
+  }
 
   // Somnolence : idle en aim > 5s, sans perturbation
   const sleepy = aimIdleSec > 5 && !justHit && !inClutch && !won;
@@ -246,9 +302,9 @@ export function getFaceMood(ctx: FaceContext): FaceMood {
   // Rage : a raté TOUS les pegs le tour dernier, hors situation critique
   const rage = zeroPeg && !lowBalls && !inClutch && !won;
 
-  // Blink / wink — désactivé en fever, victoire, somnolence ou pendant un cri
+  // Blink / wink — désactivé en fever, victoire, somnolence, vol ou pendant un cri
   let blink: FaceMood["blink"] = "none";
-  if (!justHit && !inClutch && !won && !sleepy && !screeching && !lost && ponte < 0.1) {
+  if (!justHit && !inClutch && !won && !sleepy && !screeching && !lost && !firing && ponte < 0.1) {
     const blinkT = animClock % 3.2;
     if (blinkT < 0.12) {
       // Pseudo-aléatoire stable par cycle (fhash-style)
@@ -267,9 +323,12 @@ export function getFaceMood(ctx: FaceContext): FaceMood {
   let brow: FaceMood["brow"];
   if (won)                       brow = "happy";
   else if (lost)                 brow = "angry";   // défaite : sourcils féroces (dégoût)
+  else if (joy)                  brow = "happy";   // cible orange croquée : jubilation
   else if (sleepy)               brow = "drowsy";
+  else if (whiffStyle)           brow = whiffStyle.brow;  // raté : tête tirée au sort
   else if (rage)                 brow = "angry";
   else if (inClutch || burst)    brow = "angry";
+  else if (voidFlight)           brow = "up";      // œuf dans le vide : anticipation
   else if (bigCombo && !worried) brow = "smug";
   else if (worried)              brow = "up";
   else                           brow = "flat";
@@ -279,9 +338,12 @@ export function getFaceMood(ctx: FaceContext): FaceMood {
     screeching            ? screech                   // bec grand ouvert pendant le cri
     : inClutch              ? 0.45 + 0.4 * pulse
     : won                 ? 0.6 + 0.35 * pulse        // cri de victoire
+    : joy                 ? 0.55 + 0.4 * orangeJoy    // cri de joie « proie ! »
     : sleepy && yawnP > 0.2 ? yawnP                   // bâillement progressif
     : ponte > 0.2         ? ponte
     : justHit             ? (burst ? 1 : 0.55)
+    : whiffStyle          ? whiffStyle.open            // raté : selon la tête tirée
+    : voidFlight          ? 0.14                      // bec entrouvert, tendu
     : bigCombo && !worried ? 0.18                     // sourire smug entrouvert
     : 0;
 
@@ -289,16 +351,18 @@ export function getFaceMood(ctx: FaceContext): FaceMood {
     blink,
     open,
     brow,
-    eyeRed: inClutch || rage,
-    wide: (justHit && !sleepy) || screeching,
-    look: justHit || inClutch ? 0
-        : lost                      ? -1.0                 // défaite : détourne le regard, écœuré
+    eyeRed: inClutch || rage || (whiffStyle?.eyeRed ?? false),
+    wide: (justHit && !sleepy) || screeching || joy || voidFlight,
+    look: lost                      ? -1.0                 // défaite : détourne le regard, écœuré
+        : firing                    ? Math.max(-1.4, Math.min(1.4, ballNx * 1.4))  // suit l'œuf en vol
+        : justHit || inClutch       ? 0
+        : whiffStyle                ? whiffStyle.look      // raté : regard tiré au sort
         : sleepy                    ? 0.4                  // regard tombant côté
         : bigCombo && !worried      ? 1.0                  // smug = regard de côté
         : Math.sin(animClock * 0.6) * 1.2,
-    pop: Math.min(1, hitMag / 9),
-    starEyes: won,
+    pop: Math.max(Math.min(1, hitMag / 9), whiffStyle?.pop ?? 0),  // recul à l'impact / au raté agacé
+    starEyes: won || joy,                                 // yeux étoile aussi sur cible orange
     tears: oneBall && !won,
-    drowsyEyes: sleepy || lost,                            // paupières lourdes = mine dégoûtée
+    drowsyEyes: sleepy || lost || (whiffStyle?.drowsy ?? false),   // paupières lourdes = blasé / dégoûté
   };
 }
