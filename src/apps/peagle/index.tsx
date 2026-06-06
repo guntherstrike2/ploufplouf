@@ -147,7 +147,7 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
   }, [bestScoreRef]);
 
   const { musicMuted, toggleMusic, fadeOutAndRestart, fadeToGameTrack, cutToGameOverTrack, getBeat } = useMusic(screen !== "loading");
-  const { playEagleCryLong } = usePeagleSounds();
+  const { playEagleCryLong, playGameOverStinger } = usePeagleSounds();
 
   // Cri de l'aigle à l'entrée en clutch mode — la musique reste inchangée.
   const prevInClutchRef = useRef(false);
@@ -160,14 +160,15 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     prevInClutchRef.current = inClutch;
   }, [inClutch, screen, playEagleCryLong]);
 
-  // Musique fever déclenchée uniquement sur l'écran de game over — cut brutal.
+  // Cut musical + stinger au moment du game over.
   const prevPhaseRef = useRef(ui.phase);
   useEffect(() => {
     if (ui.phase === "lost" && prevPhaseRef.current !== "lost") {
       cutToGameOverTrack();
+      playGameOverStinger();
     }
     prevPhaseRef.current = ui.phase;
-  }, [ui.phase, cutToGameOverTrack]);
+  }, [ui.phase, cutToGameOverTrack, playGameOverStinger]);
 
   const handleUiSync = useCallback((uiState: UiState) => setUi(uiState), []);
   const handleOrangeTotalChange = useCallback((total: number) => setUi(u => ({ ...u, orangeTotal: total })), []);

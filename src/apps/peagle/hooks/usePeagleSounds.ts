@@ -385,6 +385,7 @@ export function usePeagleSounds() {
 
   /**
    * Game over — descente mélancolique avec saturation légère.
+   * Utilisé pour les événements secondaires (ex : "delete").
    */
   const playGameOver = useCallback(() => {
     const r = cd(); if (!r) return;
@@ -392,6 +393,34 @@ export function usePeagleSounds() {
     distortedTone(ctx, dest, 440, 0.40, 0.10, 6, 0, 200);
     tone(ctx, dest, 220, 0.40, "sine", 0.09, 0.10, 110);
     noise(ctx, dest, 0.08, 0.05, 330, 0.05, 0.6);
+  }, [cd]);
+
+  /**
+   * Stinger game over classique : impact + 3 stabs mineurs descendants + note finale.
+   * Durée ~1.7s — "wah wah wah waaah".
+   */
+  const playGameOverStinger = useCallback(() => {
+    const r = cd(); if (!r) return;
+    const { ctx, dest } = r;
+
+    // Impact initial
+    noise(ctx, dest, 0.06, 0.22, 300, 0, 0.45);
+    tone(ctx, dest, 55, 0.12, "sine", 0.30, 0, 28);
+    distortedTone(ctx, dest, 160, 0.07, 0.16, 14, 0.005, 85);
+
+    // 3 stabs courts descendants — A4 → F#4 → Eb4 (descente mineure)
+    ([440, 370, 311] as const).forEach((freq, i) => {
+      const t = 0.05 + i * 0.18;
+      detuned(ctx, dest, freq, 16, 0.16, "sine", 0.17, t);
+      tone(ctx, dest, freq * 0.5, 0.15, "sine", 0.11, t);
+    });
+
+    // Note finale longue : A3 descendant vers E3
+    const fT = 0.05 + 3 * 0.18;
+    detuned(ctx, dest, 220, 20, 1.1, "sine", 0.20, fT);
+    tone(ctx, dest, 220, 1.1, "sine", 0.16, fT, 165);
+    fm(ctx, dest, 220, 2, 1.5, 1.0, 0.14, fT);
+    tone(ctx, dest, 110, 1.0, "sine", 0.14, fT, 82);
   }, [cd]);
 
   // ── Menus ────────────────────────────────────────────────────────────────────
@@ -533,6 +562,7 @@ export function usePeagleSounds() {
     playLevelClear,
     playPegClear,
     playGameOver,
+    playGameOverStinger,
     playMenuHover,
     playMenuClick,
     playMenuReveal,

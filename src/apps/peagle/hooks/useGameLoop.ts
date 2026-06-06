@@ -124,7 +124,7 @@ export function useGameLoop({
           case "jackpot":     playJackpot(); break;
           case "level-clear": playLevelClear(); break;
           case "peg-clear":   playPegClear(); break;
-          case "game-over":   playGameOver(); playEagleCryLong(0.55, 0.62); break; // cri grave, dégoûté
+          case "game-over":   playEagleCryLong(0.55, 0.62); break; // cri grave, dégoûté — stinger déclenché via ui.phase
           // legacy fallbacks
           case "pop":   playPegClear(); break;
           case "bip":   playWallBounce(); break;
@@ -435,10 +435,8 @@ export function useGameLoop({
   const forceLose = useCallback(() => {
     stateRef.current.phase = "lost";
     stateRef.current.lostAt = stateRef.current.animClock;
-    playGameOver();
-    playEagleCryLong(0.55, 0.62); // cri grave dégoûté, comme un vrai game over
-    syncUI();
-  }, [syncUI, playGameOver, playEagleCryLong]);
+    syncUI(); // déclenche ui.phase → "lost" → stinger + cut musical dans index.tsx
+  }, [syncUI]);
 
   const forceDay = useCallback(() => {
     stateRef.current.duskProgress = 0;
