@@ -149,18 +149,25 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
   const { musicMuted, toggleMusic, fadeOutAndRestart, fadeToGameTrack, fadeToClutchTrack, getBeat } = useMusic(screen !== "loading");
   const { playEagleCryLong } = usePeagleSounds();
 
-  // Transitions musicales fever : détecte l'entrée en fever pour démarrer le fever track,
-  // et revient au game track dès que le fever se termine (pegs orange tous touchés ou niveau perdu).
+  // Cri de l'aigle à l'entrée en clutch mode — la musique reste inchangée.
   const prevInClutchRef = useRef(false);
   const inClutch = screen === "game" && ui.clutch;
   useEffect(() => {
     if (screen !== "game") { prevInClutchRef.current = false; return; }
     if (inClutch && !prevInClutchRef.current) {
-      fadeToClutchTrack();
-      playEagleCryLong(); // cri féroce qui annonce le fever — l'aigle a le bec ouvert
+      playEagleCryLong();
     }
     prevInClutchRef.current = inClutch;
-  }, [inClutch, screen, fadeToClutchTrack, playEagleCryLong]);
+  }, [inClutch, screen, playEagleCryLong]);
+
+  // Musique fever déclenchée uniquement sur l'écran de game over.
+  const prevPhaseRef = useRef(ui.phase);
+  useEffect(() => {
+    if (ui.phase === "lost" && prevPhaseRef.current !== "lost") {
+      fadeToClutchTrack();
+    }
+    prevPhaseRef.current = ui.phase;
+  }, [ui.phase, fadeToClutchTrack]);
 
   const handleUiSync = useCallback((uiState: UiState) => setUi(uiState), []);
   const handleOrangeTotalChange = useCallback((total: number) => setUi(u => ({ ...u, orangeTotal: total })), []);
