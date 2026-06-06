@@ -1,4 +1,4 @@
-import { BALL_R, PEG_R, PEG_BOUNCE, GRAVITY, FRICTION, WALL_BOUNCE, LAUNCH_SPEED, AIM_LINE_STEPS, W, H } from "./constants";
+import { BALL_R, PEG_R, PEG_BOUNCE, GRAVITY, FRICTION, WALL_BOUNCE, LAUNCH_SPEED, AIM_LINE_STEPS, W, H, MAX_BALL_SPEED } from "./constants";
 import type { Peg } from "./types";
 
 /** Collision œuf ↔ peg (cercle/cercle) avec réflexion. */
@@ -34,35 +34,48 @@ export function computeAimLine(
   let vx = Math.cos(angle) * LAUNCH_SPEED;
   let vy = Math.sin(angle) * LAUNCH_SPEED;
 
-  // Même seuil que la physique réelle — pas de fudge factor
   const minDist = ballR + PEG_R;
   const minDistSq = minDist * minDist;
 
   for (let i = 0; i < steps; i++) {
-    x += vx; y += vy;
-    vy += GRAVITY; vx *= FRICTION;
-    if (x - ballR < 0) { vx = Math.abs(vx) * WALL_BOUNCE; x = ballR; }
-    if (x + ballR > W) { vx = -Math.abs(vx) * WALL_BOUNCE; x = W - ballR; }
+    // Même subdivision que la physique réelle pour éviter de rater les pegs à haute vitesse.
+    const speed = Math.sqrt(vx * vx + vy * vy);
+    const substeps = Math.max(1, Math.ceil(speed / (PEG_R * 0.8)));
+    const dt = 1 / substeps;
+    const frictionDt = Math.pow(FRICTION, dt);
 
-    if (y > H + 20) { points.push({ x, y }); break; }
+    for (let sub = 0; sub < substeps; sub++) {
+      x += vx * dt;
+      y += vy * dt;
+      vy += GRAVITY * dt;
+      vx *= frictionDt;
 
-    let pegHit = false;
-    for (const p of pegs) {
-      if (p.hit) continue;
-      const dx = x - p.x, dy = y - p.y;
-      if (dx * dx + dy * dy < minDistSq) {
-        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-        const nx = dx / dist, ny = dy / dist;
-        const dot = vx * nx + vy * ny;
-        if (dot < 0) {
-          // Point de contact sur la surface du peg
-          points.push({ x: p.x + nx * minDist, y: p.y + ny * minDist });
+      if (x - ballR < 0) { vx = Math.abs(vx) * WALL_BOUNCE; x = ballR; }
+      if (x + ballR > W) { vx = -Math.abs(vx) * WALL_BOUNCE; x = W - ballR; }
+
+      if (y > H + 20) { points.push({ x, y }); return points; }
+
+      // Skip pegs détruits ET pegs en cooldown (bumpers transparents pendant recharge).
+      for (const p of pegs) {
+        if (p.hit || p.cooldown > 0) continue;
+        const dx = x - p.x, dy = y - p.y;
+        if (dx * dx + dy * dy < minDistSq) {
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+          const nx = dx / dist, ny = dy / dist;
+          const dot = vx * nx + vy * ny;
+          if (dot < 0) {
+            points.push({ x: p.x + nx * minDist, y: p.y + ny * minDist });
+          }
+          return points;
         }
-        return points;
       }
     }
 
-    if (!pegHit) points.push({ x, y });
+    // Vitesse bornée pour cohérence avec la physique réelle.
+    const spd = Math.sqrt(vx * vx + vy * vy);
+    if (spd > MAX_BALL_SPEED) { const s = MAX_BALL_SPEED / spd; vx *= s; vy *= s; }
+
+    points.push({ x, y });
   }
   return points;
 }

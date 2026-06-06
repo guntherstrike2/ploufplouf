@@ -1,6 +1,6 @@
 import {
   PEG_R, BUCKET_H, BUCKET_W, WALL_BOUNCE, GRAVITY, FRICTION,
-  SLOW_MO_DURATION, W, H,
+  SLOW_MO_DURATION, W, H, MAX_BALL_SPEED,
 } from "../constants";
 import { BALANCE } from "../balance";
 import type { GameState, Ball } from "../types";
@@ -161,6 +161,11 @@ export function processBallPhysics(
         p.scale = 1.5;
       }
 
+      // Plafond de vitesse : les bumpers ajoutent de l'énergie (impulse) et peuvent
+      // faire monter la vitesse indéfiniment entre deux obstacles proches.
+      const spd = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+      if (spd > MAX_BALL_SPEED) { const inv = MAX_BALL_SPEED / spd; b.vx *= inv; b.vy *= inv; }
+
       // Texte de score flottant
       const comboBonus = s.combo >= BALANCE.combo.interval && s.combo % BALANCE.combo.interval === 0;
       const popFontSize = Math.min(18, 11 + Math.floor(totalMult * 1.5));
@@ -184,9 +189,9 @@ export function processBallPhysics(
     }
   }
 
-  // Rattrapage par le panier
+  // Rattrapage par le panier — les deux axes incluent le rayon de la balle.
   const bucketTop = H - BUCKET_H - 4;
-  if (b.y + s.effectiveBallR >= bucketTop && b.x >= s.bucket && b.x <= s.bucket + BUCKET_W) {
+  if (b.y + s.effectiveBallR >= bucketTop && b.x + s.effectiveBallR >= s.bucket && b.x - s.effectiveBallR <= s.bucket + BUCKET_W) {
     s.bucketFlash = 1;
     b.active = false;
 
