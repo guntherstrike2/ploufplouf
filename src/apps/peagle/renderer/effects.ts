@@ -1,5 +1,4 @@
 import { W, H } from "../engine/constants";
-import { FACE, HI, DARK } from "./theme";
 import type { GameState } from "../engine/types";
 import type { GameTheme } from "../engine/game-theme";
 
@@ -105,10 +104,12 @@ export function drawFloatingTexts(ctx: CanvasRenderingContext2D, s: GameState): 
     ctx.translate(t.x, t.y);
 
     if (t.exclaim) {
-      // Inclinaison + battement cardiaque — amplitude renforcée
+      // Inclinaison + battement + dérive latérale organique (flottement dans l'air)
       const wobble = Math.sin(age * 18 + (t.spin ?? 0) * 3) * 0.07 * t.life;
       ctx.rotate((t.spin ?? 0) * 0.05 + wobble);
       popScale *= 1 + Math.sin(age * 22) * 0.065 * t.life;
+      const sway = Math.sin(age * 4.5 + (t.spin ?? 0) * 2.0) * 3.0 * t.life;
+      ctx.translate(sway, 0);
     }
 
     ctx.scale(popScale * scaleX, popScale * scaleY);
@@ -116,39 +117,44 @@ export function drawFloatingTexts(ctx: CanvasRenderingContext2D, s: GameState): 
     ctx.textAlign = "center";
 
     if (t.exclaim) {
-      // Aberration chromatique : split R/B additif au spawn, fondu sur ~20 frames.
-      const caI = Math.max(0, 1 - age * t.maxLife * 2.5);
-      if (caI > 0.02) {
-        const caOff = Math.round(caI * 3.5);
+      // Étoile pixel burst : 8 rayons au spawn (remplace l'aberration chromatique)
+      const burstI = Math.max(0, 1 - age * t.maxLife * 1.8);
+      if (burstI > 0.02) {
         ctx.save();
-        ctx.globalAlpha = lifeRatio * caI * 0.65;
-        ctx.globalCompositeOperation = "lighter";
-        ctx.fillStyle = "#ff1830";
-        ctx.fillText(t.text, -caOff, 0);
-        ctx.fillStyle = "#00e5ff";
-        ctx.fillText(t.text, caOff, 0);
+        ctx.globalAlpha = lifeRatio * burstI * 0.52;
+        ctx.strokeStyle = t.color;
+        ctx.lineWidth = Math.max(1, Math.round(burstI * 2));
+        ctx.lineCap = "square";
+        const r0 = fontSize * 0.22;
+        const r1 = fontSize * (0.8 + burstI * 0.3);
+        for (let i = 0; i < 8; i++) {
+          const a = (i / 8) * Math.PI * 2;
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(a) * r0, Math.sin(a) * r0);
+          ctx.lineTo(Math.cos(a) * r1, Math.sin(a) * r1);
+          ctx.stroke();
+        }
         ctx.restore();
       }
       drawExclaimText(ctx, t.text, t.color, fontSize, lifeRatio);
     } else if (t.combo && fontSize >= 13) {
+      // Badge banner : fond sombre + bandes colorées top/bottom → plus jeu, moins UI
       const tw = ctx.measureText(t.text).width;
-      const ph = 6, pv = 3;
+      const ph = 8, pv = 4;
       const bx = -tw / 2 - ph;
       const by = -fontSize - pv;
       const bw = tw + ph * 2;
       const bh = fontSize + pv * 2;
+      const stripeH = 2;
 
-      ctx.fillStyle = "rgba(0,0,0,0.48)";
-      ctx.fillRect(bx + 2, by + 2, bw, bh);
-      ctx.fillStyle = FACE;
-      ctx.fillRect(bx, by, bw, bh);
-      ctx.fillStyle = HI;
-      ctx.fillRect(bx, by, bw, 1);
-      ctx.fillRect(bx, by, 1, bh);
-      ctx.fillStyle = DARK;
-      ctx.fillRect(bx, by + bh - 1, bw, 1);
-      ctx.fillRect(bx + bw - 1, by, 1, bh);
+      ctx.fillStyle = "rgba(0,0,0,0.75)";
+      ctx.fillRect(bx, by + stripeH, bw, bh - stripeH * 2);
+      ctx.fillStyle = t.color;
+      ctx.fillRect(bx, by, bw, stripeH);
+      ctx.fillRect(bx, by + bh - stripeH, bw, stripeH);
 
+      ctx.fillStyle = "rgba(0,0,0,0.6)";
+      ctx.fillText(t.text, 1, 1);
       ctx.fillStyle = t.color;
       ctx.fillText(t.text, 0, 0);
     } else {
@@ -159,23 +165,38 @@ export function drawFloatingTexts(ctx: CanvasRenderingContext2D, s: GameState): 
           if (dx || dy) ctx.fillText(t.text, dx, dy);
         }
       }
-      ctx.fillStyle = t.color;
-      ctx.fillText(t.text, 0, 0);
+      // Multiplier en doré pour démarquer le ×N du score de base
+      const multAt = t.text.indexOf(" ×");
+      if (multAt >= 0) {
+        const numPart = t.text.slice(0, multAt);
+        const mulPart = t.text.slice(multAt);
+        const totW = ctx.measureText(t.text).width;
+        const numW = ctx.measureText(numPart).width;
+        ctx.textAlign = "left";
+        ctx.fillStyle = t.color;
+        ctx.fillText(numPart, -totW / 2, 0);
+        ctx.fillStyle = "#ffd050";
+        ctx.fillText(mulPart, -totW / 2 + numW, 0);
+        ctx.textAlign = "center";
+      } else {
+        ctx.fillStyle = t.color;
+        ctx.fillText(t.text, 0, 0);
+      }
     }
 
     ctx.restore();
   }
 }
 
-// Exclamation hype : glow additif + contour pixel noir + corps coloré + reflet
-// blanc sur la moitié haute. Le texte respire grâce au pop/wobble de l'appelant.
+// Exclamation hype : glow doux + contour pixel noir + corps coloré + highlight fin.
+// Le pixel burst est rendu par l'appelant avant cet appel.
 function drawExclaimText(
   ctx: CanvasRenderingContext2D, text: string, color: string, fontSize: number, lifeRatio: number,
 ): void {
-  // ① Glow additif derrière (deux passes pour intensifier)
+  // ① Glow additif doux (réduit pour moins de surbrillance — le burst fait le travail)
   ctx.save();
   ctx.globalCompositeOperation = "lighter";
-  ctx.globalAlpha = lifeRatio * 0.32;
+  ctx.globalAlpha = lifeRatio * 0.22;
   ctx.fillStyle = color;
   ctx.fillText(text, 0, 0);
   ctx.fillText(text, 0, 0);
@@ -193,12 +214,12 @@ function drawExclaimText(
   ctx.fillStyle = color;
   ctx.fillText(text, 0, 0);
 
-  // ④ Reflet blanc clippé sur la moitié supérieure
+  // ④ Highlight pixel-art : bande fine sur le tiers supérieur seulement
   ctx.save();
   ctx.beginPath();
-  ctx.rect(-300, -fontSize, 600, fontSize * 0.58);
+  ctx.rect(-300, -fontSize, 600, fontSize * 0.38);
   ctx.clip();
-  ctx.fillStyle = "rgba(255,255,255,0.55)";
+  ctx.fillStyle = "rgba(255,255,255,0.42)";
   ctx.fillText(text, 0, 0);
   ctx.restore();
 }
