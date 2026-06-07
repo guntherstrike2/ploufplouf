@@ -1,6 +1,6 @@
 import {
   PEG_R, BUCKET_W, WALL_BOUNCE, GRAVITY, FRICTION,
-  SLOW_MO_DURATION, W, H, BUCKET_CATCH_HALF_W, BUCKET_RIM_Y,
+  SLOW_MO_DURATION, W, H, HUD_H, BUCKET_CATCH_HALF_W, BUCKET_RIM_Y,
 } from "../constants";
 import { BALANCE } from "../balance";
 import type { GameState, Ball } from "../types";
@@ -10,33 +10,63 @@ import { circleCollide } from "../physics";
 import { spawnParticles, spawnImpactRing, spawnLeafBurst } from "./effects";
 import { spawnBirds } from "./birds";
 
-// ─── Exclamations « hype » à thème aigle / œuf ───────────────────────────────
+// ─── Exclamations « hype » à thème aigle / chasse ────────────────────────────
 // Escalade par paliers de combo : plus la chaîne est longue, plus le mot est
-// gros, coloré et exalté. Mélange de classiques juicy (JUICY!, TASTY!) et de
-// jeux de mots aigle/œuf (ŒUFTASTIQUE!, AIGLE ROYAL!, ENVERGURE!…).
+// gros, coloré et exalté. Lexique resserré autour de l'aigle/rapace/chasse pour
+// coller à la DA — mots courts et claquants, sans ligature Œ (absente de la
+// fonte pixel Press Start 2P).
 const EAGLE_HYPE: readonly (readonly string[])[] = [
-  ["JUICY!", "BEAU VOL!", "PIQUÉ NET!", "MIAM!"],
-  ["TASTY!", "ŒUFTASTIQUE!", "EN PLEIN VOL!", "BEC EN OR!"],
-  ["RAPACE!", "SERRES D'ACIER!", "SUPER VOL!", "ŒUF EN OR!"],
-  ["AIGLE ROYAL!", "ENVERGURE!", "MAJESTUEUX!", "ŒUFTRAGEUX!"],
-  ["PRÉDATEUR!", "FRAPPE AÉRIENNE!", "OVATION!", "ROI DU CIEL!"],
-  ["LÉGENDE AILÉE!", "MAÎTRE DES CIEUX!", "INTOUCHABLE!", "PONTE PARFAITE!"],
+  ["TOUCHÉ!", "BIEN VU!", "JOLI!", "PAF!"],
+  ["EN PLEIN BEC!", "JOLI VOL!", "SERRES!", "CROC!"],
+  ["RAPACE!", "PIQUÉ NET!", "BEC D'OR!", "PRÉDATEUR!"],
+  ["AIGLE ROYAL!", "ENVERGURE!", "MAJESTUEUX!", "FRAPPE AÉRIENNE!"],
+  ["ROI DU CIEL!", "OVATION!", "FUREUR AILÉE!", "DÉCHAÎNÉ!"],
+  ["LÉGENDE!", "INTOUCHABLE!", "MAÎTRE DU CIEL!", "APOTHÉOSE!"],
 ];
 
 const HYPE_COLORS = ["#ffe06a", "#ffb43a", "#ff7a2e", "#ff4d6b", "#d06bff", "#7fe0ff"] as const;
 
-// Expression de combo poussée dans la ZONE HYPE dédiée (pile centrée sous le
-// lanceur), et non plus à côté du peg. Le mot et sa couleur escaladent avec le
-// palier de combo ; le multiplicateur chiffré reste lisible sur le +N près du peg.
-function pushEagleHype(s: GameState, mult: number): void {
+// Expression de combo ancrée À CÔTÉ du peg qui vient d'éclater (x, y), décalée
+// en DIAGONALE vers l'espace libre (loin du bord le plus proche) puis envolée
+// par une légère dérive. Le mot et sa couleur escaladent avec le palier ; le
+// multiplicateur chiffré reste lisible sur le +N près du peg.
+function pushEagleHype(s: GameState, mult: number, x: number, y: number): void {
   const tier = Math.max(0, Math.min(EAGLE_HYPE.length - 1, mult - 1));
   const words = EAGLE_HYPE[tier]!;
+  const fontSize = Math.min(26, 15 + tier * 2);
+
+  // Décalage diagonal : on s'écarte vers le côté qui a le plus de place (le peg
+  // près du bord gauche pousse le texte à droite, et inversement) + vers le haut.
+  const dirX = x < W / 2 ? 1 : -1;
+  let hx = x + dirX * (26 + tier * 2);
+  let hy = y - (22 + tier * 2);
+
+  // Anti-collision : si une hype récente occupe déjà la place, on se décale
+  // encore d'un cran en diagonale pour qu'aucune ne se masque pendant une rafale.
+  for (let pass = 0; pass < 4; pass++) {
+    let moved = false;
+    for (const o of s.hypeTexts) {
+      if (o.life < 0.4) continue;
+      if (Math.abs(o.x - hx) < 70 && Math.abs(o.y - hy) < 22) {
+        hx += dirX * 16; hy -= 20; moved = true;
+      }
+    }
+    if (!moved) break;
+  }
+
+  // Garde le mot dans le cadre (le rendu fait un width-fit pour le reste).
+  hx = Math.max(54, Math.min(W - 54, hx));
+  hy = Math.max(HUD_H + 26, Math.min(H - 60, hy));
+
   s.hypeTexts.push({
+    x: hx, y: hy,
+    vx: dirX * (0.18 + tier * 0.04),
+    vy: -(0.5 + tier * 0.08),
     text: words[Math.floor(s.rng() * words.length)]!,
     life: 1,
-    maxLife: 1.6,
+    maxLife: 1.5,
     color: HYPE_COLORS[tier]!,
-    fontSize: Math.min(28, 16 + tier * 2),
+    fontSize,
     tier,
     spin: (s.rng() - 0.5) * 2,
   });
@@ -211,9 +241,10 @@ export function processBallPhysics(
         textColor, popFontSize,
       );
       if (comboBonus) {
-        // Palier de combo franchi → l'expression hype part dans la zone dédiée
-        // (plus de badge "COMBO ×N" entassé près du peg : le ×N figure sur le +N).
-        pushEagleHype(s, comboMult);
+        // Palier de combo franchi → l'expression hype claque à côté du peg, en
+        // diagonale, et un arpège pixel ascendant récompense la montée en palier.
+        pushEagleHype(s, comboMult, p.x, p.y);
+        events.push({ kind: "sound", id: "combo-tier" });
       }
 
       events.push({ kind: "sound", id: def.sound, x: p.x });
@@ -242,7 +273,7 @@ export function processBallPhysics(
       spawnParticles(s, b.x, bucketTop, true, 28);
       spawnImpactRing(s, b.x, bucketTop, "#ffd700", 1);
       s.floatingTexts.push({ x: W / 2, y: H / 2 - 60, text: "JACKPOT !!!", life: 1, maxLife: 3.5, color: "#ffd700", combo: true, exclaim: true, fontSize: 30, spin: 0 });
-      s.floatingTexts.push({ x: W / 2, y: H / 2 - 24, text: `+${bonus.toLocaleString()}  ·  +${BALANCE.score.jackpotBalls} ŒUFS`, life: 1, maxLife: 3, color: "#ffec80", combo: true, fontSize: 16 });
+      s.floatingTexts.push({ x: W / 2, y: H / 2 - 24, text: `+${bonus.toLocaleString()}  ·  +${BALANCE.score.jackpotBalls} OEUFS`, life: 1, maxLife: 3, color: "#ffec80", combo: true, fontSize: 16 });
       events.push({ kind: "sound", id: "jackpot" });
     } else {
       s.balls += 1;
@@ -264,20 +295,20 @@ export function processBallPhysics(
           s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 32, text: `SÉRIE ×${s.bucketStreak}`, life: 1, maxLife: 2, color: "#ffd700", combo: true, exclaim: true, fontSize: Math.min(26, 16 + s.bucketStreak), spin: (s.rng() - 0.5) * 1.2 });
           s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 14, text: `+${streakBonus.toLocaleString()}`, life: 1, maxLife: 1.8, color: "#ffec80", combo: true, fontSize: 14 });
         } else {
-          s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 14, text: "ŒUF SAUVÉ !", life: 1, maxLife: 1.8, color: "#00ffcc", combo: true, exclaim: true, fontSize: 16, spin: (s.rng() - 0.5) * 1.5 });
+          s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 14, text: "OEUF SAUVÉ !", life: 1, maxLife: 1.8, color: "#00ffcc", combo: true, exclaim: true, fontSize: 16, spin: (s.rng() - 0.5) * 1.5 });
         }
 
         // +1 œuf bonus tous les N rattrapages d'affilée.
         if (s.bucketStreak % BALANCE.bucketStreak.eggEvery === 0) {
           s.balls += 1;
-          s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 50, text: "+1 ŒUF !", life: 1, maxLife: 2, color: "#00ffcc", combo: true, fontSize: 15 });
+          s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 50, text: "+1 OEUF !", life: 1, maxLife: 2, color: "#00ffcc", combo: true, fontSize: 15 });
         }
 
         events.push({ kind: "sound", id: s.bucketStreak >= 2 ? "jackpot" : "victory" });
       } else {
         // Rattrapage direct, sans avoir touché de peg : ne compte pas, casse la série.
         s.bucketStreak = 0;
-        s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 14, text: "ŒUF SAUVÉ !", life: 1, maxLife: 1.8, color: "#00ffcc", combo: true, exclaim: true, fontSize: 16, spin: (s.rng() - 0.5) * 1.5 });
+        s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 14, text: "OEUF SAUVÉ !", life: 1, maxLife: 1.8, color: "#00ffcc", combo: true, exclaim: true, fontSize: 16, spin: (s.rng() - 0.5) * 1.5 });
         events.push({ kind: "sound", id: "victory" });
       }
     }

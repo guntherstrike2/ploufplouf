@@ -29,17 +29,21 @@ export function updateParticles(s: GameState, timeScale: number): void {
   // Plafond dur : garde les 10 textes les plus récents → lisibilité sur gros combos.
   if (ts.length > 10) ts.splice(0, ts.length - 10);
 
-  // Expressions hype (zone dédiée) : ancrées, ne montent pas — elles popent puis
-  // s'estompent sur place. Pile limitée à 3 ; les plus anciennes sont évincées.
+  // Expressions hype (à côté du peg) : popent puis s'envolent en diagonale par
+  // une dérive amortie, et s'estompent. Pile limitée à 4 ; plus anciennes évincées.
   const hs = s.hypeTexts;
   let wh = 0;
   for (let i = 0; i < hs.length; i++) {
     const h = hs[i]!;
+    h.x += h.vx * timeScale;
+    h.y += h.vy * timeScale;
+    h.vy += 0.02 * timeScale;            // gravité douce → l'envol retombe un peu
+    h.vx *= Math.pow(0.94, timeScale);   // freinage horizontal
     h.life -= 0.02 / h.maxLife;
     if (h.life > 0) hs[wh++] = h;
   }
   hs.length = wh;
-  if (hs.length > 3) hs.splice(0, hs.length - 3);
+  if (hs.length > 4) hs.splice(0, hs.length - 4);
 
   const rs = s.impactRings;
   let wr = 0;

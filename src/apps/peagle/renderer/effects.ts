@@ -1,6 +1,7 @@
 import { W, H } from "../engine/constants";
 import type { GameState } from "../engine/types";
 import type { GameTheme } from "../engine/game-theme";
+import { pgDisplayFont, pgUiFont } from "./fonts";
 
 export function drawParticles(ctx: CanvasRenderingContext2D, s: GameState): void {
   const count = s.particles.length;
@@ -73,12 +74,6 @@ function easeOutBack(x: number, c1 = 3.0): number {
   return 1 + c3 * p * p * p + c1 * p * p;
 }
 
-// Zone HYPE dédiée : pile centrée horizontalement, ancrée sous le lanceur et
-// au-dessus du gros des pegs. Le plus récent est en bas (HYPE_ANCHOR_Y), les
-// précédents remontent d'un cran et s'estompent → lisibilité même en plein combo.
-const HYPE_ANCHOR_Y = 168;
-const HYPE_STACK_GAP = 30;
-
 export function drawFloatingTexts(ctx: CanvasRenderingContext2D, s: GameState): void {
   for (const t of s.floatingTexts) {
     if (t.y < -20 || t.y > H + 20) continue;
@@ -97,7 +92,7 @@ export function drawFloatingTexts(ctx: CanvasRenderingContext2D, s: GameState): 
       ctx.globalAlpha = lifeRatio * 0.9;
       ctx.translate(t.x, t.y);
       ctx.scale(popScale, popScale);
-      ctx.font = `bold ${fontSize}px "MS Sans Serif", monospace`;
+      ctx.font = pgUiFont(fontSize + 2); // VT323 lit petit → +2px pour l'aplomb
       ctx.textAlign = "center";
       drawScoreText(ctx, t.text, t.color);
       ctx.restore();
@@ -137,7 +132,7 @@ export function drawFloatingTexts(ctx: CanvasRenderingContext2D, s: GameState): 
     }
 
     ctx.scale(popScale * scaleX, popScale * scaleY);
-    ctx.font = `bold ${fontSize}px "MS Sans Serif", monospace`;
+    ctx.font = t.exclaim ? pgDisplayFont(fontSize) : pgUiFont(fontSize + 2);
     ctx.textAlign = "center";
 
     if (t.exclaim) {
@@ -214,18 +209,17 @@ function drawScoreText(ctx: CanvasRenderingContext2D, text: string, color: strin
   }
 }
 
-// Zone HYPE : pile d'expressions de combo dans un emplacement dédié et stable,
-// hors de la zone des pegs. Réserve tout le « gras » (glow, burst pixel, pop
-// élastique, squash & stretch) à ces mots — c'est l'élément hero de la lisibilité
-// B2. Le plus récent pulse en bas ; les précédents remontent et s'estompent.
+// Expressions de combo dessinées À CÔTÉ du peg éclaté (h.x, h.y), décalées en
+// diagonale puis envolées. Réserve tout le « gras » (glow, burst pixel, pop
+// élastique, squash & stretch) à ces mots — élément hero de la lisibilité. Un
+// width-fit garantit qu'aucun mot ne déborde du cadre quel que soit l'ancrage.
 export function drawHypeTexts(ctx: CanvasRenderingContext2D, s: GameState): void {
   const hs = s.hypeTexts;
   for (let i = 0; i < hs.length; i++) {
     const h = hs[i]!;
-    const depth = hs.length - 1 - i;          // 0 = le plus récent (en bas de pile)
+    const isNewest = i === hs.length - 1;
     const age = 1 - h.life;
     const fade = Math.min(1, h.life * 2.2);
-    const stackFade = depth === 0 ? 1 : 0.55;  // les anciens s'effacent derrière le neuf
 
     // Pop élastique + squash & stretch, même recette dramatique que les exclamations.
     const appearDur = 0.22;
@@ -239,20 +233,24 @@ export function drawHypeTexts(ctx: CanvasRenderingContext2D, s: GameState): void
     const settleAge = Math.max(0, age - appearDur);
     popScale *= 1 + Math.sin(settleAge * 32) * 0.05 * Math.exp(-settleAge * 14);
 
-    const y = HYPE_ANCHOR_Y - depth * HYPE_STACK_GAP - (1 - h.life) * 4;
     const wobble = Math.sin(age * 16 + h.spin * 3) * 0.05 * h.life;
 
     ctx.save();
-    ctx.globalAlpha = fade * stackFade;
-    ctx.translate(W / 2, y);
-    ctx.rotate(h.spin * 0.04 + wobble);
-    ctx.scale(popScale * scaleX, popScale * scaleY);
-    ctx.font = `bold ${h.fontSize}px "MS Sans Serif", monospace`;
+    ctx.globalAlpha = fade;
+    ctx.translate(h.x, h.y);
+    ctx.rotate(h.spin * 0.05 + wobble);
+    ctx.font = pgDisplayFont(h.fontSize);
     ctx.textAlign = "center";
 
-    // Étoile pixel burst au spawn, réservée au mot le plus récent.
+    // Width-fit : rétrécit si le mot dépasserait l'espace dispo jusqu'au bord.
+    const tw = ctx.measureText(h.text).width || 1;
+    const maxW = 2 * Math.max(40, Math.min(h.x - 6, W - 6 - h.x));
+    const fit = Math.min(1, maxW / tw);
+    ctx.scale(popScale * scaleX * fit, popScale * scaleY * fit);
+
+    // Étoile pixel burst au spawn (réservée au mot le plus récent).
     const burstI = Math.max(0, 1 - age * h.maxLife * 1.8);
-    if (depth === 0 && burstI > 0.02) {
+    if (isNewest && burstI > 0.02) {
       ctx.save();
       ctx.globalAlpha = fade * burstI * 0.5;
       ctx.strokeStyle = h.color;
@@ -270,7 +268,7 @@ export function drawHypeTexts(ctx: CanvasRenderingContext2D, s: GameState): void
       ctx.restore();
     }
 
-    drawExclaimText(ctx, h.text, h.color, h.fontSize, fade * stackFade);
+    drawExclaimText(ctx, h.text, h.color, h.fontSize, fade);
     ctx.restore();
   }
 }

@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.1] - 2026-06-07
+
+### Peagle 98
+- Les exclamations de combo claquent désormais juste à côté du peg qui éclate, décalées en diagonale vers l'espace libre — fini la pile centrale loin de l'action, tout en restant lisibles
+- Textes de jeu enfin à la charte : combos et exclamations en police pixel arcade (Press Start 2P), scores chiffrés en VT323 — plus de « MS Sans Serif » hors-sujet
+- Lexique des combos resserré sur le thème aigle/rapace (RAPACE!, PIQUÉ NET!, AIGLE ROYAL!, APOTHÉOSE!…) — adieu JUICY!/ŒUFTASTIQUE!
+- Nouveau son de palier de combo : un arpège pixel ascendant qui escalade avec ton multiplicateur — la montée en combo s'entend
+- Width-fit automatique : aucun mot ne déborde plus du cadre, même collé au bord
+
 ## [0.3.0] - 2026-06-07
 
 ### Peagle 98

@@ -4,6 +4,7 @@ export type SoundId =
   | "peg-hit"                               // peg normal touché
   | "orange-hit"                            // orange peg touché
   | "bumper-hit"                            // bumper touché
+  | "combo-tier"                            // palier de combo franchi (×N)
   | "peg-clear"                             // pegs effacés fin de tour
   | "level-clear"                           // niveau gagné
   | "jackpot"                               // dernière orange + bucket

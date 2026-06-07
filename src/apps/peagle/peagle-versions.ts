@@ -1,4 +1,4 @@
-export const PEAGLE_CURRENT_VERSION = "0.3.0";
+export const PEAGLE_CURRENT_VERSION = "0.3.1";
 
 export interface PeagleRelease {
   version: string;
@@ -7,6 +7,17 @@ export interface PeagleRelease {
 }
 
 export const PEAGLE_VERSIONS: PeagleRelease[] = [
+  {
+    version: "0.3.1",
+    releasedAt: "2026-06-07",
+    notes: [
+      "Combos affichés à côté du peg éclaté, en diagonale — au plus près de l'action, sans gêner",
+      "Textes de jeu à la charte : police pixel arcade (combos) + VT323 (scores)",
+      "Lexique combo retravaillé sur le thème aigle/rapace (adieu JUICY!/ŒUFTASTIQUE!)",
+      "Nouveau son de palier de combo : arpège pixel ascendant qui escalade avec le multiplicateur",
+      "Width-fit auto : aucun mot ne déborde plus du cadre",
+    ],
+  },
   {
     version: "0.3.0",
     releasedAt: "2026-06-06",

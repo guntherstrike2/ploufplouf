@@ -68,13 +68,16 @@ export interface FloatingText {
   spin?: number;
 }
 
-// Expression « hype » de combo (JUICY!, AIGLE ROYAL!…) affichée dans une ZONE
-// DÉDIÉE centrée sous le lanceur, et non plus à côté du peg touché. Sur gros
-// combo les mots s'empilaient autour des pegs et noyaient la lisibilité : ici
-// ils forment une pile verticale unique (max 3), les plus anciens remontant et
-// s'estompant. `tier` = palier de combo (pilote la taille/couleur), `spin` =
+// Expression « hype » de combo (RAPACE!, AIGLE ROYAL!…) ancrée À CÔTÉ du peg
+// qui vient d'éclater, décalée en DIAGONALE vers l'espace libre pour rester
+// lisible sans masquer l'action. Elle dérive doucement (vx/vy) en s'envolant,
+// puis s'estompe. `tier` = palier de combo (pilote taille/couleur), `spin` =
 // graine d'inclinaison/oscillation pour le wobble.
 export interface HypeText {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
   text: string;
   life: number;
   maxLife: number;

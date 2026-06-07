@@ -11,6 +11,7 @@ import { isClutchActive } from "../engine/clutch";
 import { makeInitialState } from "../engine/state/init";
 import { refreshAssetCache, ASSETS_CHANGED_EVENT } from "../engine/assets";
 import { W, H, LAUNCHER_Y, LAUNCH_SPEED, LAUNCHER_MARGIN, LAUNCHER_GRAB_R } from "../engine/constants";
+import { BALANCE } from "../engine/balance";
 import { isTarget } from "../engine/peg-kinds";
 import type { GameState, UiState } from "../engine/types";
 import type { RunState } from "../engine/roguelite";
@@ -94,7 +95,7 @@ export function useGameLoop({
   });
 
   const {
-    playPegHit, playOrangePegHit, playBumperHit,
+    playPegHit, playOrangePegHit, playBumperHit, playComboTier,
     playWallBounce, playBucketCatch, playJackpot, playClearBoard,
     playLevelClear, playPegClear, playGameOver,
     playGrab, playFirework, playEagleCryLong,
@@ -120,6 +121,7 @@ export function useGameLoop({
           case "peg-hit":     playPegHit(combo, x); break;
           case "orange-hit":  playOrangePegHit(combo, x); break;
           case "bumper-hit":  playBumperHit(); break;
+          case "combo-tier":  playComboTier(Math.max(1, Math.floor(combo / BALANCE.combo.interval))); break;
           case "wall-bounce": playWallBounce(); break;
           case "victory":     playBucketCatch(); break;
           case "jackpot":      playJackpot(); break;
@@ -150,7 +152,7 @@ export function useGameLoop({
         break;
     }
   }, [
-    playPegHit, playOrangePegHit, playBumperHit,
+    playPegHit, playOrangePegHit, playBumperHit, playComboTier,
     playWallBounce, playBucketCatch, playJackpot, playClearBoard,
     playLevelClear, playPegClear, playGameOver,
     playEagleCryLong, onBestScore,

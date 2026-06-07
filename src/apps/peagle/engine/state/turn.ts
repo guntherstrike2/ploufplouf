@@ -71,7 +71,7 @@ export function endOfTurn(s: GameState, events: GameEvent[]): void {
     const ballBonus = s.balls * BALANCE.score.ballBonus;
     s.score += ballBonus;
     if (ballBonus > 0) {
-      s.floatingTexts.push({ x: W / 2, y: H / 2, text: `+${ballBonus.toLocaleString()} BONUS ŒUFS!`, life: 1, maxLife: 3, color: "#00ffcc", combo: true, fontSize: 16 });
+      s.floatingTexts.push({ x: W / 2, y: H / 2, text: `+${ballBonus.toLocaleString()} BONUS OEUFS!`, life: 1, maxLife: 3, color: "#00ffcc", combo: true, fontSize: 16 });
     }
 
     // Score candidat en fin de niveau : le moteur reste une sim pure, c'est la

@@ -299,6 +299,34 @@ export function usePeagleSounds() {
   }, [cd]);
 
   /**
+   * Palier de combo franchi (×N) — petit arpège pixel ascendant qui escalade
+   * avec le palier : récompense audible et satisfaisante de la montée en combo.
+   * Le registre grimpe par paliers (pentatonique majeure) puis sature au sommet,
+   * et un sub-pop appuie le « claquement » du mot hype qui apparaît.
+   */
+  const playComboTier = useCallback((tier = 1) => {
+    const r = cd(); if (!r) return;
+    const { ctx, dest } = r;
+    const t = Math.max(0, tier - 1);
+    // Gamme pentatonique majeure de Do — chaque palier décale le départ d'un degré
+    // et transpose à l'octave au-delà, pour une montée qui reste musicale et brillante.
+    const PENTA = [523.25, 587.33, 659.25, 783.99, 880.0] as const; // C5 D5 E5 G5 A5
+    const start = t % PENTA.length;
+    const oct = Math.pow(2, Math.floor(t / PENTA.length));
+    // Arpège de 3 notes montantes — le tempo se resserre légèrement avec le palier.
+    const step = Math.max(0.045, 0.075 - t * 0.004);
+    for (let i = 0; i < 3; i++) {
+      const f = PENTA[(start + i * 2) % PENTA.length]! * oct * (i >= PENTA.length - start ? 2 : 1);
+      detuned(ctx, dest, f, 9, 0.13, "sine", 0.10, i * step);
+      fm(ctx, dest, f, 2, 0.7 + t * 0.12, 0.10, i * step); // brillance FM qui monte
+    }
+    // Sub-pop synchro avec le « claquement » du mot hype.
+    tone(ctx, dest, 120 + t * 6, 0.06, "sine", 0.14, 0, 60);
+    // Étincelle aiguë sur les gros paliers.
+    if (t >= 2) noise(ctx, dest, 0.05, 0.04, 2400, 0.02, 2.0);
+  }, [cd]);
+
+  /**
    * Rebond mur — impact caoutchouc sourd.
    * – Sub thud + bruit grave + chirp descendant bas
    */
@@ -580,6 +608,7 @@ export function usePeagleSounds() {
     playPegHit,
     playOrangePegHit,
     playBumperHit,
+    playComboTier,
     playWallBounce,
     playBucketCatch,
     playJackpot,
