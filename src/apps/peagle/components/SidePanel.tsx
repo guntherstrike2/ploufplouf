@@ -2,21 +2,23 @@
 
 import { memo } from "react";
 import "../peagle.css";
+import "../palette-style";
+import { PG, DECOR } from "../styles";
 
 // ─── Petit oiseau pixel-art SVG ───────────────────────────────────────────────
 
-function PixelBird({ size = 20, color = "#88cc44", flipped = false }: { size?: number; color?: string; flipped?: boolean }) {
+function PixelBird({ size = 20, color = PG.leaf, flipped = false }: { size?: number; color?: string; flipped?: boolean }) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" style={{ imageRendering: "pixelated", transform: flipped ? "scaleX(-1)" : undefined }}>
       <rect x="5" y="6" width="6" height="4" fill={color} />
       <rect x="9" y="4" width="4" height="4" fill={color} />
-      <rect x="13" y="6" width="2" height="1" fill="#ffdd44" />
-      <rect x="11" y="5" width="1" height="1" fill="#000" />
+      <rect x="13" y="6" width="2" height="1" fill={PG.gold} />
+      <rect x="11" y="5" width="1" height="1" fill={PG.ink} />
       <rect x="3" y="5" width="4" height="2" fill={color} style={{ transformOrigin: "7px 6px", animation: "pg-eagle-flap 0.6s ease-in-out infinite" }} />
       <rect x="3" y="8" width="3" height="2" fill={color} />
       <rect x="2" y="9" width="2" height="1" fill={color} />
-      <rect x="6" y="10" width="1" height="2" fill="#aa8822" />
-      <rect x="8" y="10" width="1" height="2" fill="#aa8822" />
+      <rect x="6" y="10" width="1" height="2" fill={PG.goldDark} />
+      <rect x="8" y="10" width="1" height="2" fill={PG.goldDark} />
     </svg>
   );
 }
@@ -56,20 +58,25 @@ function PixelTree({
 
 // ─── Configurations des arbres — calibrées pour panneau 160px ─────────────────
 
+// leafColor/trunkColor viennent du décor partagé (DECOR.day) → harmonisés avec
+// le canvas. Les index dans `foliage` donnent la variété de teinte par arbre.
+const LEAF = DECOR.day.foliage;
+const TRUNK = DECOR.day.trunk;
+
 const TREES_LEFT = [
-  { x: -5, baseH: 18, trunkW: 5, crownW: 28, crownH: 40, leafColor: "#1a6018", trunkColor: "#2a1808", sway: "left" as const, delay: 0 },
-  { x: 22, baseH: 13, trunkW: 4, crownW: 22, crownH: 32, leafColor: "#228020", trunkColor: "#2a1808", sway: "right" as const, delay: 1.2 },
-  { x: 50, baseH: 16, trunkW: 5, crownW: 26, crownH: 38, leafColor: "#167018", trunkColor: "#2a1808", sway: "left" as const, delay: 2.1 },
-  { x: 115, baseH: 10, trunkW: 4, crownW: 20, crownH: 28, leafColor: "#1e7018", trunkColor: "#1a1006", sway: "right" as const, delay: 0.6 },
-  { x: 80, baseH: 8, trunkW: 3, crownW: 18, crownH: 24, leafColor: "#246020", trunkColor: "#1a1006", sway: "left" as const, delay: 1.8 },
+  { x: -5, baseH: 18, trunkW: 5, crownW: 28, crownH: 40, leafColor: LEAF[3], trunkColor: TRUNK, sway: "left" as const, delay: 0 },
+  { x: 22, baseH: 13, trunkW: 4, crownW: 22, crownH: 32, leafColor: LEAF[1], trunkColor: TRUNK, sway: "right" as const, delay: 1.2 },
+  { x: 50, baseH: 16, trunkW: 5, crownW: 26, crownH: 38, leafColor: LEAF[2], trunkColor: TRUNK, sway: "left" as const, delay: 2.1 },
+  { x: 115, baseH: 10, trunkW: 4, crownW: 20, crownH: 28, leafColor: LEAF[4], trunkColor: TRUNK, sway: "right" as const, delay: 0.6 },
+  { x: 80, baseH: 8, trunkW: 3, crownW: 18, crownH: 24, leafColor: LEAF[0], trunkColor: TRUNK, sway: "left" as const, delay: 1.8 },
 ];
 
 const TREES_RIGHT = [
-  { x: 5, baseH: 11, trunkW: 4, crownW: 20, crownH: 30, leafColor: "#1e7218", trunkColor: "#1a1006", sway: "left" as const, delay: 0.9 },
-  { x: 30, baseH: 18, trunkW: 6, crownW: 30, crownH: 44, leafColor: "#166016", trunkColor: "#2a1808", sway: "right" as const, delay: 0 },
-  { x: 65, baseH: 14, trunkW: 5, crownW: 24, crownH: 35, leafColor: "#207020", trunkColor: "#2a1808", sway: "left" as const, delay: 1.5 },
-  { x: 100, baseH: 9, trunkW: 3, crownW: 18, crownH: 26, leafColor: "#1c6818", trunkColor: "#1a1006", sway: "right" as const, delay: 2.4 },
-  { x: 130, baseH: 14, trunkW: 5, crownW: 26, crownH: 36, leafColor: "#186018", trunkColor: "#2a1808", sway: "left" as const, delay: 0.4 },
+  { x: 5, baseH: 11, trunkW: 4, crownW: 20, crownH: 30, leafColor: LEAF[2], trunkColor: TRUNK, sway: "left" as const, delay: 0.9 },
+  { x: 30, baseH: 18, trunkW: 6, crownW: 30, crownH: 44, leafColor: LEAF[3], trunkColor: TRUNK, sway: "right" as const, delay: 0 },
+  { x: 65, baseH: 14, trunkW: 5, crownW: 24, crownH: 35, leafColor: LEAF[0], trunkColor: TRUNK, sway: "left" as const, delay: 1.5 },
+  { x: 100, baseH: 9, trunkW: 3, crownW: 18, crownH: 26, leafColor: LEAF[4], trunkColor: TRUNK, sway: "right" as const, delay: 2.4 },
+  { x: 130, baseH: 14, trunkW: 5, crownW: 26, crownH: 36, leafColor: LEAF[1], trunkColor: TRUNK, sway: "left" as const, delay: 0.4 },
 ];
 
 const FIREFLIES_LEFT = [
@@ -101,27 +108,27 @@ function SidePanelComponent({ side, clutchMode = false }: SidePanelProps) {
   const trees = side === "left" ? TREES_LEFT : TREES_RIGHT;
   const fireflies = side === "left" ? FIREFLIES_LEFT : FIREFLIES_RIGHT;
 
-  const skyTop = clutchMode ? "#08061e" : "#122010";
-  const skyBot = clutchMode ? "#120840" : "#1c3412";
-  const leafTint = clutchMode ? "#060818" : undefined;
-  const fireflyColor = clutchMode ? "#cc66ff" : "#aaff44";
-  const fireflyGlow = clutchMode ? "rgba(180,80,255,0.5)" : "rgba(100,255,30,0.5)";
+  // Décor partagé (palette) — jour ou fièvre. Une seule source pour tout.
+  const d = clutchMode ? DECOR.fever : DECOR.day;
+  const leafTint = clutchMode ? d.foliage[0] : undefined; // fièvre = teinte unie
+  const fireflyColor = d.firefly;
+  const fireflyGlow = d.fireflyGlow;
 
   return (
     <div
       className="pg-side-panel peagle-root"
       style={{
-        borderRight: side === "left" ? "1px solid #0c1a08" : undefined,
-        borderLeft: side === "right" ? "1px solid #0c1a08" : undefined,
+        borderRight: side === "left" ? `1px solid ${PG.bevelLo}` : undefined,
+        borderLeft: side === "right" ? `1px solid ${PG.bevelLo}` : undefined,
         position: "relative",
         overflow: "hidden",
       }}
     >
-      {/* Fond ciel — gradient visible */}
+      {/* Fond ciel — gradient visible (décor partagé) */}
       <div style={{
         position: "absolute",
         inset: 0,
-        background: `linear-gradient(to bottom, ${skyTop} 0%, ${skyBot} 25%, #112208 55%, #0a1a06 80%, #060e04 100%)`,
+        background: d.sky,
       }} />
 
       {/* Rayons de lumière filtrés canopée */}
@@ -168,25 +175,25 @@ function SidePanelComponent({ side, clutchMode = false }: SidePanelProps) {
             /* Lune */
             <div style={{
               width: 18, height: 18, position: "relative",
-              background: "rgba(210,190,255,0.88)",
-              boxShadow: "0 0 8px 3px rgba(180,150,255,0.45)",
+              background: d.sun,
+              boxShadow: `0 0 8px 3px ${d.sunGlow}`,
               animation: "pg-moon-pulse 2s ease-in-out infinite",
             }}>
-              <div style={{ position: "absolute", top: 4, left: 2, width: 4, height: 3, background: "rgba(150,120,200,0.5)" }} />
-              <div style={{ position: "absolute", top: 9, left: 9, width: 3, height: 2, background: "rgba(150,120,200,0.4)" }} />
+              <div style={{ position: "absolute", top: 4, left: 2, width: 4, height: 3, background: d.sunRay }} />
+              <div style={{ position: "absolute", top: 9, left: 9, width: 3, height: 2, background: d.sunRay }} />
             </div>
           ) : (
             /* Soleil */
             <div style={{
               width: 16, height: 16, position: "relative",
-              background: "rgba(255,225,90,0.88)",
-              boxShadow: "0 0 8px 3px rgba(255,200,50,0.45)",
+              background: d.sun,
+              boxShadow: `0 0 8px 3px ${d.sunGlow}`,
               animation: "pg-badge98-pulse 3s ease-in-out infinite",
             }}>
-              <div style={{ position: "absolute", top: -5, left: 6, width: 2, height: 5, background: "rgba(255,215,60,0.65)" }} />
-              <div style={{ position: "absolute", bottom: -5, left: 6, width: 2, height: 5, background: "rgba(255,215,60,0.65)" }} />
-              <div style={{ position: "absolute", left: -5, top: 6, width: 5, height: 2, background: "rgba(255,215,60,0.65)" }} />
-              <div style={{ position: "absolute", right: -5, top: 6, width: 5, height: 2, background: "rgba(255,215,60,0.65)" }} />
+              <div style={{ position: "absolute", top: -5, left: 6, width: 2, height: 5, background: d.sunRay }} />
+              <div style={{ position: "absolute", bottom: -5, left: 6, width: 2, height: 5, background: d.sunRay }} />
+              <div style={{ position: "absolute", left: -5, top: 6, width: 5, height: 2, background: d.sunRay }} />
+              <div style={{ position: "absolute", right: -5, top: 6, width: 5, height: 2, background: d.sunRay }} />
             </div>
           )}
         </div>
@@ -194,7 +201,7 @@ function SidePanelComponent({ side, clutchMode = false }: SidePanelProps) {
         {/* Zone centrale — décor (les stats vivent désormais dans le canvas) */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", width: "100%", padding: "0 4px", overflow: "hidden" }}>
           <div style={{ padding: "8px 0", opacity: 0.7 }}>
-            <PixelBird size={20} color="#38a832" flipped={side === "right"} />
+            <PixelBird size={20} color={DECOR.day.foliage[1]} flipped={side === "right"} />
           </div>
         </div>
 
@@ -205,7 +212,7 @@ function SidePanelComponent({ side, clutchMode = false }: SidePanelProps) {
             animation: `pg-bird-cross ${13 + (side === "right" ? 4 : 0)}s linear infinite`,
             animationDelay: side === "right" ? "-6s" : "-2s",
           }}>
-            <PixelBird size={10} color="#1e6018" flipped={side === "right"} />
+            <PixelBird size={10} color={DECOR.day.foliage[3]} flipped={side === "right"} />
           </div>
         </div>
 
@@ -218,21 +225,19 @@ function SidePanelComponent({ side, clutchMode = false }: SidePanelProps) {
         {/* Sol */}
         <div style={{
           position: "absolute", bottom: 0, left: 0, right: 0, height: 18,
-          background: clutchMode ? "#080820" : "#2e7820",
+          background: d.ground,
         }} />
         {/* Herbe pixel */}
         {Array.from({ length: 14 }).map((_, i) => (
           <div key={i} style={{
             position: "absolute", bottom: 16, left: i * 11 + (side === "right" ? 2 : 0), width: 2, height: 2 + (i % 3),
-            background: clutchMode ? "#1a1a4a" : "#44cc30",
+            background: d.grass,
           }} />
         ))}
         {/* Brume sol */}
         <div style={{
           position: "absolute", bottom: 12, left: -5, right: -5, height: 18,
-          background: clutchMode
-            ? "radial-gradient(ellipse 90% 100% at 50% 100%, rgba(60,40,140,0.3) 0%, transparent 70%)"
-            : "radial-gradient(ellipse 90% 100% at 50% 100%, rgba(30,80,15,0.35) 0%, transparent 70%)",
+          background: `radial-gradient(ellipse 90% 100% at 50% 100%, ${d.mist} 0%, transparent 70%)`,
           filter: "blur(5px)",
           animation: "pg-fog-roll 8s ease-in-out infinite",
         }} />

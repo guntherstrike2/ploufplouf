@@ -1,4 +1,10 @@
 import type { CSSProperties } from "react";
+import { ROLE, RAMP, GRADIENT } from "./engine/palette";
+
+// Ré-export pour que les composants inline accèdent aux dégradés harmonisés
+// (en-têtes, fonds sous-bois, boutons) et au décor de scène sans connaître le
+// chemin de la palette.
+export { GRADIENT, DECOR } from "./engine/palette";
 
 // ─── Peagle — Design system « Bosquet » (pixel art net) ──────────────────────
 // Langage unique : pixel art forêt, plat et lisible. Pas de flou, pas d'arrondi
@@ -6,49 +12,57 @@ import type { CSSProperties } from "react";
 // bandes (hard-stop) façon sprite. Palette forêt : verts, crème, or, orange.
 // Motifs : feuille, aigle, bois.
 //
-// Ces tokens servent au code inline (impossible d'utiliser des classes CSS).
-// Pour tout le reste : classes dans peagle.css (mêmes valeurs via --pg-*).
+// Ces tokens servent au code inline React (impossible d'utiliser des classes CSS).
+// IMPORTANT : PG DÉRIVE de engine/palette.ts (source unique) — ne pas y remettre
+// de valeurs hex en dur, sinon l'inline redivergerait de l'UI/canvas. Les classes
+// CSS (peagle.css) lisent les --pg-* injectés depuis la même palette.
 
 export const PG = {
   // Fonds (opaques)
-  bgDeep:    "#060e04",   // quasi-noir forêt (canvas, fond profond)
-  bg:        "#0a1606",   // fond sombre verdâtre
-  surface:   "#10200b",   // panneau (dialog) — vert sombre plein
-  surface2:  "#1c3a12",   // surfaces secondaires (boutons, cards)
+  bgDeep:    ROLE.bgDeep,   // quasi-noir forêt (canvas, fond profond)
+  bg:        ROLE.bg,       // fond sombre verdâtre
+  surface:   ROLE.surface,  // panneau (dialog) — vert sombre plein
+  surface2:  ROLE.surface2, // surfaces secondaires (boutons, cards)
   // Cadres pixel
-  ink:       "#050d03",   // contour noir-vert net
-  bevelHi:   "#5a9a32",   // arête claire (haut/gauche)
-  bevelLo:   "#0a1c08",   // arête sombre (bas/droite)
-  border:    "#2e5220",   // filet de séparation
-  hi:        "#5a9a32",   // compat (ancien biseau lumineux)
-  sh:        "#0a1c08",   // compat (ancien biseau sombre)
+  ink:       ROLE.ink,      // contour noir-vert net
+  bevelHi:   ROLE.bevelHi,  // arête claire (haut/gauche)
+  bevelLo:   ROLE.bevelLo,  // arête sombre (bas/droite)
+  border:    ROLE.border,   // filet de séparation
+  hi:        ROLE.bevelHi,  // compat (ancien biseau lumineux)
+  sh:        ROLE.bevelLo,  // compat (ancien biseau sombre)
   // Accents
-  orange:    "#ff8a3c",   // cibles / danger
-  orangeGlow:"#ffb066",
-  orangeDeep:"#cc4f12",
-  green:     "#7ed13a",   // accent principal (CTA)
-  greenHi:   "#a6e85c",
-  greenDeep: "#3f7a14",
-  leaf:      "#8fe04a",   // accent secondaire (vert feuille)
-  leafDim:   "#4f8a26",
-  cream:     "#f2e6c2",   // encre / titres
-  gold:      "#ffd24a",   // records / victoire
-  warn:      "#ffc24a",
-  red:       "#ff5544",   // game over
-  purple:    "#cc66ff",   // rareté epic
-  purpleHi:  "#e0b4ff",   // texte/icône sur surface violette
-  purpleSurface: "#2a1437", // fond violet sombre
-  purpleBorder:  "#7a3fb0", // bordure violette
-  goldDark:  "#604010",   // accent bas des en-têtes lux (amber sombre)
+  orange:    ROLE.orange,   // cibles / danger
+  orangeGlow:ROLE.orangeGlow,
+  orangeDeep:ROLE.orangeDeep,
+  green:     ROLE.accent,   // accent principal (CTA)
+  greenHi:   ROLE.accentHi,
+  greenDeep: ROLE.accentDeep,
+  leaf:      ROLE.leaf,     // accent secondaire (vert feuille)
+  leafDim:   ROLE.leafDim,
+  cream:     ROLE.cream,    // encre / titres
+  gold:      ROLE.gold,     // records / victoire
+  warn:      RAMP.gold[100],
+  red:       ROLE.red,      // game over
+  purple:    ROLE.purple,   // rareté epic
+  purpleHi:  ROLE.purpleHi, // texte/icône sur surface violette
+  purpleSurface: ROLE.purpleSurface, // fond violet sombre
+  purpleBorder:  ROLE.purpleBorder,  // bordure violette
+  goldDark:  ROLE.goldDark, // accent bas des en-têtes lux (amber sombre)
   // En-tête de panneau (bande forêt, 2 tons)
-  headFrom:  "#19331042",
-  headTo:    "#0c1c08",
+  headFrom:  ROLE.headFrom,
+  headTo:    ROLE.headTo,
   // Texte
-  text:      "#d7f5b8",
-  textMuted: "#88a86c",
+  text:      ROLE.text,
+  textMuted: ROLE.textMuted,
   // Alias rétro-compat (ex-cyan → vert feuille)
-  cyan:      "#8fe04a",
-  cyanDim:   "#4f8a26",
+  cyan:      ROLE.leaf,
+  cyanDim:   ROLE.leafDim,
+  // Raretés (cartes d'upgrade)
+  rarityCommon:   ROLE.rarityCommon,
+  rarityRare:     ROLE.rarityRare,
+  rarityRareText: ROLE.rarityRareText,
+  rarityEpic:     ROLE.rarityEpic,
+  rarityEpicText: ROLE.rarityEpicText,
 } as const;
 
 // ─── Biseau pixel net : arête claire haut/gauche, sombre bas/droite ───────────
@@ -84,7 +98,7 @@ export const panelHead: CSSProperties = {
   alignItems: "center",
   gap: 8,
   padding: "9px 12px",
-  background: "linear-gradient(to bottom, #1c3812 0%, #122a0c 55%, #0c1c08 100%)",
+  background: GRADIENT.header,
   borderBottom: `2px solid ${PG.ink}`,
   boxShadow: `inset 0 1px 0 0 ${PG.bevelHi}, inset 0 -3px 0 0 ${PG.greenDeep}`,
   letterSpacing: "0.1em",
@@ -123,16 +137,16 @@ export const btnRaised: CSSProperties = btnBase;
 
 export const btnPrimary: CSSProperties = {
   ...btnBase,
-  // Ombrage 2 bandes (hard-stop) = look sprite, pas de dégradé flou.
-  background: `linear-gradient(to bottom, ${PG.greenHi} 0 45%, ${PG.green} 45% 72%, ${PG.greenDeep} 72% 100%)`,
-  color: "#0a1a06",
+  // Ombrage 2-3 bandes (hard-stop) = look sprite, pas de dégradé flou.
+  background: GRADIENT.btnPrimary,
+  color: PG.bgDeep,
   fontWeight: "bold",
   textShadow: "0 1px 0 rgba(255,255,255,0.25)",
 };
 
 export const btnDanger: CSSProperties = {
   ...btnBase,
-  background: `linear-gradient(to bottom, ${PG.orangeGlow} 0 45%, ${PG.orange} 45% 72%, ${PG.orangeDeep} 72% 100%)`,
+  background: GRADIENT.btnDanger,
   color: "#1a0a03",
   fontWeight: "bold",
   textShadow: "0 1px 0 rgba(255,255,255,0.2)",

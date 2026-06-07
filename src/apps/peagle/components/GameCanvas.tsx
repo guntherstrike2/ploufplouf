@@ -12,6 +12,7 @@ import { randomTip } from "../engine/tips";
 import { PegBtn } from "./PegBtn";
 import { Options } from "./Options";
 import "../peagle.css";
+import "../palette-style";
 
 // ─── Mascotte dégoûtée pour le game over ────────────────────────────────────
 function GameOverMascot({ size = 100 }: { size?: number }) {
@@ -458,7 +459,7 @@ function GameCanvasComponent({
             display: "block",
             imageRendering: "pixelated",
             touchAction: "none",
-            background: "#060e04",
+            background: PG.bgDeep,
           }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}

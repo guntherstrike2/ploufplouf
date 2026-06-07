@@ -15,6 +15,47 @@ export function roundGlowRect(
   ctx.fillRect(x, y + 1, w, h - 2);   // ligne centrale (pleine largeur)
 }
 
+// Contour carré aux coins arrondis pixel-art — version « stroke » de roundGlowRect.
+// Les 4 arêtes (épaisseur `lw`, vers l'intérieur) sont rognées de `corner` px à chaque
+// extrémité, et un petit escalier pixel relie les arêtes au coin → un vrai « border-
+// radius » en pixel-art, sans angle vif. `corner` par défaut auto = proportionnel à la
+// taille (≈ s/16, borné 1..5) pour que les grands anneaux paraissent autant arrondis
+// que les petits. (x,y) = coin haut-gauche.
+export function roundStrokeRect(
+  ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  x: number, y: number, s: number, lw: number = 1, corner?: number,
+): void {
+  const w = Math.min(Math.max(1, Math.round(lw)), Math.floor(s / 2));
+  const c = Math.min(
+    corner ?? Math.max(1, Math.min(5, Math.round(s / 16))),
+    Math.floor((s - w) / 2),
+  );
+  // Arêtes droites, rognées de `c` à chaque bout (laisse la place aux coins).
+  ctx.fillRect(x + c, y, s - 2 * c, w);             // haut
+  ctx.fillRect(x + c, y + s - w, s - 2 * c, w);     // bas
+  ctx.fillRect(x, y + c, w, s - 2 * c);             // gauche
+  ctx.fillRect(x + s - w, y + c, w, s - 2 * c);     // droite
+
+  // Coins en escalier pixel : pour chaque pas k, un segment de l'arête horizontale
+  // et de l'arête verticale se rejoignent en biais → arrondi visible à grande échelle.
+  for (let k = 0; k < c; k++) {
+    const off = c - 1 - k;                // décalage diagonal du pas
+    const seg = Math.max(1, w);           // épaisseur du trait au coin
+    // haut-gauche
+    ctx.fillRect(x + k, y + off, 1, seg);
+    ctx.fillRect(x + off, y + k, seg, 1);
+    // haut-droite
+    ctx.fillRect(x + s - 1 - k, y + off, 1, seg);
+    ctx.fillRect(x + s - off - seg, y + k, seg, 1);
+    // bas-gauche
+    ctx.fillRect(x + k, y + s - off - seg, 1, seg);
+    ctx.fillRect(x + off, y + s - 1 - k, seg, 1);
+    // bas-droite
+    ctx.fillRect(x + s - 1 - k, y + s - off - seg, 1, seg);
+    ctx.fillRect(x + s - off - seg, y + s - 1 - k, seg, 1);
+  }
+}
+
 // Reflet pixel en « L » au coin haut-gauche — la signature visuelle partagée par les
 // pegs, le HUD, les œufs, la balle, le bumper et les astres (renderer/pegs.ts :
 // fillRect(x+1,y+1,2,1) + fillRect(x+1,y+1,1,2)). (x,y) = coin haut-gauche de l'élément ;

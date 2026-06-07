@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import "../peagle.css";
+import "../palette-style";
 import type { UpgradeId } from "../engine/roguelite";
 import { UPGRADES } from "../engine/roguelite";
 import { PG } from "../styles";
@@ -10,10 +11,10 @@ import { usePeagleSounds } from "../hooks/usePeagleSounds";
 
 // Couleur de bande par upgrade id — donne une identité visuelle (rareté) à chaque bonus.
 const CARD_COLORS: Record<UpgradeId, { band: string; name: string; label: string }> = {
-  extra_ball:  { band: PG.leaf,   name: PG.leaf,   label: "COMMUN"  },
-  heavy_ball:  { band: "#4488ff", name: "#7ab0ff", label: "RARE"    },
-  bigger_ball: { band: "#4488ff", name: "#7ab0ff", label: "RARE"    },
-  sharp_aim:   { band: PG.purple, name: "#d088ff", label: "ÉPIQUE"  },
+  extra_ball:  { band: PG.rarityCommon, name: PG.rarityCommon,   label: "COMMUN"  },
+  heavy_ball:  { band: PG.rarityRare,   name: PG.rarityRareText, label: "RARE"    },
+  bigger_ball: { band: PG.rarityRare,   name: PG.rarityRareText, label: "RARE"    },
+  sharp_aim:   { band: PG.rarityEpic,   name: PG.rarityEpicText, label: "ÉPIQUE"  },
 };
 
 interface UpgradePickerProps {

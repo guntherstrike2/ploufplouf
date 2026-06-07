@@ -5,6 +5,7 @@ import { PG } from "../styles";
 import { PegBtn } from "./PegBtn";
 import { PegDialog } from "./PegDialog";
 import "../peagle.css";
+import "../palette-style";
 
 interface InstructionsProps {
   onClose: () => void;

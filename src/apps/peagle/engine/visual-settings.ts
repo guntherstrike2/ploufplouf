@@ -13,11 +13,13 @@ export interface VisualSettings {
   scanlines: boolean;
   /** Grille de gros pixels CSS par-dessus toute la zone de jeu. */
   pixel: boolean;
+  /** Tremblement d'écran (screen shake) à l'impact. On par défaut. */
+  screenShake: boolean;
 }
 
 const LS_KEY = "peagle98_visual";
 
-const DEFAULTS: VisualSettings = { scanlines: false, pixel: false };
+const DEFAULTS: VisualSettings = { scanlines: false, pixel: false, screenShake: true };
 
 let _settings: VisualSettings = { ...DEFAULTS };
 let _loaded = false;
@@ -34,6 +36,7 @@ function load(): void {
       _settings = {
         scanlines: parsed.scanlines ?? DEFAULTS.scanlines,
         pixel: parsed.pixel ?? DEFAULTS.pixel,
+        screenShake: parsed.screenShake ?? DEFAULTS.screenShake,
       };
     }
   } catch { /* quota / private mode / JSON invalide → on garde les défauts */ }
@@ -80,6 +83,13 @@ export function setScanlines(on: boolean): void {
 export function setPixel(on: boolean): void {
   load();
   _settings = { ..._settings, pixel: on };
+  persist();
+  emit();
+}
+
+export function setScreenShake(on: boolean): void {
+  load();
+  _settings = { ..._settings, screenShake: on };
   persist();
   emit();
 }

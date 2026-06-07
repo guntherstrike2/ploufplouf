@@ -38,5 +38,5 @@ export const STAR_COUNT = 55;
 
 // ─── Intro level animation timing (animClock units; 0.03/frame ≈ 1.8/s) ─────
 export const PEG_REVEAL_START    = 4.0;   // quand les couches de décor ont fini leur intro
-export const PEG_REVEAL_STRIDE   = 0.013; // écart entre chaque peg (vague rapide)
-export const PEG_REVEAL_ANIM_DUR = 0.22;  // durée du pop élastique de chaque peg
+export const PEG_REVEAL_STRIDE   = 0.020; // écart entre chaque peg (vague — chaque pop respire un peu)
+export const PEG_REVEAL_ANIM_DUR = 0.28;  // durée du pop élastique de chaque peg (assez long pour lire le rebond)

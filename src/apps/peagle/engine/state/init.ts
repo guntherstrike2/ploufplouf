@@ -6,6 +6,7 @@ import {
 import { buildLevel } from "../levels";
 import { isTarget } from "../peg-kinds";
 import { mulberry32, hashSeed, type Rng } from "../rng";
+import { pickRevealOrder } from "../reveal-patterns";
 import type { GameState, Peg, Star } from "../types";
 import type { RunState } from "../roguelite";
 
@@ -39,13 +40,13 @@ export function makeInitialState(
   const pegs: Peg[] = buildLevel(level, runState.seed);
   const orangeLeft = pegs.filter(isTarget).length;
 
-  // Vague d'apparition : les pegs popent un par un dans un ordre diagonal
-  // (balayage haut-gauche → bas-droit) pour un effet de rideau dynamique.
-  const sorted = [...pegs.keys()].sort(
-    (a, b) => (pegs[a]!.y + pegs[a]!.x * 0.4) - (pegs[b]!.y + pegs[b]!.x * 0.4),
-  );
-  for (let i = 0; i < sorted.length; i++) {
-    pegs[sorted[i]!]!.revealT = PEG_REVEAL_START + i * PEG_REVEAL_STRIDE;
+  // Vague d'apparition : les pegs popent un par un selon un pattern tiré au hasard
+  // (diagonal, haut→bas, spirale, centre→extérieur, confettis…). L'ordre vient du
+  // rng seedé du niveau (déterministe pour un même seed, sans impact sur le gameplay
+  // ni le leaderboard).
+  const order = pickRevealOrder(pegs, rng);
+  for (let i = 0; i < order.length; i++) {
+    pegs[order[i]!]!.revealT = PEG_REVEAL_START + i * PEG_REVEAL_STRIDE;
   }
   const introEndT = PEG_REVEAL_START + (pegs.length - 1) * PEG_REVEAL_STRIDE + PEG_REVEAL_ANIM_DUR;
 
@@ -101,6 +102,7 @@ export function makeInitialState(
 
     lastTurnHitCount: -1,
     aimStartClock: 0,
+    lastRevealSfxT: -999,
 
     lastHitClock: -999,
     lastHitWasOrange: false,

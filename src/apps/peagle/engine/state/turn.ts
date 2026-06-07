@@ -4,6 +4,7 @@ import { isTarget, PEG_KINDS } from "../peg-kinds";
 import type { GameState } from "../types";
 import type { GameEvent } from "../events";
 import { spawnParticles, spawnImpactRing } from "./effects";
+import { TEXT_FX } from "../palette";
 
 export function endOfTurn(s: GameState, events: GameEvent[]): void {
   // Disparition juicy : les pegs touchés ce tour-ci éclatent vraiment (gerbe de
@@ -46,13 +47,13 @@ export function endOfTurn(s: GameState, events: GameEvent[]): void {
         const px = (W * 0.1) + (W * 0.8 * i) / 7;
         const py = H * 0.15 + Math.sin(i * 1.2) * H * 0.18;
         spawnParticles(s, px, py, true, 18);
-        spawnImpactRing(s, px, py, "#ffffff", Math.min(1, 0.6 + i * 0.05));
+        spawnImpactRing(s, px, py, TEXT_FX.clear, Math.min(1, 0.6 + i * 0.05));
       }
       s.floatingTexts.push({
         x: W / 2, y: H / 2 - 60,
         text: "TABLEAU VIDE !",
         life: 1, maxLife: 3.5,
-        color: "#ffffff",
+        color: TEXT_FX.clear,
         combo: true, exclaim: true,
         fontSize: 28, spin: 0,
       });
@@ -60,7 +61,7 @@ export function endOfTurn(s: GameState, events: GameEvent[]): void {
         x: W / 2, y: H / 2 - 18,
         text: `+${clearBonus.toLocaleString()}`,
         life: 1, maxLife: 3,
-        color: "#ffd700",
+        color: TEXT_FX.gold,
         combo: true,
         fontSize: 18,
       });
@@ -71,7 +72,7 @@ export function endOfTurn(s: GameState, events: GameEvent[]): void {
     const ballBonus = s.balls * BALANCE.score.ballBonus;
     s.score += ballBonus;
     if (ballBonus > 0) {
-      s.floatingTexts.push({ x: W / 2, y: H / 2, text: `+${ballBonus.toLocaleString()} BONUS OEUFS!`, life: 1, maxLife: 3, color: "#00ffcc", combo: true, fontSize: 16 });
+      s.floatingTexts.push({ x: W / 2, y: H / 2, text: `+${ballBonus.toLocaleString()} BONUS OEUFS!`, life: 1, maxLife: 3, color: TEXT_FX.boon, combo: true, fontSize: 16 });
     }
 
     // Score candidat en fin de niveau : le moteur reste une sim pure, c'est la

@@ -18,6 +18,13 @@ export const BALANCE = {
   },
   impact: {
     maxRings: 24,         // plafond d'ondes de choc simultanées
+    // Onde de choc spawnée à chaque hit (spawnImpactRing). Durée et rayon
+    // interpolés entre base (peg bleu) et +full (cible/intensité 1). Une onde
+    // qui vit un peu plus longtemps « voyage » et se lit mieux qu'un flash bref.
+    ringLifeBase: 18,    // frames de vie à intensité 0
+    ringLifeFull: 22,    // +frames à intensité 1 (→ 40 frames ≈ 0.66s au max)
+    ringRadiusBase: 20,  // rayon final (px) à intensité 0
+    ringRadiusFull: 54,  // +rayon à intensité 1
   },
   score: {
     orangeBase: 100,

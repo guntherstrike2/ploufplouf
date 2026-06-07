@@ -98,12 +98,18 @@ export function spawnImpactRing(
   intensity: number,
 ): void {
   if (s.impactRings.length >= BALANCE.impact.maxRings) s.impactRings.shift();
+  const imp = BALANCE.impact;
+  // L'intensité peut dépasser 1 (crescendo de combo non plafonné). Pour la TAILLE,
+  // on laisse croître au-delà de 1 mais à rendement décroissant (√ sur le surplus) :
+  // l'onde continue de grandir sans jamais envahir l'écran. Pour le BLOOM/FLASH,
+  // on borne à 1 — au-delà ce serait un aplat blanc illisible.
+  const amp = intensity <= 1 ? intensity : 1 + Math.sqrt(intensity - 1);
   s.impactRings.push({
     x, y,
     life: 1,
-    maxLife: 14 + intensity * 16,
-    maxRadius: 18 + intensity * 46,
-    intensity,
+    maxLife: imp.ringLifeBase + Math.min(amp, 2) * imp.ringLifeFull,
+    maxRadius: imp.ringRadiusBase + amp * imp.ringRadiusFull,
+    intensity: Math.min(1, intensity),
     color,
   });
 }

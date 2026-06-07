@@ -3,10 +3,11 @@
 import { useState, useEffect, useCallback, useRef, useSyncExternalStore } from "react";
 import { useSoundContext } from "@/lib/contexts/sound-context";
 import { loadBuffer } from "@/lib/audio/engine";
-import { PG } from "../styles";
+import { PG, GRADIENT } from "../styles";
 import { eagleFace } from "../renderer/face";
 import { randomTip, PEAGLE_TIPS } from "../engine/tips";
 import "../peagle.css";
+import "../palette-style";
 
 // Astuce client figée pour la session : tirée une fois au chargement du module
 // (jamais pendant le render → snapshot stable pour useSyncExternalStore).
@@ -138,7 +139,7 @@ export function LoadingScreen({ onReady }: LoadingScreenProps) {
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        background: "linear-gradient(to bottom, #122010 0%, #0a1806 55%, #060e04 100%)",
+        background: GRADIENT.backdrop3,
         cursor: loaded ? "pointer" : "default",
         userSelect: "none",
         gap: 24,

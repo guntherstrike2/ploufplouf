@@ -4,42 +4,13 @@
    ──────────────────────────────────────────────────────────────────────────── */
 
 .peagle-root {
-  /* ─── Design system « Bosquet » — pixel art forêt, plat et net ─────────── */
-  --pg-bg-deep:     #060e04;   /* quasi-noir forêt */
-  --pg-bg:          #0a1606;   /* fond sombre verdâtre */
-  --pg-surface:     #10200b;   /* panneau (plein, opaque) */
-  --pg-surface-2:   #1c3a12;   /* surfaces secondaires (boutons) */
-  --pg-ink:         #050d03;   /* contour net */
-  --pg-bevel-hi:    #5a9a32;   /* arête claire (haut/gauche) */
-  --pg-bevel-lo:    #0a1c08;   /* arête sombre (bas/droite) */
-  --pg-border:      #2e5220;   /* filet de séparation */
-
-  --pg-orange:      #ff8a3c;   /* cibles / danger */
-  --pg-orange-glow: #ffb066;
-  --pg-orange-deep: #cc4f12;
-  --pg-green:       #7ed13a;   /* accent principal (CTA) */
-  --pg-green-hi:    #a6e85c;
-  --pg-green-deep:  #3f7a14;
-  --pg-leaf:        #8fe04a;   /* accent secondaire vert feuille */
-  --pg-leaf-dim:    #4f8a26;
-  --pg-cream:       #f2e6c2;   /* encre / titres */
-  --pg-gold:        #ffd24a;   /* victoire, records */
-  --pg-red:         #ff5544;   /* game over */
-  --pg-purple:      #cc66ff;   /* epic rarity */
-  --pg-purple-hi:   #e0b4ff;   /* texte/icône sur surface violette */
-  --pg-purple-surface: #2a1437; /* fond violet sombre */
-  --pg-purple-border:  #7a3fb0; /* bordure violette */
-  --pg-gold-dark:   #604010;   /* accent bas des en-têtes lux */
-
-  /* En-tête de panneau (bande forêt sombre) */
-  --pg-head-from:   #19331042;
-  --pg-head-to:     #0c1c08;
-
-  /* Compat : anciens noms (biseaux) */
-  --pg-hi:          #5a9a32;
-  --pg-sh:          #0a1c08;
-  --pg-cyan:        #8fe04a;
-  --pg-cyan-dim:    #4f8a26;
+  /* ─── Design system « Bosquet » — pixel art forêt, plat et net ─────────────
+     Les variables COULEUR (--pg-bg, --pg-green, --pg-gold…) ne sont plus
+     définies ici : elles sont injectées au runtime depuis engine/palette.ts
+     (source unique partagée avec le canvas de jeu) via palette-style.ts.
+     Ne pas les redéclarer ici — modifier la palette dans palette.ts.
+     Restent ci-dessous les variables STRUCTURELLES (biseaux, clip-path,
+     drop-shadow, polices) qui composent ces couleurs via var(). ───────────── */
 
   /* Biseau pixel net réutilisable (crisp, sans flou) */
   --pg-bevel-raised: inset 1px 1px 0 0 var(--pg-bevel-hi), inset -1px -1px 0 0 var(--pg-bevel-lo);
@@ -68,9 +39,9 @@
   --pg-font-ui: var(--font-vt323), monospace;
 
   font-family: var(--pg-font);
+  /* --pg-text / --pg-text-muted injectés depuis palette.ts. Le fallback couvre
+     le bref instant avant injection. */
   color: var(--pg-text, #d7f5b8);
-  --pg-text: #d7f5b8;
-  --pg-text-muted: #88a86c;
   image-rendering: pixelated;
 }
 
@@ -439,7 +410,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: linear-gradient(to bottom, #1c3812 0%, #122a0c 55%, #0c1c08 100%);
+  background: var(--pg-grad-header);
   padding: 9px 12px;
   border-bottom: 2px solid var(--pg-ink);
   box-shadow: inset 0 1px 0 0 var(--pg-bevel-hi), inset 0 -3px 0 0 var(--pg-green-deep);
@@ -508,7 +479,7 @@
 /* ─── Rarity borders ─────────────────────────────────────────────────────────── */
 
 .pg-rarity-common { border-color: #4a4a6a !important; }
-.pg-rarity-rare   { border-color: #4488ff !important; box-shadow: 0 0 8px rgba(68,136,255,0.3); }
+.pg-rarity-rare   { border-color: var(--pg-rarity-rare) !important; box-shadow: 0 0 8px rgba(68,136,255,0.3); }
 .pg-rarity-epic   { border-color: var(--pg-purple) !important; box-shadow: 0 0 12px rgba(204,68,255,0.4); }
 
 /* ─── Layout responsive — panneaux latéraux ──────────────────────────────────── */
@@ -518,7 +489,7 @@
   flex-direction: column;
   flex: 1;
   overflow: hidden;
-  background: linear-gradient(to bottom, #122010 0%, #0a1806 50%, #060e04 100%);
+  background: var(--pg-grad-backdrop);
 }
 
 /* En 16/9 ou plus large : canvas centré + panneaux latéraux */
@@ -534,7 +505,7 @@
   position: relative;
   display: none;
   flex-shrink: 1;
-  background: linear-gradient(to bottom, #122010 0%, #0d2008 30%, #060e04 70%, #030804 100%);
+  background: var(--pg-grad-backdrop4);
 }
 
 /* Panneaux déco : visibles uniquement en mode paysage large.
@@ -555,7 +526,7 @@
   flex-direction: column;
   overflow: hidden;
   flex: 1;
-  background: linear-gradient(to bottom, #0a1a06 0%, #0d2008 30%, #060e04 70%, #030804 100%);
+  background: var(--pg-grad-backdrop4);
 }
 
 /* En paysage : zone canvas à hauteur totale avec ratio exact.
@@ -575,8 +546,7 @@
 .pg-side-forest {
   position: absolute;
   inset: 0;
-  background:
-    linear-gradient(to bottom, #0a1a06 0%, #0d2008 30%, #060e04 70%, #030804 100%);
+  background: var(--pg-grad-backdrop4);
 }
 
 /* (Scanlines retirées des panneaux latéraux — gérées globalement par `CrtOverlay`.) */
@@ -709,7 +679,7 @@
   font-family: var(--pg-font);
   font-size: clamp(10px, 2.6vw, 13px);
   letter-spacing: 0.12em;
-  color: #9fd47a;
+  color: var(--pg-text);
   background: none;
   border: 0;
   padding: clamp(4px, 1vh, 7px) 12px;
@@ -979,7 +949,7 @@
   font-family: var(--pg-font);
   font-size: 7px;
   line-height: 1.8;
-  color: #c0e0a0;
+  color: var(--pg-text);
   padding: 8px;
   background: var(--pg-bg-deep);
   border: 2px solid var(--pg-ink);
@@ -992,7 +962,7 @@
 .pg-menu-sub {
   text-align: center;
   font-size: clamp(7px, 1.9vw, 9px);
-  color: #aaee66;
+  color: var(--pg-leaf);
   letter-spacing: 0.14em;
   font-family: var(--pg-font);
   text-shadow: 0 0 8px rgba(120, 220, 60, 0.6), 0 2px 4px rgba(0, 0, 0, 0.9);
@@ -1027,10 +997,10 @@
   font-size: clamp(8px, 2.1vw, 10px);
   line-height: 1.7;
   letter-spacing: 0.08em;
-  color: #d7f5b8;
+  color: var(--pg-text);
   padding: clamp(8px, 1.6vh, 12px) clamp(12px, 3vw, 18px);
   margin-top: clamp(8px, 2vh, 14px);
-  background: #122a0c;
+  background: var(--pg-surface-2);
   border-radius: 0;
   border: 2px solid var(--pg-ink);
   box-shadow: var(--pg-bevel-raised);
@@ -1072,7 +1042,7 @@
   gap: 8px;
   font-size: clamp(7px, 1.7vw, 8px);
   font-family: var(--pg-font);
-  color: #c8e8b0;
+  color: var(--pg-text);
   margin-top: clamp(4px, 1vh, 8px);
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.95);
 }
@@ -1081,7 +1051,7 @@
   text-align: center;
   font-family: var(--pg-font-ui);
   font-size: clamp(11px, 3vw, 14px);
-  color: #9fd47a;
+  color: var(--pg-text);
   line-height: 1.4;
   margin-top: clamp(6px, 1.5vh, 10px);
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.95);
@@ -1112,8 +1082,8 @@
 /* Double arête : bevel vert + halo or très tamisé interne */
 .pg-lux-panel {
   position: relative;
-  background: #09140a;
-  border: 3px solid #050d03;
+  background: var(--pg-surface);
+  border: 3px solid var(--pg-ink);
   border-radius: calc(var(--pm-radius, 8px) + 2px);
   box-shadow:
     inset 2px 2px 0 0 var(--pg-bevel-hi),
@@ -1138,8 +1108,8 @@
   align-items: center;
   gap: 10px;
   padding: 12px 14px;
-  background: linear-gradient(to bottom, #1e3c10 0%, #152a0c 50%, #0d1d08 100%);
-  border-bottom: 2px solid #050d03;
+  background: var(--pg-grad-header);
+  border-bottom: 2px solid var(--pg-ink);
   /* Arête verte en haut, liseré or en bas */
   box-shadow:
     inset 0 1px 0 0 var(--pg-bevel-hi),
@@ -1224,7 +1194,7 @@
 
 /* ─── Affichage score héro ───────────────────────────────────────────────────── */
 .pg-hero-score {
-  background: #04090a;
+  background: var(--pg-bg-deep);
   border: 2px solid var(--pg-ink);
   box-shadow:
     inset 1px 1px 0 0 var(--pg-bevel-lo),
@@ -1358,8 +1328,8 @@
   display: flex;
   flex-direction: column;
   cursor: pointer;
-  background: #0b1608;
-  border: 3px solid #050d03;
+  background: var(--pg-surface);
+  border: 3px solid var(--pg-ink);
   border-radius: var(--pm-radius, 8px);
   box-shadow:
     inset 2px 2px 0 0 var(--pg-bevel-hi),
@@ -1423,11 +1393,11 @@
 .pg-card-lux-desc {
   font-family: var(--pg-font);
   font-size: 7px;
-  color: #c0e0a0;
+  color: var(--pg-text);
   line-height: 1.8;
   padding: 8px 8px;
-  background: #04090a;
-  border: 1px solid #0a1c08;
+  background: var(--pg-bg-deep);
+  border: 1px solid var(--pg-bevel-lo);
   box-shadow:
     inset 1px 1px 0 0 #0a1c08,
     inset -1px -1px 0 0 #1c3812;
@@ -1484,7 +1454,7 @@
   position: absolute;
   inset: 0;
   z-index: 200;
-  background: #030804;
+  background: var(--pg-bg-deep);
   pointer-events: none;
 }
 
@@ -1576,21 +1546,21 @@
 }
 
 .pg-diag-title-pause {
-  color: #a6e85c;
+  color: var(--pg-green-hi);
   /* Ombre pixel dure (outline net) au lieu d'un halo flou. */
   text-shadow: 2px 2px 0 rgba(0,0,0,0.95), -1px -1px 0 var(--pg-green-deep);
 }
 
 /* Animation compound : entrée + glow continu */
 .pg-diag-title-lost {
-  color: #ff5544;
+  color: var(--pg-red);
   animation:
     pg-diag-title-in 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) both,
     pg-glow-defeat 1.3s ease-in-out 0.5s infinite;
 }
 
 .pg-diag-title-won {
-  color: #ffd24a;
+  color: var(--pg-gold);
   animation:
     pg-diag-title-in 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) both,
     pg-glow-victory 1.5s ease-in-out 0.5s infinite;
@@ -1613,7 +1583,7 @@
 .pg-diag-score-label {
   font-family: var(--pg-font);
   font-size: 7px;
-  color: #88a86c;
+  color: var(--pg-text-muted);
   letter-spacing: 0.18em;
   margin-bottom: 4px;
 }
@@ -1622,7 +1592,7 @@
   font-family: var(--pg-font);
   font-size: 28px;
   font-weight: bold;
-  color: #f2e6c2;
+  color: var(--pg-cream);
   line-height: 1;
   /* Ombre pixel dure empilée (relief net) au lieu d'un halo flou. */
   text-shadow: 0 3px 0 rgba(0,0,0,0.9), 0 6px 0 rgba(0,0,0,0.4), 2px 2px 0 #0a1c08;
@@ -1643,7 +1613,7 @@
 .pg-diag-user {
   font-family: var(--pg-font);
   font-size: 6px;
-  color: #88a86c;
+  color: var(--pg-text-muted);
   letter-spacing: 0.04em;
   text-align: center;
   margin: 2px 0 6px;
@@ -1693,7 +1663,7 @@
 .pg-go-rank-name {
   font-family: var(--pg-font);
   font-size: 7px;
-  color: #d7f5b8;
+  color: var(--pg-text);
   letter-spacing: 0.04em;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1701,23 +1671,23 @@
 }
 
 .pg-go-rank-me .pg-go-rank-name {
-  color: #a6e85c;
+  color: var(--pg-green-hi);
   text-shadow: 1px 1px 0 rgba(0,0,0,0.7);
 }
 
 .pg-go-rank-you {
-  color: #4f8a26;
+  color: var(--pg-leaf-dim);
 }
 
 .pg-go-rank-me .pg-go-rank-you {
-  color: #7ed13a;
+  color: var(--pg-green);
 }
 
 .pg-go-rank-score {
   font-family: var(--pg-font);
   font-size: 8px;
   font-weight: bold;
-  color: #f2e6c2;
+  color: var(--pg-cream);
   text-align: right;
   text-shadow: 0 1px 0 rgba(0,0,0,0.9);
 }
@@ -1725,7 +1695,7 @@
 .pg-go-rank-ell {
   font-family: var(--pg-font);
   font-size: 8px;
-  color: #88a86c;
+  color: var(--pg-text-muted);
   text-align: center;
   line-height: 0.7;
   letter-spacing: 0.1em;
@@ -1734,7 +1704,7 @@
 .pg-go-rank-hint {
   font-family: var(--pg-font);
   font-size: 6px;
-  color: #88a86c;
+  color: var(--pg-text-muted);
   letter-spacing: 0.06em;
   text-align: center;
   line-height: 1.6;

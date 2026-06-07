@@ -1,11 +1,12 @@
 import { PEG_R, PEG_REVEAL_ANIM_DUR } from "../engine/constants";
 import type { GameState, Peg } from "../engine/types";
-import { getPegType } from "../engine/types";
 import type { GameTheme, PegTheme } from "../engine/game-theme";
 import { roundGlowRect, pixelGlow3, cornerHighlightL } from "./helpers";
 
+// Rebond d'apparition — overshoot marqué (c1 élevé) : le peg jaillit franchement
+// au-delà de sa taille puis se replace. Plus le c1 est grand, plus le "pop" claque.
 function easeOutBack(t: number): number {
-  const c1 = 2.2, c3 = c1 + 1;
+  const c1 = 3.4, c3 = c1 + 1;
   return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
 }
 
@@ -169,12 +170,14 @@ export function drawPegs(ctx: CanvasRenderingContext2D, s: GameState, inClutch: 
       ctx.scale(spring, spring);
       ctx.translate(-p.x, -p.y);
 
-      // Halo flash à l'apparition — pic brillant sur les 25 premières %
-      const flash = Math.max(0, 1 - revT / 0.25) * 0.75;
+      // Halo flash à l'apparition — un seul glow coloré net et discret, qui
+      // s'évanouit vite (30 % du reveal). Pas de cœur blanc : on garde l'éclat
+      // sobre, c'est le rebond élastique qui porte le punch.
+      const flash = Math.max(0, 1 - revT / 0.3);
       if (flash > 0.01) {
-        const glowR = PEG_R * (3.5 + flash * 4.5);
         const glowColor = p.kind === "orange" ? "#ffbb44" : p.kind === "bumper" ? "#ffee55" : "#9fb8ff";
-        ctx.globalAlpha = flash * 0.55;
+        const glowR = PEG_R * (2.5 + flash * 3.5);
+        ctx.globalAlpha = flash * 0.5;
         ctx.fillStyle = glowColor;
         roundGlowRect(ctx, Math.round(p.x - glowR), Math.round(p.y - glowR), Math.round(glowR * 2));
         ctx.globalAlpha = 1;
@@ -184,21 +187,17 @@ export function drawPegs(ctx: CanvasRenderingContext2D, s: GameState, inClutch: 
     const pulseExtra = inClutch && p.kind === "orange" && !p.hit ? Math.sin(s.clutchPulse * 2) * 1.5 : 0;
     const r = (PEG_R + pulseExtra) * p.scale;
 
-    if (p.popping) ctx.globalAlpha = p.popAlpha;
+    const popping = p.popping;
+    if (popping) ctx.globalAlpha = p.popAlpha;
 
     if (p.kind === "orange") drawOrangePeg(ctx, p, r, inClutch, clutchIntensity, t);
     else if (p.kind === "bumper") drawBumperPeg(ctx, p, r, t, s.animClock);
     else drawNormalPeg(ctx, p, r, t);
 
-    if (p.popping) {
-      const ringR = PEG_R + (1 - p.popAlpha) * 18;
-      const rs = Math.round(ringR * 2);
-      ctx.globalAlpha = p.popAlpha * 0.8;
-      ctx.strokeStyle = t.popRing[getPegType(p)];
-      ctx.lineWidth = 1;
-      ctx.strokeRect(Math.round(p.x - ringR), Math.round(p.y - ringR), rs, rs);
-      ctx.globalAlpha = 1;
-    }
+    // Remet l'alpha à 1 : un peg sans glow (peg normal) ne passe pas par
+    // pixelGlow3 (qui restaurait l'alpha), donc un popAlpha < 1 fuirait sur tous
+    // les pegs dessinés ensuite — ils clignotaient à chaque pop.
+    if (popping) ctx.globalAlpha = 1;
 
     if (inReveal) ctx.restore();
   }

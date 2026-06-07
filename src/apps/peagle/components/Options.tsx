@@ -2,11 +2,12 @@
 
 import { useState, useCallback } from "react";
 import "../peagle.css";
+import "../palette-style";
 import { PG } from "../styles";
 import { PegBtn } from "./PegBtn";
 import { usePeagleSounds } from "../hooks/usePeagleSounds";
 import { parseSeed, formatSeed } from "../engine/roguelite";
-import { getVisualSettings, setScanlines, setPixel } from "../engine/visual-settings";
+import { getVisualSettings, setScanlines, setPixel, setScreenShake } from "../engine/visual-settings";
 
 /**
  * Menu Options partagé — même carte diégétique (`pg-settings-card`) pour le menu
@@ -56,6 +57,7 @@ export function Options({
   const { playMenuClick, playMenuHover } = usePeagleSounds();
   const [scan, setScan] = useState(() => getVisualSettings().scanlines);
   const [pix, setPix] = useState(() => getVisualSettings().pixel);
+  const [shake, setShake] = useState(() => getVisualSettings().screenShake);
   const [seedInput, setSeedInput] = useState("");
   const [seedError, setSeedError] = useState(false);
   const [seedCopied, setSeedCopied] = useState(false);
@@ -105,6 +107,13 @@ export function Options({
             on={pix}
             onHover={playMenuHover}
             onToggle={() => { playMenuClick(); const v = !pix; setPixel(v); setPix(v); }}
+          />
+
+          <ToggleRow
+            label="TREMBLEMENT"
+            on={shake}
+            onHover={playMenuHover}
+            onToggle={() => { playMenuClick(); const v = !shake; setScreenShake(v); setShake(v); }}
           />
 
           <div className="pg-settings-divider" aria-hidden />

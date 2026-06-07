@@ -35,6 +35,67 @@ export interface BgTheme {
   // Éléments décoratifs
   hasTrees:     boolean;
   hasFireflies: boolean;
+  // Couleurs de décor procédural (Forêt uniquement pour l'instant). Optionnel :
+  // les thèmes statiques (abîme/enfer/glace) n'en ont pas — le renderer a ses
+  // propres constantes pour eux. Voir background.ts.
+  decor?: ForetDecor;
+}
+
+// ─── Décor procédural Forêt ──────────────────────────────────────────────────
+// Toutes les couleurs du décor multi-couches Forêt (collines, arbres, herbe,
+// sol, soleil, nuages…). Avant, ces ~40 valeurs étaient codées en dur dans
+// renderer/background.ts ; les centraliser ici permet de reworker la palette
+// depuis un seul endroit. `day` = mode jour, `fever` = mode fièvre (clutch).
+//
+// Les rampes d'arbres sont des tableaux : le générateur en pioche une au hasard
+// par arbre (variété). Garde la même longueur jour/fever.
+export interface ForetTreeRamp {
+  trunk:    readonly string[];
+  leafDark: readonly string[];
+  leafMid:  readonly string[];
+  leafHi:   readonly string[];
+  pineShadow: string;   // ombre basse des pins (couleur unique)
+}
+
+export interface ForetDecorMode {
+  // Collines : 4 couches lointain → proche
+  hills:      readonly [string, string, string, string];
+  // Silhouettes d'arbres lointains
+  forestSil:   string;
+  forestSilHi: string;
+  // Arbres du plan milieu (rampes piochées au hasard)
+  trees:      ForetTreeRamp;
+  // Nuages
+  cloud:        string;
+  cloudHi:      string;
+  cloudShadow:  string; // ombre décalée derrière le nuage
+  cloudReflect: string; // reflet sur le bas du nuage
+}
+
+export interface ForetDecor {
+  day:   ForetDecorMode;
+  fever: ForetDecorMode;
+  // Sol jour (détails non animés, partagés) — fluo à calmer lors du rework.
+  grass:       readonly string[]; // brins d'herbe (variété)
+  grassTuft:   string;            // touffes hautes
+  rootEdge:    string;            // bouts d'arches de racines
+  rootCore:    string;            // cœur des racines
+  rootArch:    string;            // arches de racines (avant-plan)
+  stoneTop:    string;            // pierres : face éclairée
+  stoneBody:   string;            // pierres : corps
+  stoneMoss:   string;            // mousse sur pierres
+  stoneHi:     string;            // reflet pierres
+  // Soleil (mode jour) — cœur dégradé + rayons + halo
+  sunCore:     readonly [string, string, string]; // clair → chaud (haut → bas)
+  sunRay:      string;
+  sunRayHot:   string;
+  sunHalo:     string;
+  // Halo chaud à l'horizon (lever de lumière)
+  horizonGlow: string; // rgb sans alpha, ex "255,220,140"
+  // Feuilles ambiantes qui dérivent (vie de la forêt)
+  ambientLeaves:    readonly string[]; // teintes jour (piochées au hasard)
+  ambientLeafFever: string;            // teinte unique en mode fièvre
+  leafStem:         string;            // petite tige sous les grosses feuilles
 }
 
 export interface GameTheme {
@@ -44,34 +105,6 @@ export interface GameTheme {
   bg:    BgTheme;
   flash: { normal: string; clutch: string };
 }
-
-export const THEME_FORET: GameTheme = {
-  id: "foret",
-  name: "Forêt",
-  peg: {
-    normal:   "#2233aa", normalHi:   "#4455ff", normalDark: "#000d44",
-    orange:   "#ff5500", orangeHi:   "#ffdd44", orangeDark: "#882200",
-    orangeClutch: "#ff00cc", orangeGlow: "#ff88ee",
-    bumper:   "#ffcc22", bumperHi:   "#fff0a0", bumperDark: "#aa6600", bumperGlow: "#ffee66",
-    popRing: {
-      normal: "#4455ff", orange: "#ffaa00",
-    },
-  },
-  bg: {
-    skyTop:      [0, 72, 255],   skyBot:      [255, 115, 0],
-    skyTopClutch: [8,  4,   28],  skyBotClutch: [18,  10,  52],
-    groundColor:        "#28ff00", groundColorClutch:      "#0a0a28",
-    subGroundColor:     "#18dd00", subGroundColorClutch:   "#050514",
-    mistColor:         "rgba(180,240,160,0.07)",
-    mistColorClutch:    "rgba(100,80,200,0.06)",
-    mistFarColor:      "rgba(180,240,160,0.04)",
-    mistFarColorClutch: "rgba(80,60,180,0.04)",
-    hasTrees: true, hasFireflies: true,
-  },
-  flash: { normal: "#4455ff", clutch: "#ff00cc" },
-};
-
-export const DEFAULT_THEME = THEME_FORET;
 
 // Compose le thème courant à partir de la sélection active de la Galerie
 // (palette de pegs + arrière-plan choisis par l'utilisateur).

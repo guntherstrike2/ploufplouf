@@ -1,6 +1,7 @@
 export type SoundId =
   | "bip" | "pop" | "victory" | "delete"   // legacy — gardés pour compat
   | "wall-bounce"                            // rebond mur
+  | "peg-reveal"                            // peg qui apparaît (rideau d'intro)
   | "peg-hit"                               // peg normal touché
   | "orange-hit"                            // orange peg touché
   | "bumper-hit"                            // bumper touché

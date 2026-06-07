@@ -95,7 +95,7 @@ export function useGameLoop({
   });
 
   const {
-    playPegHit, playOrangePegHit, playBumperHit, playComboTier,
+    playPegHit, playPegReveal, playOrangePegHit, playBumperHit, playComboTier,
     playWallBounce, playBucketCatch, playJackpot, playClearBoard,
     playLevelClear, playPegClear, playGameOver,
     playGrab, playFirework, playEagleCryLong,
@@ -118,6 +118,7 @@ export function useGameLoop({
         const combo = stateRef.current.combo;
         const x     = ev.x;
         switch (ev.id) {
+          case "peg-reveal":  playPegReveal(x); break;
           case "peg-hit":     playPegHit(combo, x); break;
           case "orange-hit":  playOrangePegHit(combo, x); break;
           case "bumper-hit":  playBumperHit(); break;
@@ -152,7 +153,7 @@ export function useGameLoop({
         break;
     }
   }, [
-    playPegHit, playOrangePegHit, playBumperHit, playComboTier,
+    playPegHit, playPegReveal, playOrangePegHit, playBumperHit, playComboTier,
     playWallBounce, playBucketCatch, playJackpot, playClearBoard,
     playLevelClear, playPegClear, playGameOver,
     playEagleCryLong, onBestScore,

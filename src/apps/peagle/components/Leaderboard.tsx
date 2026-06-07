@@ -1,8 +1,9 @@
 "use client";
 
 import "../peagle.css";
+import "../palette-style";
 import type { LeaderboardEntry } from "../engine/types";
-import { PG } from "../styles";
+import { PG, GRADIENT } from "../styles";
 import { PixelSprite } from "./PixelSprite";
 import { PegBtn } from "./PegBtn";
 
@@ -33,7 +34,7 @@ export function Leaderboard({ entries, loading, currentUserId, onRefresh, showLo
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
-        background: "linear-gradient(to bottom, #0e1e0a 0%, #0a1606 50%, #060e04 100%)",
+        background: GRADIENT.backdrop3,
         fontFamily: "var(--pg-font)",
         position: "relative",
       }}
@@ -45,8 +46,8 @@ export function Leaderboard({ entries, loading, currentUserId, onRefresh, showLo
           alignItems: "center",
           gap: 10,
           padding: "11px 14px",
-          borderBottom: `2px solid #050d03`,
-          background: "linear-gradient(to bottom, #1a3410 0%, #111f0b 55%, #0d1a08 100%)",
+          borderBottom: `2px solid ${PG.ink}`,
+          background: GRADIENT.header,
           boxShadow: `inset 0 1px 0 0 ${PG.bevelHi}, inset 0 -2px 0 0 ${PG.goldDark}`,
           flexShrink: 0,
           zIndex: 1,
@@ -100,8 +101,8 @@ export function Leaderboard({ entries, loading, currentUserId, onRefresh, showLo
             gridTemplateColumns: "52px 1fr 38px 100px",
             gap: 8,
             padding: "10px 16px",
-            borderBottom: `2px solid #050d03`,
-            background: "linear-gradient(to bottom, #1a3410 0%, #0e1e08 100%)",
+            borderBottom: `2px solid ${PG.ink}`,
+            background: GRADIENT.header,
             boxShadow: `inset 0 1px 0 0 ${PG.bevelHi}, inset 0 -2px 0 0 ${PG.goldDark}`,
             position: "sticky",
             top: 0,

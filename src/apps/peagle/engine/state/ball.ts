@@ -9,22 +9,25 @@ import { PEG_KINDS } from "../peg-kinds";
 import { circleCollide } from "../physics";
 import { spawnParticles, spawnImpactRing, spawnLeafBurst } from "./effects";
 import { spawnBirds } from "./birds";
+import { TEXT_FX } from "../palette";
 
-// ─── Exclamations « hype » à thème aigle / chasse ────────────────────────────
-// Escalade par paliers de combo : plus la chaîne est longue, plus le mot est
-// gros, coloré et exalté. Lexique resserré autour de l'aigle/rapace/chasse pour
-// coller à la DA — mots courts et claquants, sans ligature Œ (absente de la
-// fonte pixel Press Start 2P).
+// ─── Exclamations « hype » : aigle × épopée militaire, en calembours ──────────
+// Croisement « rapace prédateur » × grandiloquence guerrière, poussé du sobre
+// vers le mégalo ridicule à mesure que le combo monte. Vrais jeux de mots :
+//   BEC-TIQUE = bec/tactique · SERRES-IEUX = serres/sérieux · AÉ-RIEN = aérien/rien
+//   PORTE-BEC = porte-bonheur · TÊTE D'AIGLE = tête de pont · PLUMÉ = déplumé/ruiné
+// Contraintes : mots COURTS (width-fit → trop long = rétréci, moins d'impact) et
+// SANS ligature Œ (absente de Press Start 2P).
 const EAGLE_HYPE: readonly (readonly string[])[] = [
-  ["TOUCHÉ!", "BIEN VU!", "JOLI!", "PAF!"],
-  ["EN PLEIN BEC!", "JOLI VOL!", "SERRES!", "CROC!"],
-  ["RAPACE!", "PIQUÉ NET!", "BEC D'OR!", "PRÉDATEUR!"],
-  ["AIGLE ROYAL!", "ENVERGURE!", "MAJESTUEUX!", "FRAPPE AÉRIENNE!"],
-  ["ROI DU CIEL!", "OVATION!", "FUREUR AILÉE!", "DÉCHAÎNÉ!"],
-  ["LÉGENDE!", "INTOUCHABLE!", "MAÎTRE DU CIEL!", "APOTHÉOSE!"],
+  ["BEC-TIQUE!", "SERRES-IEUX?", "PLUMÉ!", "BIEN VISÉ!"],
+  ["EN PIQUÉ!", "PORTE-BEC!", "SERRE LES RANGS!", "TIR D'AIGLE!"],
+  ["FRAPPE AÉ-RIEN!", "TÊTE D'AIGLE!", "BEC AU CLAIRON!", "RAPACE ARMÉ!"],
+  ["AIGLE DE GUERRE!", "BEC-TIQUE NUKE!", "SERRES FATALES!", "PLUMÉ VIF!"],
+  ["GÉNÉRAL RAPACE!", "FRAPPE TOTAL-AILE!", "AIGLE 5 ÉTOILES!", "BEC ATOMIQUE!"],
+  ["EMPEREUR DES BECS!", "RAPACE NUCLÉAIRE!", "AIGLE ABSOLU... LOL!", "BEC DE GUERRE TOTAL!"],
 ];
 
-const HYPE_COLORS = ["#ffe06a", "#ffb43a", "#ff7a2e", "#ff4d6b", "#d06bff", "#7fe0ff"] as const;
+const HYPE_COLORS = TEXT_FX.hype;
 
 // Expression de combo ancrée À CÔTÉ du peg qui vient d'éclater (x, y), décalée
 // en DIAGONALE vers l'espace libre (loin du bord le plus proche) puis envolée
@@ -189,8 +192,13 @@ export function processBallPhysics(
       // Bounce & juice : l'œuf s'écrase à l'impact, une onde de choc se propage
       // dans le décor et le fond pulse (cible orange = réaction la plus forte).
       b.squash = Math.max(b.squash, Math.min(1, 0.5 + speed * 0.04));
-      const baseRingIntensity = def.isTarget ? 1 : p.kind === "bumper" ? 0.6 : 0.28;
-      const ringIntensity = Math.min(1, baseRingIntensity + comboBoost * (1 - baseRingIntensity) * 0.7);
+      // Onde de choc en CRESCENDO : plancher bas → les 1ers pegs sont discrets ;
+      // la contribution du combo suit une courbe accélérée (²). Plafonnée : sans
+      // cap, le rayon du flash/bloom (cf. drawImpactRings) finit par déborder sur
+      // les pegs voisins et les fait scintiller. ~1.5 = onde déjà bien ample.
+      const baseRingIntensity = def.isTarget ? 0.45 : p.kind === "bumper" ? 0.3 : 0.12;
+      const ringCombo = Math.min(1.5, ((s.combo - 1) / 8) ** 2);   // 0 au peg 1, accélère, plafonné
+      const ringIntensity = baseRingIntensity + ringCombo;
       const ringColor = def.isTarget ? "#ffbb44" : p.kind === "bumper" ? "#ffdd55" : "#9fb8ff";
       spawnImpactRing(s, p.x, p.y, ringColor, ringIntensity);
 
@@ -206,7 +214,7 @@ export function processBallPhysics(
             s.hitFreezeFrames = Math.max(s.hitFreezeFrames, 14);
             s.slowMoFrames = SLOW_MO_DURATION;
             s.flashWhite = 1.0;
-            s.floatingTexts.push({ x: W / 2, y: H / 2 - 30, text: "DERNIÈRE PROIE !", life: 1, maxLife: 2.5, color: "#88ccff", combo: true, exclaim: true, fontSize: 20, spin: 0 });
+            s.floatingTexts.push({ x: W / 2, y: H / 2 - 30, text: "DERNIÈRE PROIE !", life: 1, maxLife: 2.5, color: TEXT_FX.clutch, combo: true, exclaim: true, fontSize: 20, spin: 0 });
           }
         }
       } else {
@@ -224,17 +232,17 @@ export function processBallPhysics(
         if (s.bumperChainShot === 3) {
           s.flashWhite = Math.max(s.flashWhite, 0.35);
           s.hitFreezeFrames = Math.max(s.hitFreezeFrames, 10);
-          s.floatingTexts.push({ x: W / 2, y: H / 2 - 50, text: "BUMPER FRENZY !", life: 1, maxLife: 2, color: "#ff9900", combo: true, exclaim: true, fontSize: 22, spin: (s.rng() - 0.5) * 1.5 });
+          s.floatingTexts.push({ x: W / 2, y: H / 2 - 50, text: "BUMPER FRENZY !", life: 1, maxLife: 2, color: TEXT_FX.hype[4]!, combo: true, exclaim: true, fontSize: 22, spin: (s.rng() - 0.5) * 1.5 });
         } else if (s.bumperChainShot === 5) {
           s.flashWhite = Math.max(s.flashWhite, 0.5);
-          s.floatingTexts.push({ x: W / 2, y: H / 2 - 50, text: "BUMPER MANIAC !", life: 1, maxLife: 2, color: "#ff4400", combo: true, exclaim: true, fontSize: 24, spin: (s.rng() - 0.5) * 2 });
+          s.floatingTexts.push({ x: W / 2, y: H / 2 - 50, text: "BUMPER MANIAC !", life: 1, maxLife: 2, color: TEXT_FX.gold, combo: true, exclaim: true, fontSize: 24, spin: (s.rng() - 0.5) * 2 });
         }
       }
 
       // Texte de score flottant (discret, près du peg, anti-collision).
       const comboBonus = s.combo >= BALANCE.combo.interval && s.combo % BALANCE.combo.interval === 0;
       const popFontSize = Math.min(18, 11 + Math.floor(totalMult * 1.5));
-      const textColor = def.isTarget ? "#88ccff" : p.kind === "bumper" ? "#ffcc44" : "#ffffff";
+      const textColor = def.isTarget ? TEXT_FX.clutch : p.kind === "bumper" ? TEXT_FX.gold : TEXT_FX.score;
       pushScoreText(
         s, p.x + (s.rng() - 0.5) * 20, p.y,
         totalMult > 1 ? `+${earned} ×${comboMult}` : `+${earned}`,
@@ -271,9 +279,9 @@ export function processBallPhysics(
       s.trauma = 1;
       s.slowMoFrames = Math.max(s.slowMoFrames, SLOW_MO_DURATION);
       spawnParticles(s, b.x, bucketTop, true, 28);
-      spawnImpactRing(s, b.x, bucketTop, "#ffd700", 1);
-      s.floatingTexts.push({ x: W / 2, y: H / 2 - 60, text: "JACKPOT !!!", life: 1, maxLife: 3.5, color: "#ffd700", combo: true, exclaim: true, fontSize: 30, spin: 0 });
-      s.floatingTexts.push({ x: W / 2, y: H / 2 - 24, text: `+${bonus.toLocaleString()}  ·  +${BALANCE.score.jackpotBalls} OEUFS`, life: 1, maxLife: 3, color: "#ffec80", combo: true, fontSize: 16 });
+      spawnImpactRing(s, b.x, bucketTop, TEXT_FX.gold, 1);
+      s.floatingTexts.push({ x: W / 2, y: H / 2 - 60, text: "JACKPOT !!!", life: 1, maxLife: 3.5, color: TEXT_FX.gold, combo: true, exclaim: true, fontSize: 30, spin: 0 });
+      s.floatingTexts.push({ x: W / 2, y: H / 2 - 24, text: `+${bonus.toLocaleString()}  ·  +${BALANCE.score.jackpotBalls} OEUFS`, life: 1, maxLife: 3, color: TEXT_FX.goldHi, combo: true, fontSize: 16 });
       events.push({ kind: "sound", id: "jackpot" });
     } else {
       s.balls += 1;
@@ -291,24 +299,24 @@ export function processBallPhysics(
           s.flashWhite = Math.max(s.flashWhite, 0.4);
           s.trauma = Math.min(1, s.trauma + 0.1);
           spawnParticles(s, b.x, bucketTop, true, 10 + s.bucketStreak * 2);
-          spawnImpactRing(s, b.x, bucketTop, "#ffd700", Math.min(1, 0.4 + s.bucketStreak * 0.1));
-          s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 32, text: `SÉRIE ×${s.bucketStreak}`, life: 1, maxLife: 2, color: "#ffd700", combo: true, exclaim: true, fontSize: Math.min(26, 16 + s.bucketStreak), spin: (s.rng() - 0.5) * 1.2 });
-          s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 14, text: `+${streakBonus.toLocaleString()}`, life: 1, maxLife: 1.8, color: "#ffec80", combo: true, fontSize: 14 });
+          spawnImpactRing(s, b.x, bucketTop, TEXT_FX.gold, Math.min(1, 0.4 + s.bucketStreak * 0.1));
+          s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 32, text: `SÉRIE ×${s.bucketStreak}`, life: 1, maxLife: 2, color: TEXT_FX.gold, combo: true, exclaim: true, fontSize: Math.min(26, 16 + s.bucketStreak), spin: (s.rng() - 0.5) * 1.2 });
+          s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 14, text: `+${streakBonus.toLocaleString()}`, life: 1, maxLife: 1.8, color: TEXT_FX.goldHi, combo: true, fontSize: 14 });
         } else {
-          s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 14, text: "OEUF SAUVÉ !", life: 1, maxLife: 1.8, color: "#00ffcc", combo: true, exclaim: true, fontSize: 16, spin: (s.rng() - 0.5) * 1.5 });
+          s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 14, text: "OEUF SAUVÉ !", life: 1, maxLife: 1.8, color: TEXT_FX.boon, combo: true, exclaim: true, fontSize: 16, spin: (s.rng() - 0.5) * 1.5 });
         }
 
         // +1 œuf bonus tous les N rattrapages d'affilée.
         if (s.bucketStreak % BALANCE.bucketStreak.eggEvery === 0) {
           s.balls += 1;
-          s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 50, text: "+1 OEUF !", life: 1, maxLife: 2, color: "#00ffcc", combo: true, fontSize: 15 });
+          s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 50, text: "+1 OEUF !", life: 1, maxLife: 2, color: TEXT_FX.boon, combo: true, fontSize: 15 });
         }
 
         events.push({ kind: "sound", id: s.bucketStreak >= 2 ? "jackpot" : "victory" });
       } else {
         // Rattrapage direct, sans avoir touché de peg : ne compte pas, casse la série.
         s.bucketStreak = 0;
-        s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 14, text: "OEUF SAUVÉ !", life: 1, maxLife: 1.8, color: "#00ffcc", combo: true, exclaim: true, fontSize: 16, spin: (s.rng() - 0.5) * 1.5 });
+        s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 14, text: "OEUF SAUVÉ !", life: 1, maxLife: 1.8, color: TEXT_FX.boon, combo: true, exclaim: true, fontSize: 16, spin: (s.rng() - 0.5) * 1.5 });
         events.push({ kind: "sound", id: "victory" });
       }
     }

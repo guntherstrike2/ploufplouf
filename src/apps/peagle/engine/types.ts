@@ -188,6 +188,10 @@ export interface GameState {
   // animClock au moment où la phase "aim" a commencé — pour calculer l'inactivité (sleepy face).
   aimStartClock: number;
 
+  // revealT du dernier peg ayant déclenché un "ploc" d'apparition (intro) — sert à
+  // doser la cadence des sons de pop pour qu'ils ne se superposent pas en bouillie.
+  lastRevealSfxT: number;
+
   // Réactions de la tête d'aigle pendant le tir (pilotent les expressions de face.ts) :
   // animClock du dernier peg touché, sa nature (orange = proie), le moment où l'œuf a
   // été lancé (détection « vol dans le vide »), et le moment d'un tour totalement raté.

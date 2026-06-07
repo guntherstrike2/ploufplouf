@@ -2,12 +2,13 @@
 
 import { useState, useRef, useCallback } from "react";
 import "../peagle.css";
+import "../palette-style";
 import { usePeagleSounds } from "../hooks/usePeagleSounds";
 import { DevPanel } from "./DevPanel";
 import type { DevConfig } from "./DevPanel";
 import { TitleCanvas } from "./TitleCanvas";
 import type { BeatBands } from "../hooks/useMusic";
-import { PG } from "../styles";
+import { PG, GRADIENT } from "../styles";
 import { PatchNotes } from "./PatchNotes";
 import { Instructions } from "./Instructions";
 import { Options } from "./Options";
@@ -72,8 +73,7 @@ export function MainMenu({
         display: "flex",
         alignItems: "flex-end",
         justifyContent: "center",
-        background:
-          "linear-gradient(to bottom, #122010 0%, #0a1806 55%, #060e04 100%)",
+        background: GRADIENT.backdrop3,
         overflow: "hidden",
         userSelect: "none",
         position: "relative"

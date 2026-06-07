@@ -1,4 +1,5 @@
 import { TRAUMA_DECAY, MAX_SHAKE, H, BUCKET_RIM_Y } from "../constants";
+import { getVisualSettings } from "../visual-settings";
 import type { GameState } from "../types";
 import type { GameEvent } from "../events";
 import { updateBucket } from "./bucket";
@@ -45,6 +46,24 @@ export function tick(s: GameState): TickResult {
   // physique ni saisie n'est possible. Transition automatique vers "aim".
   if (s.phase === "intro") {
     updateBucket(s, 1); // le panier se déplace pendant l'intro
+    // Feedback sonore d'apparition : chaque peg qui franchit son revealT ce frame
+    // émet un petit "ploc" (pitch spatialisé via x). Les pegs popent en rafale très
+    // rapide (PEG_REVEAL_STRIDE ~0.013), donc on dose : un son toutes les REVEAL_SFX_GAP
+    // unités d'animClock — sinon des dizaines de sons se superposent en bouillie.
+    const REVEAL_SFX_GAP = 0.05;
+    const prevClock = s.animClock - 0.03;
+    for (const p of s.pegs) {
+      // A franchi son revealT pile pendant ce frame ?
+      if (p.revealT > prevClock && p.revealT <= s.animClock) {
+        // Quantifie le revealT sur une grille : un seul son par tranche de GAP.
+        const slot = Math.floor(p.revealT / REVEAL_SFX_GAP);
+        const prevSlot = Math.floor(s.lastRevealSfxT / REVEAL_SFX_GAP);
+        if (slot !== prevSlot) {
+          s.lastRevealSfxT = p.revealT;
+          events.push({ kind: "sound", id: "peg-reveal", x: p.x });
+        }
+      }
+    }
     if (s.animClock >= s.introEndT) {
       s.phase = "aim";
       s.aimStartClock = s.animClock;
@@ -109,11 +128,14 @@ export function tick(s: GameState): TickResult {
   s.duskProgress += (duskTarget - s.duskProgress) * 0.05;
   if (Math.abs(duskTarget - s.duskProgress) < 0.001) s.duskProgress = duskTarget;
 
-  // Screen shake
+  // Screen shake — le trauma continue de décroître normalement (il pilote aussi
+  // d'autres effets), mais l'offset d'écran est neutralisé si le joueur a coupé
+  // le tremblement dans les options.
   if (s.trauma > 0) s.trauma = Math.max(0, s.trauma - TRAUMA_DECAY);
-  const shakeMag = MAX_SHAKE * s.trauma * s.trauma;
-  s.shakeX = s.trauma > 0.01 ? shakeMag * Math.sin(s.animClock * 43.7 + 1.1) : 0;
-  s.shakeY = s.trauma > 0.01 ? shakeMag * Math.cos(s.animClock * 27.3 + 0.5) : 0;
+  const shakeEnabled = getVisualSettings().screenShake;
+  const shakeMag = shakeEnabled ? MAX_SHAKE * s.trauma * s.trauma : 0;
+  s.shakeX = shakeEnabled && s.trauma > 0.01 ? shakeMag * Math.sin(s.animClock * 43.7 + 1.1) : 0;
+  s.shakeY = shakeEnabled && s.trauma > 0.01 ? shakeMag * Math.cos(s.animClock * 27.3 + 0.5) : 0;
 
   if (s.flashWhite > 0) s.flashWhite -= 0.07;
 

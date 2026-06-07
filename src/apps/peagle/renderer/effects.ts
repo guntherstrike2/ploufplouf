@@ -2,7 +2,8 @@ import { W, H } from "../engine/constants";
 import type { GameState } from "../engine/types";
 import type { GameTheme } from "../engine/game-theme";
 import { pgDisplayFont, pgUiFont } from "./fonts";
-import { roundGlowRect } from "./helpers";
+import { roundGlowRect, roundStrokeRect } from "./helpers";
+import { TEXT_FX } from "../engine/palette";
 
 export function drawParticles(ctx: CanvasRenderingContext2D, s: GameState): void {
   const count = s.particles.length;
@@ -29,13 +30,28 @@ export function drawImpactRings(ctx: CanvasRenderingContext2D, s: GameState): vo
   if (n === 0) return;
   ctx.save();
   ctx.globalCompositeOperation = "lighter";
-  ctx.lineWidth = 1;
   for (let i = 0; i < n; i++) {
     const r = s.impactRings[i]!;
     ctx.fillStyle = r.color;
-    ctx.strokeStyle = r.color;
 
-    // ① Bloom : plus vif à l'instant de l'impact, se résorbe vite. Quelques
+    const prog = 1 - r.life;   // 0 (impact) → 1 (dissipée)
+
+    // ① Flash blanc d'impact — pic sur les ~18 premiers % de vie, en additif.
+    // Le cerveau enregistre le COUP avant d'en voir la conséquence (juice n°1).
+    const flash = Math.max(0, 1 - prog / 0.18);
+    if (flash > 0.01) {
+      // Rayon serré au peg touché (PEG_R = 4 → ~8px de diamètre). L'ancien rayon
+      // (6 + intensity·10 ≈ 16px = 4 pegs de large) débordait sur les voisins et
+      // les faisait scintiller en blanc. Ici on reste ≈ 1 peg, l'intensité ne
+      // joue plus que sur l'OPACITÉ du flash, pas sur sa taille.
+      const fr = Math.round(5 + Math.min(r.intensity, 1) * 3);
+      ctx.globalAlpha = flash * flash * 0.16;
+      ctx.fillStyle = "#ffffff";
+      roundGlowRect(ctx, r.x - fr, r.y - fr, fr * 2);
+      ctx.fillStyle = r.color;
+    }
+
+    // ② Bloom : plus vif à l'instant de l'impact, se résorbe vite. Quelques
     // carrés concentriques pleins → halo de lumière doux dans le décor.
     const bloom = r.life * r.life;
     if (bloom > 0.02) {
@@ -48,19 +64,23 @@ export function drawImpactRings(ctx: CanvasRenderingContext2D, s: GameState): vo
       roundGlowRect(ctx, Math.round(r.x - b2), Math.round(r.y - b2), b2 * 2);
     }
 
-    // ② Anneau qui se propage (easeOut → départ rapide puis ralentit)
-    const prog = 1 - r.life;
+    // ③ Anneau principal qui se propage (easeOut → départ rapide puis ralentit).
+    // Coins ébréchés (pixel-art) + épaisseur dégressive 3px→1px : une onde qui
+    // voyage s'affine en s'élargissant → lecture « énergie qui se propage ».
     const ease = 1 - (1 - prog) * (1 - prog);
     const radius = Math.round(r.maxRadius * ease);
     if (radius >= 1) {
-      const alpha = r.life * r.life * 0.55;
-      const rs = radius * 2;
+      const alpha = r.life * r.life * 0.6;
+      const lw = 1 + Math.round((1 - prog) * 2);   // 3px à l'impact → 1px en fin
       ctx.globalAlpha = alpha;
-      ctx.strokeRect(Math.round(r.x - radius), Math.round(r.y - radius), rs, rs);
-      if (radius > 4) {
-        const r2 = radius - 3;
-        ctx.globalAlpha = alpha * 0.5;
-        ctx.strokeRect(Math.round(r.x - r2), Math.round(r.y - r2), r2 * 2, r2 * 2);
+      roundStrokeRect(ctx, Math.round(r.x - radius), Math.round(r.y - radius), radius * 2, lw);
+
+      // ④ Anneau secondaire : décalé et plus loin → propagation à deux temps.
+      const ease2 = Math.max(0, ease - 0.22);
+      const r2 = Math.round(r.maxRadius * ease2);
+      if (r2 > 4) {
+        ctx.globalAlpha = alpha * 0.45;
+        roundStrokeRect(ctx, Math.round(r.x - r2), Math.round(r.y - r2), r2 * 2, 1);
       }
     }
   }
@@ -222,26 +242,74 @@ export function drawHypeTexts(ctx: CanvasRenderingContext2D, s: GameState): void
     const age = 1 - h.life;
     const fade = Math.min(1, h.life * 2.2);
 
+    // Les GROS paliers (tier ≥ 3) reçoivent le traitement « impact » : hit-stop,
+    // punch-in, ombre portée, onde de choc. Les petits combos restent légers.
+    const isBig = h.tier >= 3;
+
+    // Hit-stop : le mot apparaît figé à pleine échelle ~0.05s avant que le pop
+    // démarre. Le « stop net » se lit comme un coup encaissé (game-feel n°1).
+    const HIT_STOP = isBig ? 0.05 : 0;
+    const animAge = Math.max(0, age - HIT_STOP);
+    const frozen = age < HIT_STOP;
+
     // Pop élastique + squash & stretch, même recette dramatique que les exclamations.
     const appearDur = 0.22;
-    const appear = Math.min(1, age / appearDur);
-    const eb = easeOutBack(appear, 4.5);
+    const appear = Math.min(1, animAge / appearDur);
+    // Punch-in : overshoot d'échelle plus violent sur les gros mots → ils jaillissent
+    // à ~1.5× puis retombent au lieu de grandir doucement.
+    const eb = easeOutBack(appear, isBig ? 6.5 : 4.5);
     const ebC = Math.min(1, eb);
     const sqFac = 1 - ebC;
     const scaleX = 1 + sqFac * 0.15;
     const scaleY = 1 - sqFac * 0.18;
-    let popScale = 0.4 + eb * 0.72;
-    const settleAge = Math.max(0, age - appearDur);
+    // Pendant le hit-stop : verrouillé à pleine échelle (1.0). Sinon : pop normal,
+    // ou punch-in (départ plus haut + overshoot marqué) pour les gros mots.
+    let popScale = frozen ? 1 : isBig ? 0.55 + eb * 0.62 : 0.4 + eb * 0.72;
+    const settleAge = Math.max(0, animAge - appearDur);
     popScale *= 1 + Math.sin(settleAge * 32) * 0.05 * Math.exp(-settleAge * 14);
 
-    const wobble = Math.sin(age * 16 + h.spin * 3) * 0.05 * h.life;
+    // Wobble gelé pendant le hit-stop (indexé sur animAge) pour un freeze net.
+    const wobble = Math.sin(animAge * 16 + h.spin * 3) * 0.05 * h.life;
+
+    // Jitter d'impact (sub-pixel) : micro-tremblement sur les ~5 premières frames
+    // des GROS mots seulement (tier ≥ 3). Panaché par `spin` → tous les spawns ne
+    // tremblent pas pareil, et un mot sur deux ne tremble pas du tout. Donne la
+    // sensation d'un coup encaissé sans rendre l'écran épileptique.
+    // (les FX de spawn claquent à la SORTIE du hit-stop → on les indexe sur animAge)
+    const spawnPunch = Math.max(0, 1 - animAge / 0.1);   // 1 au spawn → 0 à ~0.1
+    let jx = 0, jy = 0;
+    if (isBig && h.spin > 0 && spawnPunch > 0.01) {
+      const amp = spawnPunch * (1.4 + h.tier * 0.4);
+      // Pseudo-bruit déterministe à partir de l'âge + graine spin (pas de rng ici).
+      jx = (Math.sin(animAge * 140 + h.spin * 9) ) * amp;
+      jy = (Math.cos(animAge * 122 + h.spin * 7) ) * amp * 0.7;
+    }
 
     ctx.save();
     ctx.globalAlpha = fade;
-    ctx.translate(h.x, h.y);
+    ctx.translate(h.x + jx, h.y + jy);
     ctx.rotate(h.spin * 0.05 + wobble);
     ctx.font = pgDisplayFont(h.fontSize);
     ctx.textAlign = "center";
+
+    // Onde de choc : un anneau pixel-art jaillit du mot au spawn et se propage en
+    // s'estompant → le texte « sort » d'une explosion. Dessiné AVANT le scale du
+    // texte (repère écran, taille indépendante de l'échelle du mot). Gros mots only.
+    if (isBig && isNewest) {
+      const sw = Math.max(0, 1 - animAge / 0.4);   // vie de l'onde : ~0.4
+      if (sw > 0.01) {
+        const ease = 1 - sw * sw;                  // easeOut : part vite, ralentit
+        const rad = Math.round((10 + h.fontSize * 1.6) * ease);
+        if (rad >= 2) {
+          ctx.save();
+          ctx.globalCompositeOperation = "lighter";
+          ctx.globalAlpha = fade * sw * sw * 0.55;
+          ctx.fillStyle = h.color;
+          roundStrokeRect(ctx, -rad, -rad, rad * 2, 1 + Math.round(sw * 2));
+          ctx.restore();
+        }
+      }
+    }
 
     // Width-fit : rétrécit si le mot dépasserait l'espace dispo jusqu'au bord.
     const tw = ctx.measureText(h.text).width || 1;
@@ -269,16 +337,68 @@ export function drawHypeTexts(ctx: CanvasRenderingContext2D, s: GameState): void
       ctx.restore();
     }
 
-    drawExclaimText(ctx, h.text, h.color, h.fontSize, fade);
+    // Chromatic punch : déphasage qui claque à la sortie du hit-stop puis se
+    // résorbe en ~0.12s, réservé aux paliers élevés (tier ≥ 3).
+    const chroma = isBig ? Math.max(0, 1 - animAge / 0.12) * (1.5 + h.tier * 0.5) : 0;
+    // Gradient « métal » seulement quand l'escalade a déjà viré au doré (tier 2-4) :
+    // on préserve le vert feuille des premiers paliers ET le violet du sommet, qui
+    // ne doivent pas être écrasés par l'or.
+    const gradMetal = h.tier >= 2 && h.tier <= 4;
+    // Ombre portée : profondeur sur les gros mots (en px-monde, atténuée par le scale).
+    const shadow = isBig ? 4 : 0;
+    drawExclaimText(ctx, h.text, h.color, h.fontSize, fade, { gradMetal, chroma, shadow });
     ctx.restore();
   }
+}
+
+// Options de juice ponctuelles, panachées par l'appelant pour ne PAS toutes
+// s'empiler sur le même mot (sinon bouillie illisible) :
+//   • gradMetal : remplit le corps d'un dégradé doré vertical (look métal précieux),
+//     systématique sur les mots de combo « hype ».
+//   • chroma : déphasage chromatique rouge/cyan ténu (offset px) qui claque
+//     l'impact façon CRT — réservé aux paliers élevés, au spawn.
+//   • jitter : décalage sub-pixel (x,y) appliqué par l'appelant via translate —
+//     ici on en tient compte juste pour le corps. (Géré côté appelant.)
+interface ExclaimFx {
+  gradMetal?: boolean;
+  chroma?: number;   // amplitude du déphasage en px (0 = off)
+  shadow?: number;   // décalage de l'ombre portée en px (0 = off)
+}
+
+// Dégradé doré du corps : caché par fontSize (clé de cache simple). Reconstruit
+// seulement quand la taille change → évite un createLinearGradient par frame.
+let _metalGrad: CanvasGradient | null = null;
+let _metalGradKey = -1;
+function metalGradient(ctx: CanvasRenderingContext2D, fontSize: number): CanvasGradient {
+  if (_metalGrad === null || _metalGradKey !== fontSize) {
+    const g = ctx.createLinearGradient(0, -fontSize * 0.8, 0, fontSize * 0.25);
+    g.addColorStop(0, TEXT_FX.hypeGradTop);
+    g.addColorStop(0.55, TEXT_FX.hypeGradMid);
+    g.addColorStop(1, TEXT_FX.hypeGradBot);
+    _metalGrad = g;
+    _metalGradKey = fontSize;
+  }
+  return _metalGrad;
 }
 
 // Exclamation hype : glow doux + contour pixel noir + corps coloré + highlight fin.
 // Le pixel burst est rendu par l'appelant avant cet appel.
 function drawExclaimText(
   ctx: CanvasRenderingContext2D, text: string, color: string, fontSize: number, lifeRatio: number,
+  fx?: ExclaimFx,
 ): void {
+  // ⓪ Ombre portée : copie noire décalée en bas-droite → le mot décolle du décor
+  // et flotte au-dessus du jeu (profondeur + lisibilité immédiate). Dessinée AVANT
+  // tout le reste pour rester dessous.
+  if (fx?.shadow && fx.shadow > 0.2) {
+    const o = fx.shadow;
+    ctx.save();
+    ctx.globalAlpha = lifeRatio * 0.5;
+    ctx.fillStyle = "rgba(0,0,0,0.85)";
+    ctx.fillText(text, o, o);
+    ctx.restore();
+  }
+
   // ① Glow additif doux (réduit pour moins de surbrillance — le burst fait le travail)
   ctx.save();
   ctx.globalCompositeOperation = "lighter";
@@ -296,8 +416,22 @@ function drawExclaimText(
     }
   }
 
-  // ③ Corps coloré
-  ctx.fillStyle = color;
+  // ②bis Déphasage chromatique (CRT punch) : copies rouge/cyan additives, décalées
+  // de ±chroma px. Ténu et bref (l'appelant fait décroître `chroma` avec l'âge).
+  if (fx?.chroma && fx.chroma > 0.05) {
+    const c = fx.chroma;
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = lifeRatio * 0.5;
+    ctx.fillStyle = "#ff2a2a";
+    ctx.fillText(text, -c, 0);
+    ctx.fillStyle = "#2affff";
+    ctx.fillText(text, c, 0);
+    ctx.restore();
+  }
+
+  // ③ Corps : dégradé doré « métal » pour les mots hype, sinon aplat coloré.
+  ctx.fillStyle = fx?.gradMetal ? metalGradient(ctx, fontSize) : color;
   ctx.fillText(text, 0, 0);
 
   // ④ Highlight pixel-art : bande fine sur le tiers supérieur seulement

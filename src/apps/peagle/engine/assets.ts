@@ -5,7 +5,8 @@
 // variante dans le tableau de sa catégorie ci-dessous. La Galerie l'affiche et
 // le jeu l'applique automatiquement.
 
-import type { PegTheme, BgTheme } from "./game-theme";
+import type { PegTheme, BgTheme, ForetDecor } from "./game-theme";
+import { RAMP } from "./palette";
 
 export interface AssetVariant<T> {
   id: string;
@@ -79,6 +80,52 @@ export const PEG_PALETTES: AssetVariant<PegTheme>[] = [
   },
 ];
 
+// ─── Décor procédural Forêt ──────────────────────────────────────────────────
+// Toutes les couleurs du décor multi-couches Forêt, sorties de background.ts.
+// Source unique pour reworker la palette. Voir ForetDecor dans game-theme.ts.
+const FORET_DECOR: ForetDecor = {
+  day: {
+    // Charte « Forêt chaleureuse » : verts décalés vers le jaune-vert (~95-100°)
+    // pour partager la lumière dorée du soleil. Aligné sur RAMP.green (palette.ts) :
+    // les feuilles éclairées reprennent l'accent UI → lien visuel UI↔jeu direct.
+    // Lointain → proche = clair → sombre.
+    hills:       [RAMP.green[500], "#4a8224", "#386218", "#264a14"],
+    forestSil:   "#285a1c", forestSilHi: RAMP.green[600],
+    trees: {
+      trunk:    ["#3a2c14", "#2e2210", "#443014", "#362612"],
+      leafDark: ["#163a16", "#123212", "#1a3614", "#143010"],
+      leafMid:  ["#3a7028", "#346626", "#365e26", "#306a28"],
+      leafHi:   [RAMP.green[600], RAMP.green[400], "#5a9a2e", "#56a82c"],
+      pineShadow: "#0e1f0a",
+    },
+    cloud:   "rgba(255,252,250,0.82)", cloudHi: "rgba(255,255,255,1)",
+    cloudShadow: "rgba(100,140,190,0.14)", cloudReflect: "rgba(160,200,235,0.18)",
+  },
+  fever: {
+    hills:       ["#181542", "#100e30", "#0a0820", "#060614"],
+    forestSil:   "#100c3e", forestSilHi: "#1e1862",
+    trees: {
+      trunk:    ["#080828", "#0a0a32", "#06061c", "#0c0c2e"],
+      leafDark: ["#05071a", "#040618", "#070920", "#040510"],
+      leafMid:  ["#0c1042", "#0e1450", "#0a0e38", "#10165e"],
+      leafHi:   ["#161e72", "#1e2888", "#12205c", "#1e2e8a"],
+      pineShadow: "#030510",
+    },
+    cloud:   "rgba(48,38,105,0.55)", cloudHi: "rgba(78,62,148,0.58)",
+    cloudShadow: "rgba(100,140,190,0.14)", cloudReflect: "rgba(160,200,235,0.18)",
+  },
+  grass:     ["#5aa82c", "#6cb834", "#7ec23e", "#4a9422", "#6ec234", "#44901e"],
+  grassTuft: "#3a7a1e",
+  rootEdge:  "#5a3c18", rootCore: "#2a1c06", rootArch: RAMP.green[900],
+  stoneTop:  "#605e54", stoneBody: "#48463c", stoneMoss: "#326018", stoneHi: "#787064",
+  // Soleil chaud — partage la rampe or de l'UI (RAMP.gold).
+  sunCore:   ["#ffe98a", RAMP.gold[300], "#ffb22e"],
+  sunRay:    "#ffcc44", sunRayHot: "#ffe98a", sunHalo: RAMP.gold[300],
+  horizonGlow: "255,220,140",
+  ambientLeaves:    ["#4ab832", "#7acc44", "#aadd22", "#c4cc22", "#88bb33", "#55cc44"],
+  ambientLeafFever: "#7733cc", leafStem: "#327818",
+};
+
 // ─── Arrière-plans / ambiances ──────────────────────────────────────────────────
 
 export const BACKGROUNDS: AssetVariant<BgVariant>[] = [
@@ -88,11 +135,12 @@ export const BACKGROUNDS: AssetVariant<BgVariant>[] = [
       bg: {
         skyTop: [70, 155, 245], skyBot: [150, 205, 250],
         skyTopClutch: [8, 4, 28], skyBotClutch: [18, 10, 52],
-        groundColor: "#3fc62e", groundColorClutch: "#0a0a28",
-        subGroundColor: "#229c16", subGroundColorClutch: "#050514",
+        groundColor: "#54a02e", groundColorClutch: "#0a0a28",
+        subGroundColor: "#3a7a1e", subGroundColorClutch: "#050514",
         mistColor: "rgba(150,255,120,0.10)", mistColorClutch: "rgba(100,80,200,0.06)",
         mistFarColor: "rgba(150,255,120,0.05)", mistFarColorClutch: "rgba(80,60,180,0.04)",
         hasTrees: true, hasFireflies: true,
+        decor: FORET_DECOR,
       },
       flash: { normal: "#4455ff", clutch: "#ff00cc" },
     },
@@ -124,7 +172,7 @@ export const BACKGROUNDS: AssetVariant<BgVariant>[] = [
         mistFarColor: "rgba(180,40,0,0.05)", mistFarColorClutch: "rgba(220,20,0,0.08)",
         hasTrees: false, hasFireflies: false,
       },
-      flash: { normal: "#ff4400", clutch: "#ff0000" },
+      flash: { normal: "#ffaa55", clutch: "#ffcc66" },
     },
   },
   {

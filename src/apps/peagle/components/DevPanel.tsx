@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import "../peagle.css";
+import "../palette-style";
 import { useOpenApp } from "@/lib/hooks/use-open-app";
 import { captionBtn, PG } from "../styles";
 import type { UpgradeId } from "../engine/roguelite";

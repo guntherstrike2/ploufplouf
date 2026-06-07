@@ -9,6 +9,7 @@ import {
   getActiveBall,
 } from "../engine/assets";
 import { BALL_R } from "../engine/constants";
+import { RAMP } from "../engine/palette";
 import { eagleFace, getFaceMood, titleFaceCtx, type FaceContext, type FaceMood } from "../renderer/face";
 import { roundGlowRect } from "../renderer/helpers";
 import type { BeatBands } from "../hooks/useMusic";
@@ -108,16 +109,18 @@ const WORD = "PEAGLE";
 const BADGE = "98";
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
+// Titre « PEAGLE » en or (RAMP.gold), badge « 98 » en vert (RAMP.green) — dérivés
+// de la palette unifiée pour rester en harmonie avec l'UI et le décor.
 const C = {
-  goldTop: "#fff3b0",
-  goldMid: "#ffd24a",
-  goldBot: "#f5a623",
-  goldDeep: "#c87814",
-  outline: "#241405",
+  goldTop: "#fff3b0",        // highlight très clair (au-dessus de gold[100])
+  goldMid: RAMP.gold[300],   // or principal
+  goldBot: "#f5a623",        // or chaud (entre 300 et 600)
+  goldDeep: RAMP.gold[600],  // ombre or
+  outline: "#241405",        // contour brun très sombre (encre chaude)
   glow: "#ffcc33",
-  badge: "#aaee66",
-  badgeBot: "#66bb33",
-  badgeDeep: "#3f8a1f",
+  badge: RAMP.green[200],    // accent clair
+  badgeBot: RAMP.green[500],
+  badgeDeep: RAMP.green[700],
 };
 
 // ─── Timeline (secondes) ──────────────────────────────────────────────────────
@@ -362,7 +365,7 @@ function buildLetterSprite(
 
 // Cache des sprites de lettres (gold pour le mot, vert pour le badge "98")
 const GOLD = { top: C.goldTop, mid: C.goldMid, bot: C.goldBot, deep: C.goldDeep };
-const GREEN = { top: "#d4ff99", mid: C.badge, bot: C.badgeBot, deep: C.badgeDeep };
+const GREEN = { top: RAMP.green[100], mid: C.badge, bot: C.badgeBot, deep: C.badgeDeep };
 const _letterCache = new Map<string, LetterSprite | null>();
 function getLetterSprite(ch: string, green = false): LetterSprite | null {
   const key = (green ? "g:" : "y:") + ch;
@@ -508,11 +511,11 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, onEagle
 
     // Étincelles qui scintillent autour du logo (positions relatives au mot).
     const titleSparkles = [
-      { fx: 0.06, fy: 0.12, ph: 0.0, sp: 1.7, col: "#fff3b0" },
-      { fx: 0.95, fy: 0.08, ph: 1.2, sp: 2.1, col: "#ffd24a" },
+      { fx: 0.06, fy: 0.12, ph: 0.0, sp: 1.7, col: C.goldTop },
+      { fx: 0.95, fy: 0.08, ph: 1.2, sp: 2.1, col: C.goldMid },
       { fx: 0.5, fy: -0.16, ph: 2.4, sp: 1.4, col: "#ffffff" },
-      { fx: 0.74, fy: 0.92, ph: 3.1, sp: 1.9, col: "#ffd24a" },
-      { fx: 0.18, fy: 0.96, ph: 4.0, sp: 2.3, col: "#fff3b0" },
+      { fx: 0.74, fy: 0.92, ph: 3.1, sp: 1.9, col: C.goldMid },
+      { fx: 0.18, fy: 0.96, ph: 4.0, sp: 2.3, col: C.goldTop },
     ];
 
     // ─── Dessin d'un conifère pixel (silhouette) ──────────────────────────────
@@ -1634,7 +1637,7 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, onEagle
         ctx!.globalCompositeOperation = "lighter";
         ctx!.globalAlpha = masterA * 0.22 * pulse;
         const hg = ctx!.createRadialGradient(lx, ly, 0, lx, ly, logoW * 0.9);
-        hg.addColorStop(0, "#ffd24a");
+        hg.addColorStop(0, C.goldMid);
         hg.addColorStop(1, "rgba(255,180,40,0)");
         ctx!.fillStyle = hg;
         ctx!.fillRect(lx - logoW, ly - logoH, logoW * 2, logoH * 2);
@@ -1660,7 +1663,7 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, onEagle
           const sy2 = ly + Math.sin(a) * r * 0.65;
           const twinkle = 0.5 + 0.5 * Math.sin(elapsed * (2.4 + i * 0.7) + i * 1.8);
           ctx!.globalAlpha = masterA * twinkle * 0.9;
-          ctx!.fillStyle = i % 2 === 0 ? "#fff3b0" : "#ffd24a";
+          ctx!.fillStyle = i % 2 === 0 ? C.goldTop : C.goldMid;
           const sr = Math.max(1, Math.round(scale * 0.25));
           ctx!.fillRect(Math.round(sx2) - sr, Math.round(sy2) - sr, sr * 2, sr * 2);
           // croix 4 branches
@@ -1724,7 +1727,7 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, onEagle
             ctx!.save();
             ctx!.globalCompositeOperation = "lighter";
             ctx!.globalAlpha = masterA * flashA * 0.75;
-            ctx!.fillStyle = "#ffd24a";
+            ctx!.fillStyle = C.goldMid;
             ctx!.fillText(STUDIO_TEXT[ci]!, charX, charY);
             ctx!.restore();
           }

@@ -265,6 +265,20 @@ export function usePeagleSounds() {
   }, [cd]);
 
   /**
+   * Peg qui apparaît pendant le rideau d'intro — petit "ploc" cristallin très
+   * léger et bref, pitché spatialement (x) et avec un soupçon d'aléa pour éviter
+   * la répétition mécanique sur la rafale d'apparitions.
+   */
+  const playPegReveal = useCallback((x = W / 2) => {
+    const r = cd(); if (!r) return;
+    const { ctx, dest } = r;
+    // Pitch spatial large (registre clair) + jitter aléatoire → grappe scintillante
+    const spatial = 1 + ((x / W) - 0.5) * 0.5;
+    const freq = (880 + Math.random() * 220) * spatial;
+    fm(ctx, dest, freq, 3.0, 0.8, 0.05, 0.028);
+  }, [cd]);
+
+  /**
    * Orange peg touché.
    * – FM cloche chaude (ratio 2) — plus grave et plus riche
    * – Harmonique grave bien marquée + sub thunk satisfaisant
@@ -606,6 +620,7 @@ export function usePeagleSounds() {
 
   return {
     playPegHit,
+    playPegReveal,
     playOrangePegHit,
     playBumperHit,
     playComboTier,
