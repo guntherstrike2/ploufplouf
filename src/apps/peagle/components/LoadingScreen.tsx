@@ -1,12 +1,16 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef, useSyncExternalStore } from "react";
 import { useSoundContext } from "@/lib/contexts/sound-context";
 import { loadBuffer } from "@/lib/audio/engine";
 import { PG } from "../styles";
 import { eagleFace } from "../renderer/face";
-import { randomTip } from "../engine/tips";
+import { randomTip, PEAGLE_TIPS } from "../engine/tips";
 import "../peagle.css";
+
+// Astuce client figée pour la session : tirée une fois au chargement du module
+// (jamais pendant le render → snapshot stable pour useSyncExternalStore).
+const clientTip = randomTip();
 
 const TRACKS = ["/sounds/peagle-theme.mp3", "/sounds/peagle-track1.mp3"];
 
@@ -116,7 +120,14 @@ export function LoadingScreen({ onReady }: LoadingScreenProps) {
   }, [handleStart]);
 
   const pct = Math.round(progress * 100);
-  const tip = useMemo(() => randomTip(), []);
+  // Astuce : valeur DÉTERMINISTE au SSR (snapshot serveur = PEAGLE_TIPS[0], identique
+  // au premier paint client) puis astuce aléatoire une fois monté côté client —
+  // useSyncExternalStore gère le basculement sans mismatch d'hydratation.
+  const tip = useSyncExternalStore(
+    () => () => {},           // pas d'abonnement : la valeur ne change qu'au montage
+    () => clientTip,          // snapshot client : astuce aléatoire (figée pour la session)
+    () => PEAGLE_TIPS[0]!,    // snapshot serveur : déterministe
+  );
 
   return (
     <div
@@ -170,7 +181,7 @@ export function LoadingScreen({ onReady }: LoadingScreenProps) {
             animation: loaded ? "pg-blink 1.1s step-end infinite" : undefined,
           }}
         >
-          {loaded ? "▶ PRESS ANY KEY" : `LOADING... ${pct}%`}
+          {loaded ? "PRESS ANY KEY" : `LOADING... ${pct}%`}
         </div>
       </div>
 
@@ -200,7 +211,7 @@ export function LoadingScreen({ onReady }: LoadingScreenProps) {
             marginBottom: 2,
           }}
         >
-          ★ ASTUCE
+          ASTUCE
         </span>
         <span
           style={{

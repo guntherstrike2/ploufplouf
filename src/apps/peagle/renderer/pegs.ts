@@ -2,29 +2,30 @@ import { PEG_R, PEG_REVEAL_ANIM_DUR } from "../engine/constants";
 import type { GameState, Peg } from "../engine/types";
 import { getPegType } from "../engine/types";
 import type { GameTheme, PegTheme } from "../engine/game-theme";
+import { roundGlowRect, pixelGlow3, cornerHighlightL } from "./helpers";
 
 function easeOutBack(t: number): number {
   const c1 = 2.2, c3 = c1 + 1;
   return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
 }
 
-// Faux glow pixel — 3 rects concentriques semi-transparents au lieu de ctx.shadowBlur
-// (shadowBlur déclenche une passe gaussienne GPU par draw call ; ceci est ~10× moins cher).
+// Faux glow pixel d'un peg (carré s×s) — délègue à pixelGlow3 (cf. helpers.ts), qui
+// empile 3 roundGlowRect au lieu d'un ctx.shadowBlur (~10× moins cher, et coins ébréchés
+// pour ne pas redonner une silhouette carrée au halo, surtout intense en clutch).
 function pixelGlow(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, glowColor: string, glowBlur: number): void {
-  const g1 = Math.ceil(glowBlur * 0.3) | 0;
-  const g2 = Math.ceil(glowBlur * 0.6) | 0;
-  const g3 = Math.ceil(glowBlur) | 0;
-  ctx.fillStyle = glowColor;
-  ctx.globalAlpha = 0.28;
-  ctx.fillRect(x - g1, y - g1, s + g1 * 2, s + g1 * 2);
-  ctx.globalAlpha = 0.13;
-  ctx.fillRect(x - g2, y - g2, s + g2 * 2, s + g2 * 2);
-  ctx.globalAlpha = 0.06;
-  ctx.fillRect(x - g3, y - g3, s + g3 * 2, s + g3 * 2);
-  ctx.globalAlpha = 1;
+  pixelGlow3(ctx, x, y, s, s, glowColor, glowBlur);
 }
 
-// Peg carré pixel-art avec bevel 1px
+// Corps « peg arrondi » pixel-art : carré dont on a retiré 1px à chaque coin.
+// L'union d'un rect vertical (privé de ses lignes haut/bas) et d'un rect horizontal
+// (privé de ses colonnes gauche/droite) = carré ébréché 1px — même langage que le
+// border-radius des boutons, sans casser le rendu pixel (aucun anti-aliasing).
+function pixelRoundBody(ctx: CanvasRenderingContext2D, x: number, y: number, s: number): void {
+  ctx.fillRect(x + 1, y, s - 2, s);     // colonne centrale (pleine hauteur)
+  ctx.fillRect(x, y + 1, s, s - 2);     // ligne centrale (pleine largeur)
+}
+
+// Peg arrondi pixel-art avec bevel 1px
 function pixelSquare(
   ctx: CanvasRenderingContext2D,
   cx: number, cy: number, r: number,
@@ -38,25 +39,27 @@ function pixelSquare(
   if (glowColor && glowBlur) pixelGlow(ctx, x, y, s, glowColor, glowBlur);
 
   ctx.fillStyle = fill;
-  ctx.fillRect(x, y, s, s);
+  pixelRoundBody(ctx, x, y, s);
 
+  // Bevel : arêtes claires haut/gauche, sombres bas/droite — rognées de 1px aux
+  // extrémités pour épouser les coins ébréchés (l'arête ne dépasse pas du coin).
   ctx.fillStyle = hiColor;
-  ctx.fillRect(x, y, s, 1);       // top
-  ctx.fillRect(x, y, 1, s);       // left
+  ctx.fillRect(x + 1, y, s - 2, 1);       // top
+  ctx.fillRect(x, y + 1, 1, s - 2);       // left
   ctx.fillStyle = darkColor;
-  ctx.fillRect(x, y + s - 1, s, 1); // bottom
-  ctx.fillRect(x + s - 1, y, 1, s); // right
+  ctx.fillRect(x + 1, y + s - 1, s - 2, 1); // bottom
+  ctx.fillRect(x + s - 1, y + 1, 1, s - 2); // right
 
-  ctx.fillStyle = "rgba(255,255,255,0.7)";
-  ctx.fillRect(x + 1, y + 1, 2, 1);
-  ctx.fillRect(x + 1, y + 1, 1, 2);
+  cornerHighlightL(ctx, x, y);
 }
 
-// Peg "hit" — plus sombre, sans bevel
+// Peg "hit" — plus sombre, sans bevel (mêmes coins ébréchés que le peg plein)
 function pixelSquareHit(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, fill: string): void {
   const s = Math.round(r * 2);
+  const x = Math.round(cx - r);
+  const y = Math.round(cy - r);
   ctx.fillStyle = fill;
-  ctx.fillRect(Math.round(cx - r), Math.round(cy - r), s, s);
+  pixelRoundBody(ctx, x, y, s);
 }
 
 // hexAlpha cache — évite une alloc de string par peg par frame
@@ -119,17 +122,10 @@ function drawBumperPeg(
   ctx.translate(cx, cy);
   ctx.rotate(Math.PI / 4);
 
-  // Glow externe
+  // Glow externe — alphas un cran plus vifs que le peg standard (bumper = obstacle marquant).
   const s = Math.round(br * 2);
   const hx = Math.round(-br), hy = Math.round(-br);
-  const g1 = Math.ceil(glowBlur * 0.3) | 0;
-  const g2 = Math.ceil(glowBlur * 0.6) | 0;
-  const g3 = Math.ceil(glowBlur) | 0;
-  ctx.fillStyle = glow;
-  ctx.globalAlpha = 0.30; ctx.fillRect(hx - g1, hy - g1, s + g1 * 2, s + g1 * 2);
-  ctx.globalAlpha = 0.14; ctx.fillRect(hx - g2, hy - g2, s + g2 * 2, s + g2 * 2);
-  ctx.globalAlpha = 0.07; ctx.fillRect(hx - g3, hy - g3, s + g3 * 2, s + g3 * 2);
-  ctx.globalAlpha = 1;
+  pixelGlow3(ctx, hx, hy, s, s, glow, glowBlur, [0.30, 0.14, 0.07]);
 
   // Corps principal
   ctx.fillStyle = fill;
@@ -144,9 +140,7 @@ function drawBumperPeg(
   ctx.fillRect(hx + s - 1, hy, 1, s); // right
 
   // Reflet coin (pixel-art)
-  ctx.fillStyle = "rgba(255,255,255,0.75)";
-  ctx.fillRect(hx + 1, hy + 1, 2, 1);
-  ctx.fillRect(hx + 1, hy + 1, 1, 2);
+  cornerHighlightL(ctx, hx, hy, 0.75);
 
   ctx.restore();
 
@@ -182,7 +176,7 @@ export function drawPegs(ctx: CanvasRenderingContext2D, s: GameState, inClutch: 
         const glowColor = p.kind === "orange" ? "#ffbb44" : p.kind === "bumper" ? "#ffee55" : "#9fb8ff";
         ctx.globalAlpha = flash * 0.55;
         ctx.fillStyle = glowColor;
-        ctx.fillRect(Math.round(p.x - glowR), Math.round(p.y - glowR), Math.round(glowR * 2), Math.round(glowR * 2));
+        roundGlowRect(ctx, Math.round(p.x - glowR), Math.round(p.y - glowR), Math.round(glowR * 2));
         ctx.globalAlpha = 1;
       }
     }

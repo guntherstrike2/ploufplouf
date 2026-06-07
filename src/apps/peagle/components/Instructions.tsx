@@ -2,6 +2,8 @@
 
 import { usePeagleSounds } from "../hooks/usePeagleSounds";
 import { PG } from "../styles";
+import { PegBtn } from "./PegBtn";
+import { PegDialog } from "./PegDialog";
 import "../peagle.css";
 
 interface InstructionsProps {
@@ -13,16 +15,14 @@ const SECTIONS = [
     label: "OBJECTIF",
     color: PG.gold,
     lines: [
-      "Détruis toutes les cibles orange avec tes œufs.",
-      "Le niveau est bouclé quand il n'en reste aucune.",
+      "Détruis tous les pegs orange pour passer au niveau suivant.",
     ],
   },
   {
     label: "CONTRÔLES",
     color: PG.leaf,
     lines: [
-      "Glisse ou clique pour orienter l'aigle.",
-      "Relâche pour tirer l'œuf.",
+      "Vise avec la souris (ou le doigt), relâche pour tirer.",
       "P ou ESC pour mettre en pause.",
     ],
   },
@@ -30,49 +30,17 @@ const SECTIONS = [
     label: "PEGS",
     color: PG.orange,
     lines: [
-      "🟠 Orange — cible : doit être détruite pour gagner.",
-      "🔵 Bleu — peg bonus, disparaît au contact et rapporte des points.",
-      "🟡 Doré — bumper : obstacle permanent qui propulse l'œuf fort.",
-    ],
-  },
-  {
-    label: "PANIER",
-    color: PG.leaf,
-    lines: [
-      "Le panier se déplace en bas de l'écran.",
-      "Si l'œuf y tombe, tu ne perds pas ce tir.",
-    ],
-  },
-  {
-    label: "COMBO",
-    color: PG.purple,
-    lines: [
-      "Enchaîne les hits sans pause pour faire monter le ×N.",
-      "Plus le multiplicateur est haut, plus les points s'envolent.",
-    ],
-  },
-  {
-    label: "CLUTCH",
-    color: PG.red,
-    lines: [
-      "Quand il te reste ≤ 3 œufs, l'aigle panique.",
-      "C'est le mode CLUTCH — garde la tête froide.",
-    ],
-  },
-  {
-    label: "BONUS TOTAL",
-    color: PG.gold,
-    lines: [
-      "Vider TOUTES les cibles = 10 000 × numéro du niveau.",
-      "Ce bonus est énorme — vise le tableau vide.",
+      "🟠 Orange — à détruire pour gagner.",
+      "🔵 Bleu — bonus de points, disparaît au contact.",
+      "🟡 Doré — bumper fixe, propulse l'œuf.",
+      "Le panier en bas récupère ton œuf si tu l'y envoies.",
     ],
   },
   {
     label: "UPGRADES",
     color: PG.green,
     lines: [
-      "Entre chaque niveau, choisis 1 bonus parmi 3 :",
-      "• Œuf en plus · Œuf lourd · Gros Œuf · Œil de Lynx",
+      "Entre chaque niveau, choisis un bonus parmi 3.",
     ],
   },
 ];
@@ -86,48 +54,26 @@ export function Instructions({ onClose }: InstructionsProps) {
   };
 
   return (
-    <div
-      className="pg-settings-overlay"
-      onClick={handleClose}
-      style={{ zIndex: 5 }}
+    <PegDialog
+      icon="?"
+      title="COMMENT JOUER"
+      badge="PEAGLE 98"
+      badgeColor={PG.leaf}
+      width="min(340px, 92%)"
+      bodyGap={6}
+      onClose={handleClose}
+      footer={
+        <PegBtn variant="primary" size="sm" onClick={handleClose}>
+          COMPRIS !
+        </PegBtn>
+      }
     >
-      <div
-        className="pg-dialog"
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          width: "min(340px, 92%)",
-          maxHeight: "82vh",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        {/* Titlebar */}
-        <div className="pg-titlebar">
-          <span className="pg-caption-btn">?</span>
-          <span style={{ fontSize: 8, letterSpacing: "0.1em", flex: 1 }}>
-            COMMENT JOUER
-          </span>
-          <span style={{ fontSize: 7, letterSpacing: "0.06em", color: PG.leaf }}>
-            PEAGLE 98
-          </span>
-        </div>
-
-        {/* Content */}
-        <div
-          style={{
-            flex: 1,
-            overflowY: "auto",
-            padding: "10px 12px",
-            display: "flex",
-            flexDirection: "column",
-            gap: 6,
-          }}
-        >
-          {SECTIONS.map((sec) => (
+      {SECTIONS.map((sec) => (
             <div
               key={sec.label}
               style={{
                 border: `2px solid ${PG.border}`,
+                borderRadius: 6,
                 background: PG.bg,
                 overflow: "hidden",
               }}
@@ -146,13 +92,15 @@ export function Instructions({ onClose }: InstructionsProps) {
               >
                 <span
                   style={{
-                    width: 6,
-                    height: 6,
+                    width: 8,
+                    height: 8,
                     background: sec.color,
                     display: "inline-block",
                     flexShrink: 0,
+                    borderRadius: 3,
                     imageRendering: "pixelated",
-                    boxShadow: `0 0 6px ${sec.color}88`,
+                    // Pastille « peg » nette : bevel dur, pas de glow flou.
+                    boxShadow: `inset 1px 1px 0 0 rgba(255,255,255,0.5), inset -1px -1px 0 0 rgba(0,0,0,0.35)`,
                   }}
                 />
                 <span
@@ -161,7 +109,6 @@ export function Instructions({ onClose }: InstructionsProps) {
                     fontSize: 7,
                     color: sec.color,
                     letterSpacing: "0.12em",
-                    textShadow: `0 0 8px ${sec.color}55`,
                   }}
                 >
                   {sec.label}
@@ -195,28 +142,7 @@ export function Instructions({ onClose }: InstructionsProps) {
                 ))}
               </ul>
             </div>
-          ))}
-        </div>
-
-        {/* Footer */}
-        <div
-          style={{
-            padding: "6px 12px",
-            borderTop: `2px solid ${PG.border}`,
-            display: "flex",
-            justifyContent: "center",
-            background: PG.surface,
-          }}
-        >
-          <button
-            className="pg-btn pg-btn-primary"
-            style={{ padding: "6px 16px", fontSize: 7 }}
-            onClick={handleClose}
-          >
-            COMPRIS !
-          </button>
-        </div>
-      </div>
-    </div>
+      ))}
+    </PegDialog>
   );
 }

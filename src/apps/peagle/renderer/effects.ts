@@ -2,6 +2,7 @@ import { W, H } from "../engine/constants";
 import type { GameState } from "../engine/types";
 import type { GameTheme } from "../engine/game-theme";
 import { pgDisplayFont, pgUiFont } from "./fonts";
+import { roundGlowRect } from "./helpers";
 
 export function drawParticles(ctx: CanvasRenderingContext2D, s: GameState): void {
   const count = s.particles.length;
@@ -42,9 +43,9 @@ export function drawImpactRings(ctx: CanvasRenderingContext2D, s: GameState): vo
       const b1 = Math.round(bloomR);
       const b2 = Math.round(bloomR * 1.8);
       ctx.globalAlpha = bloom * 0.45;
-      ctx.fillRect(Math.round(r.x - b1), Math.round(r.y - b1), b1 * 2, b1 * 2);
+      roundGlowRect(ctx, Math.round(r.x - b1), Math.round(r.y - b1), b1 * 2);
       ctx.globalAlpha = bloom * 0.18;
-      ctx.fillRect(Math.round(r.x - b2), Math.round(r.y - b2), b2 * 2, b2 * 2);
+      roundGlowRect(ctx, Math.round(r.x - b2), Math.round(r.y - b2), b2 * 2);
     }
 
     // ② Anneau qui se propage (easeOut → départ rapide puis ralentit)
@@ -309,9 +310,10 @@ function drawExclaimText(
   ctx.restore();
 }
 
-// Overlay de ralenti : teinte bleue glacée + vignette froide qui respire +
-// scanlines lentes. L'intensité suit la profondeur du slow-mo (0..1) → le rendu
-// se fige visuellement pile quand le temps se fige, surtout près du panier.
+// Overlay de ralenti : teinte bleue glacée + vignette froide qui respire.
+// L'intensité suit la profondeur du slow-mo (0..1) → le rendu se fige
+// visuellement pile quand le temps se fige, surtout près du panier.
+// (Les scanlines sont gérées globalement par `CrtOverlay`, plus ici.)
 let _smGradient: CanvasGradient | null = null;
 let _smGradientAlpha = -1;
 
@@ -340,12 +342,6 @@ export function drawSlowMoOverlay(ctx: CanvasRenderingContext2D, s: GameState, i
   ctx.fillStyle = _smGradient;
   ctx.fillRect(0, 0, W, H);
 
-  // ③ Scanlines lentes qui défilent → sensation de temps étiré.
-  ctx.globalAlpha = a * 0.1;
-  ctx.fillStyle = "#000018";
-  const off = Math.floor(s.animClock * 14) % 4;
-  for (let y = off; y < H; y += 4) ctx.fillRect(0, y, W, 1);
-
   ctx.restore();
 }
 
@@ -357,6 +353,9 @@ export function drawScreenFlash(ctx: CanvasRenderingContext2D, s: GameState, inC
   ctx.fillRect(0, 0, W, H);
   ctx.restore();
 }
+
+// L'effet « Pixel » est désormais une grille CSS rendue par l'overlay DOM global
+// `CrtOverlay`, plus aucun post-process canvas ici.
 
 // createRadialGradient is expensive — cache it, rebuild only when alpha changes noticeably
 export function drawBezel(ctx: CanvasRenderingContext2D): void {

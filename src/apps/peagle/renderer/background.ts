@@ -1,6 +1,7 @@
 import { W, H, MAX_SHAKE } from "../engine/constants";
 import type { GameState } from "../engine/types";
 import type { GameTheme, BgTheme } from "../engine/game-theme";
+import { roundGlowRect, cornerHighlightL } from "./helpers";
 
 type Ctx2D = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
@@ -217,9 +218,12 @@ function drawRectPine(
     const tierH    = Math.max(5, Math.round(foliageH / tiers * 1.30));
     const tierBotY = tierTopY + tierH;
 
-    // Rectangle plein pour chaque tier
+    // Rectangle pour chaque tier, coins arrondis 1px (encoches pixel-art) — cohérent
+    // avec les pegs/œufs/feuillages : lignes haut et bas rentrées d'1px de chaque côté.
     ctx.fillStyle = leafMid;
-    ctx.fillRect(tx - hw, tierTopY, hw * 2, tierH);
+    ctx.fillRect(tx - hw + 1, tierTopY, hw * 2 - 2, 1);                 // bord haut (rentré)
+    ctx.fillRect(tx - hw,     tierTopY + 1, hw * 2, tierH - 2);         // corps
+    ctx.fillRect(tx - hw + 1, tierTopY + tierH - 1, hw * 2 - 2, 1);     // bord bas (rentré)
 
     // Highlight haut + gauche
     ctx.fillStyle = leafHi;
@@ -230,6 +234,9 @@ function drawRectPine(
     ctx.fillStyle = leafShadow;
     ctx.fillRect(tx - hw + 1, tierBotY - 2, hw * 2 - 2, 3);
     ctx.fillRect(tx + hw - 2, tierTopY + 2, 2, tierH - 4);
+
+    // Reflet en « L » au coin haut-gauche du tier — comme les pegs
+    cornerHighlightL(ctx, tx - hw, tierTopY);
   }
 }
 
@@ -429,7 +436,7 @@ function drawAbimeAnimated(ctx: CanvasRenderingContext2D, s: GameState, clutchMo
   const pulse = 0.85 + 0.15 * Math.sin(s.animClock * 0.7);
   ctx.globalAlpha = pulse * (clutchMode ? 0.10 : 0.06);
   ctx.fillStyle = clutchMode ? "#004488" : "#6622aa";
-  ctx.fillRect(W - 96, 46, 50, 50);
+  roundGlowRect(ctx, W - 96, 46, 50);
   ctx.globalAlpha = 1;
 }
 
@@ -698,34 +705,39 @@ function drawCelestialBody(
 ): void {
   if (clutchMode) {
     const pulse = 0.88 + 0.12 * Math.sin(s.animClock * 1.2);
-    const cx = W - 42;
+    const cx = 42;  // à gauche, cohérent avec le reflet en haut-gauche
     const cy = 92 + Math.round(Math.sin(s.animClock * 0.85) * 2.5);
     ctx.fillStyle = `rgba(180,150,255,${0.12 * pulse})`;
-    ctx.fillRect(cx - 22, cy - 22, 44, 44);
+    roundGlowRect(ctx, cx - 22, cy - 22, 44);
     ctx.fillStyle = `rgba(210,190,255,${0.22 * pulse})`;
-    ctx.fillRect(cx - 16, cy - 16, 32, 32);
+    roundGlowRect(ctx, cx - 16, cy - 16, 32);
     ctx.fillStyle = `rgba(240,230,180,${0.95 * pulse})`;
-    ctx.fillRect(cx - 10, cy - 10, 20, 20);
-    ctx.fillStyle = "rgba(255,255,220,0.7)";
-    ctx.fillRect(cx - 8, cy - 8, 6, 3);
-    ctx.fillRect(cx - 8, cy - 8, 3, 6);
+    ctx.fillRect(cx - 10 + 1, cy - 10, 20 - 2, 20);   // cœur lune, coins arrondis 1px
+    ctx.fillRect(cx - 10, cy - 10 + 1, 20, 20 - 2);
+    // Reflet en « L » au coin haut-gauche — identique aux pegs
+    cornerHighlightL(ctx, cx - 10, cy - 10);
     ctx.fillStyle = "rgba(180,160,100,0.4)";
     ctx.fillRect(cx - 2, cy - 2, 3, 3);
     ctx.fillRect(cx + 4, cy + 2, 2, 2);
   } else if (themeId === "foret") {
     drawJuicySun(ctx, s);
   } else {
-    // Soleil simple (autres thèmes en mode jour)
+    // Soleil simple (autres thèmes en mode jour) — à GAUCHE (cohérent avec le reflet).
+    // cx = centre du soleil ; cœur 16×16 aux coins arrondis 1px.
     const pulse = 0.9 + 0.1 * Math.sin(s.animClock * 0.5);
+    const cx = 42, cy = 28;
     ctx.fillStyle = `rgba(255,230,100,${0.9 * pulse})`;
-    ctx.fillRect(W - 50, 20, 16, 16);
+    ctx.fillRect(cx - 8 + 1, cy - 8, 16 - 2, 16);   // colonne centrale
+    ctx.fillRect(cx - 8, cy - 8 + 1, 16, 16 - 2);   // ligne centrale
     ctx.fillStyle = `rgba(255,245,160,${0.6 * pulse})`;
-    ctx.fillRect(W - 54, 16, 24, 24);
+    roundGlowRect(ctx, cx - 12, cy - 12, 24);
     ctx.fillStyle = `rgba(255,220,80,${0.5 * pulse})`;
-    ctx.fillRect(W - 42, 10, 2, 6);
-    ctx.fillRect(W - 42, 42, 2, 6);
-    ctx.fillRect(W - 58, 27, 6, 2);
-    ctx.fillRect(W - 28, 27, 6, 2);
+    ctx.fillRect(cx, cy - 18, 2, 6);    // rayon haut
+    ctx.fillRect(cx, cy + 14, 2, 6);    // rayon bas
+    ctx.fillRect(cx - 16, cy - 1, 6, 2); // rayon gauche
+    ctx.fillRect(cx + 14, cy - 1, 6, 2); // rayon droite
+    // Reflet en « L » au coin haut-gauche (comme les pegs) — par-dessus le halo
+    cornerHighlightL(ctx, cx - 8, cy - 8);
   }
 }
 
@@ -744,7 +756,7 @@ function drawJuicySun(ctx: CanvasRenderingContext2D, s: GameState): void {
     const r = Math.round(R + 4 + k * 5 + breath * 3);
     ctx.globalAlpha = (0.10 - k * 0.017) * pulse;
     ctx.fillStyle = "#ffd24a";
-    ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+    roundGlowRect(ctx, cx - r, cy - r, r * 2);
   }
   ctx.globalCompositeOperation = "source-over";
   ctx.globalAlpha = 1;
@@ -775,18 +787,18 @@ function drawJuicySun(ctx: CanvasRenderingContext2D, s: GameState): void {
   }
   ctx.globalAlpha = 1;
 
-  // Cœur : carré avec dégradé vertical (clair en haut, chaud en bas)
+  // Cœur : carré avec dégradé vertical (clair en haut, chaud en bas).
+  // Coins arrondis 1px (même langage pixel-art que les pegs/œufs) : les lignes
+  // extrêmes (haut/bas) sont rentrées d'1px de chaque côté.
   for (let dy = -R; dy <= R; dy++) {
     const t = (dy + R) / (R * 2);
     ctx.fillStyle = t < 0.4 ? "#ffe98a" : t < 0.75 ? "#ffd24a" : "#ffb22e";
-    ctx.fillRect(Math.round(cx - R), Math.round(cy + dy), R * 2, 1);
+    const inset = (dy === -R || dy === R) ? 1 : 0;
+    ctx.fillRect(Math.round(cx - R) + inset, Math.round(cy + dy), R * 2 - inset * 2, 1);
   }
 
-  // Reflet doux en haut à gauche
-  ctx.fillStyle = "rgba(255,253,228,0.85)";
-  ctx.fillRect(cx - 7, cy - 8, 6, 6);
-  ctx.fillStyle = "rgba(255,255,245,0.9)";
-  ctx.fillRect(cx - 5, cy - 6, 3, 2);
+  // Reflet en « L » au coin haut-gauche — comme les pegs
+  cornerHighlightL(ctx, cx - R, cy - R);
 }
 
 // ─── Étoiles de fièvre ───────────────────────────────────────────────────────
@@ -900,11 +912,8 @@ function buildStaticBg(clutchMode: boolean, bg: BgTheme, themeId: string): OffCa
   ctx.fillStyle = clutchMode ? bg.mistFarColorClutch : bg.mistFarColor;
   ctx.fillRect(-BG_PAD, GROUND_Y - 16, CW, 12);
 
-  // ⑨ Scanlines (baked une seule fois)
-  ctx.fillStyle = "rgba(0,0,0,0.04)";
-  for (let sy = -BG_PAD; sy < H + BG_PAD; sy += 2) {
-    ctx.fillRect(-BG_PAD, sy, CW, 1);
-  }
+  // ⑨ Scanlines : rendues par l'overlay DOM global `CrtOverlay`, plus du tout
+  //    côté canvas.
 
   return canvas;
 }
@@ -912,8 +921,10 @@ function buildStaticBg(clutchMode: boolean, bg: BgTheme, themeId: string): OffCa
 function getStaticBg(clutchMode: boolean, theme: GameTheme): OffCanvas {
   const key = `${clutchMode ? 1 : 0}:${theme.id}`;
   if (_staticBgCache === null || _staticBgKey !== key) {
+    // close() non-standard : appelé seulement s'il existe (cf. disposeForetEntry).
     if (typeof OffscreenCanvas !== "undefined" && _staticBgCache instanceof OffscreenCanvas) {
-      (_staticBgCache as OffscreenCanvas & { close(): void }).close();
+      const close = (_staticBgCache as OffscreenCanvas & { close?: () => void }).close;
+      if (typeof close === "function") close.call(_staticBgCache);
     }
     _staticBgCache = buildStaticBg(clutchMode, theme.bg, theme.id);
     _staticBgKey   = key;
@@ -1033,7 +1044,10 @@ function buildForetSky(pal: ForetPalette, clutchMode: boolean): OffCanvas {
     const imgData = ctx.getImageData(0, 0, CW_L, CH_L);
     const data = imgData.data;
     for (const ray of RAY_DEFS) {
-      const cosA = Math.cos(ray.a), sinA = Math.sin(ray.a);
+      // Soleil déplacé à gauche → on miroir les angles (π − a) pour que les rayons
+      // balaient vers le bas-droite (le centre du ciel), au lieu de sortir par la gauche.
+      const rayAngle = Math.PI - ray.a;
+      const cosA = Math.cos(rayAngle), sinA = Math.sin(rayAngle);
       const perpX = -sinA, perpY = cosA;
       for (let d = 8; d < ray.len; d += 1) {
         const t = d / ray.len;
@@ -1077,7 +1091,7 @@ function buildForetClouds(pal: ForetPalette, seed: number): OffCanvas {
       const ox = Math.round((p - puffs / 2) * baseW * 0.46 + (rnd() - 0.5) * 8);
       const oy = Math.round((rnd() - 0.5) * 6);
       ctx.fillStyle = "rgba(100,140,190,0.14)";
-      ctx.fillRect(Math.round(cx + ox - pw / 2) + 2, Math.round(cy + oy - ph / 2) + 4, pw, ph);
+      roundGlowRect(ctx, Math.round(cx + ox - pw / 2) + 2, Math.round(cy + oy - ph / 2) + 4, pw, ph);
     }
     // Corps du nuage
     for (let p = 0; p < puffs; p++) {
@@ -1086,7 +1100,7 @@ function buildForetClouds(pal: ForetPalette, seed: number): OffCanvas {
       const ox = Math.round((p - puffs / 2) * baseW * 0.46 + (rnd() - 0.5) * 8);
       const oy = Math.round((rnd() - 0.5) * 6);
       ctx.fillStyle = pal.cloud;
-      ctx.fillRect(Math.round(cx + ox - pw / 2), Math.round(cy + oy - ph / 2), pw, ph);
+      roundGlowRect(ctx, Math.round(cx + ox - pw / 2), Math.round(cy + oy - ph / 2), pw, ph);
     }
     // Ligne blanche sur le dessus
     ctx.fillStyle = pal.cloudHi;
@@ -1202,6 +1216,9 @@ function drawOakCanopy(
   ctx.fillRect(tx - hw + 1, topY,      w - 3,                    2);
   ctx.fillRect(tx - hw,     topY + 1,  2,  Math.round(canopyH * 0.50));
 
+  // Reflet en « L » au coin haut-gauche — comme les pegs
+  cornerHighlightL(ctx, tx - hw, topY);
+
   // Shadow bas-droite
   ctx.fillStyle = leafDark;
   ctx.fillRect(tx - hw + 2, topY + canopyH - 2, w - 4, 2);
@@ -1239,6 +1256,9 @@ function drawShrubCanopy(
   ctx.fillStyle = leafHi;
   ctx.fillRect(tx - hw + 1, topY,     w - 4, 2);
   ctx.fillRect(tx - hw,     topY + 1, 2,     Math.round(h * 0.45));
+
+  // Reflet en « L » au coin haut-gauche — comme les pegs
+  cornerHighlightL(ctx, tx - hw, topY);
 
   // Shadow bas + droite
   ctx.fillStyle = leafDark;
@@ -1471,7 +1491,9 @@ function buildForetForeLayer(clutchMode: boolean): { canvas: OffCanvas } {
 
 // Position du soleil — doit coïncider avec drawCelestialBody (mode jour).
 // Descendu sous l'enseigne HUD (cf. LAUNCHER_Y / HUD_H) pour rester visible.
-const SUN_X = W - 42;
+// Placé à GAUCHE : le reflet pixel des astres est en haut-gauche, donc la source de
+// lumière vient de la gauche → soleil/lune logiquement de ce côté.
+const SUN_X = 42;
 const SUN_Y = 54;
 
 // Petit rebond vertical du soleil (partagé avec drawCelestialBody pour que les
@@ -1628,7 +1650,7 @@ function drawAmbientLeaves(ctx: CanvasRenderingContext2D, s: GameState, clutchMo
   ctx.globalAlpha = 1;
 }
 
-// ─── Cache des couches + scanlines ───────────────────────────────────────────
+// ─── Cache des couches ───────────────────────────────────────────────────────
 //
 // La clé inclut le seed de la forêt : quand une nouvelle partie commence (seed
 // différent), toutes les couches sont régénérées → décor jamais identique.
@@ -1673,8 +1695,12 @@ function buildForetEntry(clutchMode: boolean, bg: BgTheme, seed: number): ForetC
 function disposeForetEntry(e: ForetCacheEntry): void {
   if (typeof OffscreenCanvas === "undefined") return;
   for (const L of e.layers) {
+    // OffscreenCanvas.close() est une API non-standard absente des navigateurs
+    // récents — on l'appelle seulement si elle existe. Sinon le GC libère le
+    // canvas dès que le cache est vidé.
     if (L.canvas instanceof OffscreenCanvas) {
-      (L.canvas as OffscreenCanvas & { close(): void }).close();
+      const close = (L.canvas as OffscreenCanvas & { close?: () => void }).close;
+      if (typeof close === "function") close.call(L.canvas);
     }
   }
 }
@@ -1715,17 +1741,6 @@ function getForetLayers(clutchMode: boolean, bg: BgTheme, seed: number): ForetCa
   return entry;
 }
 
-let _scanlines: OffCanvas | null = null;
-
-function getScanlines(): OffCanvas {
-  if (_scanlines === null) {
-    _scanlines = makeOffscreen(CW_L, CH_L);
-    const c = _scanlines.getContext("2d") as Ctx2D;
-    c.fillStyle = "rgba(0,0,0,0.04)";
-    for (let y = 0; y < CH_L; y += 2) c.fillRect(0, y, CW_L, 1);
-  }
-  return _scanlines;
-}
 
 // ─── Composition de la forêt (par frame) ─────────────────────────────────────
 
@@ -1811,8 +1826,6 @@ function drawForetLayers(
     drawDuskFg(ctx, clutchT, true); // entrée fever : assombrissement
   }
 
-  // Scanlines CRT, fixées à l'écran (contre-translation complète du shake)
-  ctx.drawImage(getScanlines(), Math.round(LX0 - s.shakeX), Math.round(-VPAD - s.shakeY));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1851,4 +1864,7 @@ export function drawBackground(
 
   // Easter egg : oiseaux déclenchés par les impacts de pegs (clin d'œil peagle)
   if (s.birds.length > 0) drawBgBirds(ctx, s);
+
+  // Note : les scanlines CRT ne sont plus bakées ici — elles sont rendues par
+  // l'overlay DOM global `CrtOverlay`, par-dessus le canvas ET les menus React.
 }

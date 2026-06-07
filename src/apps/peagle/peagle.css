@@ -410,30 +410,27 @@
 .pg-panel {
   position: relative;
   background: var(--pg-surface);
-  border: 2px solid var(--pg-ink);
-  border-radius: 0;
-  clip-path: var(--pg-clip-panel);
-  box-shadow: var(--pg-bevel-raised);
-  filter: var(--pg-drop-panel);
+  border: 3px solid var(--pg-ink);
+  border-radius: calc(var(--pm-radius, 8px) + 2px);
+  box-shadow:
+    inset 2px 2px 0 0 var(--pg-bevel-hi),
+    inset -2px -2px 0 0 var(--pg-bevel-lo),
+    6px 7px 0 0 rgba(3, 8, 2, 0.7);
   overflow: hidden;
   image-rendering: pixelated;
-  animation: pg-slide-up 0.2s steps(4, end);
+  /* Entrée bouncy cohérente avec les peg-boutons. */
+  animation: pg-pm-panel-pop 0.42s var(--pm-spring, cubic-bezier(0.34, 2.6, 0.5, 1)) both;
 }
 
-/* Trame scanline pixel (subtile) par-dessus la surface du panneau. */
-.pg-dialog::before,
-.pg-panel::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background: repeating-linear-gradient(
-    to bottom,
-    transparent 0 2px,
-    rgba(0,0,0,0.16) 2px 3px
-  );
+/* Pop d'entrée des panneaux (scale + léger overshoot, via opacity/scale only). */
+@keyframes pg-pm-panel-pop {
+  0%   { opacity: 0; transform: scale(0.8) translateY(12px); }
+  55%  { opacity: 1; transform: scale(1.03) translateY(-3px); }
+  78%  {            transform: scale(0.99) translateY(1px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
 }
+
+/* (Scanlines retirées des panneaux — gérées globalement par `CrtOverlay`.) */
 
 /* En-tête de panneau : barre de titre 2 tons + liseré clair en haut +
    filet d'accent vert en bas → look « fenêtre » pixel art moderne. */
@@ -453,7 +450,7 @@
 .pg-caption-btn {
   width: 16px;
   height: 16px;
-  border-radius: 0;
+  border-radius: 4px;
   background: var(--pg-surface-2);
   border: 2px solid var(--pg-ink);
   box-shadow: var(--pg-bevel-raised);
@@ -465,42 +462,6 @@
   cursor: default;
   user-select: none;
   flex-shrink: 0;
-}
-
-/* ─── Boutons pixel plats ──────────────────────────────────────────────────────── */
-
-.pg-btn {
-  position: relative;
-  font-family: var(--pg-font);
-  font-size: 8px;
-  cursor: pointer;
-  padding: 11px 16px;
-  border-radius: 0;
-  color: var(--pg-text);
-  background: var(--pg-surface-2);
-  border: 2px solid var(--pg-ink);
-  clip-path: var(--pg-clip-btn);
-  box-shadow: var(--pg-bevel-raised);
-  /* Ombre dure décalée → bouton « sticker » posé sur la surface. */
-  filter: var(--pg-drop-btn);
-  letter-spacing: 0.05em;
-  line-height: 1.4;
-  /* Snap chunky (steps) plutôt qu'un glissement mou. */
-  transition: transform 0.06s steps(2, end), filter 0.06s;
-  white-space: nowrap;
-  image-rendering: pixelated;
-}
-
-/* Survol : le bouton se soulève et son ombre s'agrandit. */
-.pg-btn:hover {
-  transform: translate(-2px, -2px);
-  filter: drop-shadow(6px 6px 0 rgba(3,8,2,0.8)) brightness(1.16);
-}
-/* Clic : il s'enfonce dans son ombre (biseau inversé). */
-.pg-btn:active {
-  transform: translate(2px, 2px);
-  filter: drop-shadow(1px 1px 0 rgba(3,8,2,0.8)) brightness(0.94);
-  box-shadow: var(--pg-bevel-inset);
 }
 
 /* Aigle pixel qui flotte doucement (menu pause). */
@@ -518,52 +479,6 @@
   align-items: center;
   justify-content: center;
   animation: pg-gameover-face-bob 3.6s ease-in-out infinite;
-}
-
-.pg-btn-primary {
-  /* Ombrage 2 bandes (hard-stop) = look sprite, pas de dégradé flou. */
-  background: linear-gradient(to bottom, var(--pg-green-hi) 0 45%, var(--pg-green) 45% 72%, var(--pg-green-deep) 72% 100%);
-  color: #0a1a06;
-  font-weight: bold;
-  text-shadow: 0 1px 0 rgba(255,255,255,0.25);
-}
-
-.pg-btn-primary:hover {
-  transform: translate(-2px, -2px);
-  filter: drop-shadow(6px 6px 0 rgba(3,8,2,0.8)) brightness(1.08);
-}
-
-.pg-btn-danger {
-  background: linear-gradient(to bottom, var(--pg-orange-glow) 0 45%, var(--pg-orange) 45% 72%, var(--pg-orange-deep) 72% 100%);
-  color: #1a0a03;
-  font-weight: bold;
-  text-shadow: 0 1px 0 rgba(255,255,255,0.2);
-}
-
-.pg-btn-danger:hover {
-  transform: translate(-2px, -2px);
-  filter: drop-shadow(6px 6px 0 rgba(3,8,2,0.8)) brightness(1.1);
-}
-
-.pg-btn-ghost {
-  background: transparent;
-  border-color: var(--pg-border);
-  color: var(--pg-text-muted);
-  box-shadow: none;
-  filter: none;
-}
-
-.pg-btn-ghost:hover {
-  border-color: var(--pg-leaf);
-  color: var(--pg-leaf);
-  transform: translate(-1px, -1px);
-}
-
-.pg-btn-ghost.pg-btn-ghost-warn:hover {
-  border-color: var(--pg-orange);
-  color: var(--pg-orange);
-  transform: translate(-1px, -1px);
-  filter: none;
 }
 
 /* ─── Champ creux pixel (scores, valeurs) ────────────────────────────────────── */
@@ -664,20 +579,7 @@
     linear-gradient(to bottom, #0a1a06 0%, #0d2008 30%, #060e04 70%, #030804 100%);
 }
 
-/* Scanlines légères */
-.pg-side-forest::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    to bottom,
-    transparent 0px,
-    transparent 1px,
-    rgba(0,0,0,0.06) 2px,
-    rgba(0,0,0,0.06) 2px
-  );
-  pointer-events: none;
-}
+/* (Scanlines retirées des panneaux latéraux — gérées globalement par `CrtOverlay`.) */
 
 /* ─── Aigle animé ────────────────────────────────────────────────────────────── */
 
@@ -904,15 +806,34 @@
   background: rgba(3, 8, 2, 0.6);
 }
 
-.pg-settings-dialog {
+/* ── Carte Réglages diégétique ────────────────────────────────────────────────
+   Pas une « fenêtre OS » : aucune titlebar ni caption-btn, et pas de header non
+   plus — juste les réglages dans une tablette de bois forêt (même bevel pixel
+   que les peg-boutons), avec l'entrée bouncy cohérente du menu. */
+.pg-settings-card {
+  position: relative;
   width: min(300px, 86%);
+  background: var(--pg-surface);
+  border: 3px solid var(--pg-ink);
+  border-radius: calc(var(--pm-radius, 8px) + 2px);
+  box-shadow:
+    inset 2px 2px 0 0 var(--pg-bevel-hi),
+    inset -2px -2px 0 0 var(--pg-bevel-lo),
+    6px 7px 0 0 rgba(3, 8, 2, 0.7);
+  overflow: hidden;
+  image-rendering: pixelated;
+  animation: pg-pm-panel-pop 0.42s var(--pm-spring, cubic-bezier(0.34, 2.6, 0.5, 1)) both;
 }
 
+/* (Scanlines retirées de la carte Options — gérées globalement par `CrtOverlay`.) */
+
 .pg-settings-body {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 16px 14px;
+  padding: 18px 16px;
 }
 
 .pg-settings-row {
@@ -924,6 +845,144 @@
   font-size: 9px;
   letter-spacing: 0.08em;
   color: var(--pg-text);
+}
+
+/* Séparateur pixel 2px (sombre + clair) entre les sections de réglages. */
+.pg-settings-divider {
+  height: 2px;
+  margin: 2px 0;
+  background: var(--pg-ink);
+  box-shadow: 0 1px 0 0 var(--pg-bevel-hi);
+}
+
+/* ─── Choix d'upgrade — même DA que la carte Réglages ───────────────────────────
+   On réutilise .pg-settings-card / .pg-settings-body / .pg-settings-divider :
+   coquille diégétique, bevel pixel, scanlines, entrée bouncy. Ici juste les
+   spécifiques : largeur 3 cartes, en-tête, score, et les cartes de bonus. */
+.pg-upg-card {
+  width: min(440px, calc(100vw - 32px));
+}
+
+/* En-tête diégétique (pastille glyphe + intitulé du palier) — pas une titlebar OS. */
+.pg-upg-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pg-upg-head-title {
+  font-family: var(--pg-font);
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  color: var(--pg-leaf);
+}
+
+/* Rangée score — valeur en crème, comme les autres affichages de score. */
+.pg-upg-score-val {
+  font-family: var(--pg-font);
+  font-size: 12px;
+  color: var(--pg-cream);
+  text-shadow: 0 1px 0 #080f04;
+}
+
+.pg-upg-prompt {
+  font-family: var(--pg-font);
+  font-size: 7px;
+  letter-spacing: 0.14em;
+  color: var(--pg-text-muted);
+  align-self: center;
+}
+
+.pg-upg-cards {
+  display: flex;
+  gap: 8px;
+}
+
+/* Carte de bonus — peg-card pixel : bevel net, ombre dure, pop d'entrée et
+   hover/active bouncy cohérents avec les peg-boutons. */
+.pg-upg-cardbtn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  background: var(--pg-surface);
+  border: 3px solid var(--pg-ink);
+  border-radius: var(--pm-radius, 8px);
+  box-shadow:
+    inset 2px 2px 0 0 var(--pg-bevel-hi),
+    inset -2px -2px 0 0 var(--pg-bevel-lo),
+    4px 5px 0 0 rgba(3, 8, 2, 0.7);
+  transition:
+    transform 0.1s var(--pm-spring, cubic-bezier(0.34, 2.6, 0.5, 1)),
+    box-shadow 0.1s, filter 0.1s;
+  image-rendering: pixelated;
+  overflow: hidden;
+  text-align: left;
+  animation: pg-card-fly 0.44s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+
+.pg-upg-cardbtn:hover {
+  transform: translate(-3px, -5px) scale(1.04);
+  box-shadow:
+    inset 2px 2px 0 0 var(--pg-bevel-hi),
+    inset -2px -2px 0 0 var(--pg-bevel-lo),
+    8px 11px 0 0 rgba(3, 8, 2, 0.7);
+  filter: brightness(1.15);
+}
+
+.pg-upg-cardbtn:active {
+  transform: translate(2px, 2px) scale(0.97);
+  box-shadow:
+    inset 2px 2px 0 0 var(--pg-bevel-lo),
+    inset -2px -2px 0 0 var(--pg-bevel-hi),
+    1px 1px 0 0 rgba(3, 8, 2, 0.7);
+  filter: brightness(0.88);
+}
+
+.pg-upg-cardbtn-band {
+  height: 5px;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.pg-upg-cardbtn-inner {
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  flex: 1;
+}
+
+.pg-upg-cardbtn-rarity {
+  font-family: var(--pg-font);
+  font-size: 6px;
+  letter-spacing: 0.14em;
+  opacity: 0.85;
+  margin-bottom: 6px;
+}
+
+.pg-upg-cardbtn-name {
+  font-family: var(--pg-font);
+  font-size: 8px;
+  font-weight: bold;
+  line-height: 1.4;
+  letter-spacing: 0.06em;
+  color: var(--pg-cream);
+  margin-bottom: 8px;
+}
+
+/* Description — champ creux pixel (sunken), lisible, cohérent avec .pg-sunken. */
+.pg-upg-cardbtn-desc {
+  font-family: var(--pg-font);
+  font-size: 7px;
+  line-height: 1.8;
+  color: #c0e0a0;
+  padding: 8px;
+  background: var(--pg-bg-deep);
+  border: 2px solid var(--pg-ink);
+  box-shadow:
+    inset 1px 1px 0 0 var(--pg-bevel-lo),
+    inset -1px -1px 0 0 var(--pg-bevel-hi);
+  flex: 1;
 }
 
 .pg-menu-sub {
@@ -1035,26 +1094,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Fond quasi-opaque avec grille scanlines très subtile */
-  background:
-    repeating-linear-gradient(
-      to bottom,
-      transparent 0 3px,
-      rgba(0,0,0,0.14) 3px 4px
-    ),
-    rgba(3,6,2,0.93);
+  /* Fond quasi-opaque (scanlines gérées globalement par `CrtOverlay`). */
+  background: rgba(3,6,2,0.93);
   z-index: 6;
   animation: pg-backdrop-in 0.2s ease-out both;
 }
 
 .pg-overlay-lux-red {
-  background:
-    repeating-linear-gradient(
-      to bottom,
-      transparent 0 3px,
-      rgba(0,0,0,0.14) 3px 4px
-    ),
-    rgba(6,2,2,0.93);
+  background: rgba(6,2,2,0.93);
 }
 
 /* ─── Panneau luxueux ────────────────────────────────────────────────────────── */
@@ -1062,17 +1109,17 @@
 .pg-lux-panel {
   position: relative;
   background: #09140a;
-  border: 2px solid #050d03;
-  clip-path: var(--pg-clip-panel);
+  border: 3px solid #050d03;
+  border-radius: calc(var(--pm-radius, 8px) + 2px);
   box-shadow:
-    inset 1px 1px 0 0 var(--pg-bevel-hi),
-    inset -1px -1px 0 0 var(--pg-bevel-lo),
+    inset 2px 2px 0 0 var(--pg-bevel-hi),
+    inset -2px -2px 0 0 var(--pg-bevel-lo),
     inset 4px 4px 0 0 rgba(180, 140, 20, 0.05),
-    inset -4px -4px 0 0 rgba(0, 0, 0, 0.18);
-  filter: drop-shadow(8px 10px 0 rgba(0,0,0,0.78));
+    inset -4px -4px 0 0 rgba(0, 0, 0, 0.18),
+    7px 8px 0 0 rgba(0, 0, 0, 0.7);
   overflow: hidden;
   image-rendering: pixelated;
-  animation: pg-panel-spring 0.46s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation: pg-pm-panel-pop 0.42s var(--pm-spring, cubic-bezier(0.34, 2.6, 0.5, 1)) both;
 }
 
 @keyframes pg-lux-enter {
@@ -1135,125 +1182,6 @@
   border-bottom: 1px solid var(--pg-bevel-hi);
 }
 
-/* ─── Bouton OR — CTA principal luxueux ─────────────────────────────────────── */
-.pg-btn-gold {
-  position: relative;
-  font-family: var(--pg-font);
-  font-size: 9px;
-  font-weight: bold;
-  cursor: pointer;
-  padding: 14px 18px;
-  border-radius: 0;
-  color: #180e00;
-  /* 3 bandes hard-stop = sprite doré, pas de dégradé mou */
-  background: linear-gradient(to bottom,
-    #ffe870 0 40%,
-    #ffd24a 40% 70%,
-    #b08010 70% 100%
-  );
-  border: 2px solid #050d03;
-  clip-path: var(--pg-clip-btn);
-  box-shadow:
-    inset 1px 1px 0 0 #fff5b0,
-    inset -1px -1px 0 0 #705808;
-  filter: drop-shadow(4px 4px 0 rgba(3,8,2,0.9));
-  letter-spacing: 0.1em;
-  text-shadow: 0 1px 0 rgba(255,255,255,0.35), 0 -1px 0 rgba(0,0,0,0.2);
-  transition: transform 0.06s steps(2, end), filter 0.06s;
-  white-space: nowrap;
-  image-rendering: pixelated;
-  width: 100%;
-}
-
-.pg-btn-gold:hover {
-  transform: translate(-2px, -2px);
-  filter: drop-shadow(6px 6px 0 rgba(3,8,2,0.9)) brightness(1.1);
-}
-
-.pg-btn-gold:active {
-  transform: translate(2px, 2px);
-  filter: drop-shadow(1px 1px 0 rgba(3,8,2,0.9)) brightness(0.9);
-  box-shadow: inset 1px 1px 0 0 #705808, inset -1px -1px 0 0 #fff5b0;
-}
-
-/* ─── Bouton VERT luxueux (secondaire) ──────────────────────────────────────── */
-.pg-btn-lux {
-  position: relative;
-  font-family: var(--pg-font);
-  font-size: 8px;
-  cursor: pointer;
-  padding: 12px 16px;
-  border-radius: 0;
-  color: #061002;
-  background: linear-gradient(to bottom,
-    #a6e85c 0 40%,
-    #7ed13a 40% 70%,
-    #387010 70% 100%
-  );
-  border: 2px solid #050d03;
-  clip-path: var(--pg-clip-btn);
-  box-shadow:
-    inset 1px 1px 0 0 #c0f070,
-    inset -1px -1px 0 0 #234a08;
-  filter: drop-shadow(4px 4px 0 rgba(3,8,2,0.85));
-  letter-spacing: 0.08em;
-  text-shadow: 0 1px 0 rgba(255,255,255,0.28);
-  transition: transform 0.06s steps(2, end), filter 0.06s;
-  white-space: nowrap;
-  image-rendering: pixelated;
-  width: 100%;
-}
-
-.pg-btn-lux:hover {
-  transform: translate(-2px, -2px);
-  filter: drop-shadow(6px 6px 0 rgba(3,8,2,0.85)) brightness(1.12);
-}
-
-.pg-btn-lux:active {
-  transform: translate(2px, 2px);
-  filter: drop-shadow(1px 1px 0 rgba(3,8,2,0.85)) brightness(0.9);
-  box-shadow: inset 1px 1px 0 0 #234a08, inset -1px -1px 0 0 #c0f070;
-}
-
-/* ─── Bouton ROUGE luxueux (danger/replay) ──────────────────────────────────── */
-.pg-btn-red-lux {
-  position: relative;
-  font-family: var(--pg-font);
-  font-size: 9px;
-  font-weight: bold;
-  cursor: pointer;
-  padding: 14px 18px;
-  border-radius: 0;
-  color: #160100;
-  background: linear-gradient(to bottom,
-    #ff8870 0 40%,
-    #ff5544 40% 70%,
-    #b81e0e 70% 100%
-  );
-  border: 2px solid #050d03;
-  clip-path: var(--pg-clip-btn);
-  box-shadow:
-    inset 1px 1px 0 0 #ffaa90,
-    inset -1px -1px 0 0 #780806;
-  filter: drop-shadow(4px 4px 0 rgba(3,8,2,0.9));
-  letter-spacing: 0.1em;
-  text-shadow: 0 1px 0 rgba(255,255,255,0.2);
-  transition: transform 0.06s steps(2, end), filter 0.06s;
-  white-space: nowrap;
-  image-rendering: pixelated;
-}
-
-.pg-btn-red-lux:hover {
-  transform: translate(-2px, -2px);
-  filter: drop-shadow(6px 6px 0 rgba(3,8,2,0.9)) brightness(1.12);
-}
-
-.pg-btn-red-lux:active {
-  transform: translate(2px, 2px);
-  filter: drop-shadow(1px 1px 0 rgba(3,8,2,0.9)) brightness(0.9);
-  box-shadow: inset 1px 1px 0 0 #780806, inset -1px -1px 0 0 #ffaa90;
-}
-
 /* ─── Toggle musique ─────────────────────────────────────────────────────────── */
 .pg-toggle-row {
   display: flex;
@@ -1265,8 +1193,8 @@
   letter-spacing: 0.08em;
   color: var(--pg-text-muted);
   background: rgba(0,0,0,0.22);
-  border: 1px solid #1e3812;
-  clip-path: var(--pg-clip-btn);
+  border: 2px solid #1e3812;
+  border-radius: var(--pm-radius, 8px);
   cursor: pointer;
   transition: background 0.1s, color 0.1s;
   image-rendering: pixelated;
@@ -1323,25 +1251,16 @@
 }
 
 /* ─── Titres victoire / défaite ──────────────────────────────────────────────── */
+/* Pulse NET (pas de blur) : ombre pixel dure constante + variation de luminosité
+   et léger scale → emphase vivante sans halo flou, cohérent avec la DA peg. */
 @keyframes pg-glow-victory {
-  0%, 100% {
-    text-shadow:
-      0 0 10px #ffd24a,
-      0 0 28px rgba(255,190,40,0.55),
-      0 2px 0 #0a1c08;
-  }
-  50% {
-    text-shadow:
-      0 0 22px #ffe870,
-      0 0 55px rgba(255,200,50,0.65),
-      0 0 90px rgba(255,150,0,0.25),
-      0 2px 0 #0a1c08;
-  }
+  0%, 100% { transform: scale(1);    filter: brightness(1);    text-shadow: 2px 2px 0 #0a1c08, -1px -1px 0 #b08010; }
+  50%       { transform: scale(1.04); filter: brightness(1.18); text-shadow: 3px 3px 0 #0a1c08, -1px -1px 0 #ffe870; }
 }
 
 @keyframes pg-glow-defeat {
-  0%, 100% { text-shadow: 0 0 10px #ff5544, 0 0 28px rgba(255,50,30,0.45), 0 2px 0 #0a0404; }
-  50%       { text-shadow: 0 0 22px #ff7760, 0 0 55px rgba(255,70,50,0.55), 0 2px 0 #0a0404; }
+  0%, 100% { transform: scale(1);    filter: brightness(1);    text-shadow: 2px 2px 0 #0a0404, -1px -1px 0 #780806; }
+  50%       { transform: scale(1.03); filter: brightness(1.16); text-shadow: 3px 3px 0 #0a0404, -1px -1px 0 #ff7760; }
 }
 
 @keyframes pg-trophy-hover {
@@ -1351,8 +1270,8 @@
 }
 
 @keyframes pg-record-lux {
-  0%, 100% { color: var(--pg-gold); text-shadow: 0 0 12px var(--pg-gold), 0 0 30px rgba(255,200,0,0.4); }
-  50%       { color: #fff;           text-shadow: 0 0 26px var(--pg-gold), 0 0 60px #ffaa00; }
+  0%, 100% { color: var(--pg-gold); filter: brightness(1);    text-shadow: 2px 2px 0 rgba(0,0,0,0.9); }
+  50%       { color: #fff;           filter: brightness(1.2);  text-shadow: 2px 2px 0 rgba(0,0,0,0.9), -1px -1px 0 var(--pg-gold); }
 }
 
 @keyframes pg-confetti-drift {
@@ -1414,6 +1333,21 @@
   border-bottom: 9px solid #f5f0d8;
 }
 
+/* ─── Variante : bulle AU-DESSUS de l'aigle → queue pointant vers le BAS ───────── */
+.pg-eagle-bubble-below::before {
+  top: auto;
+  bottom: -11px;
+  border-bottom: 0;
+  border-top: 11px solid #222;
+}
+
+.pg-eagle-bubble-below::after {
+  top: auto;
+  bottom: -8px;
+  border-bottom: 0;
+  border-top: 9px solid #f5f0d8;
+}
+
 /* ─── Upgrade cards luxueuses ────────────────────────────────────────────────── */
 .pg-card-lux {
   flex: 1;
@@ -1421,27 +1355,40 @@
   flex-direction: column;
   cursor: pointer;
   background: #0b1608;
-  border: 2px solid #050d03;
-  clip-path: var(--pg-clip-panel);
+  border: 3px solid #050d03;
+  border-radius: var(--pm-radius, 8px);
   box-shadow:
-    inset 1px 1px 0 0 var(--pg-bevel-hi),
-    inset -1px -1px 0 0 var(--pg-bevel-lo);
-  filter: drop-shadow(4px 5px 0 rgba(0,0,0,0.65));
-  transition: transform 0.08s steps(2, end), filter 0.08s;
+    inset 2px 2px 0 0 var(--pg-bevel-hi),
+    inset -2px -2px 0 0 var(--pg-bevel-lo),
+    4px 5px 0 0 rgba(0, 0, 0, 0.7);
+  transition:
+    transform 0.1s var(--pm-spring, cubic-bezier(0.34, 2.6, 0.5, 1)),
+    box-shadow 0.1s, filter 0.1s;
   image-rendering: pixelated;
   overflow: hidden;
   text-align: left;
-  animation: pg-card-fly 0.44s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  opacity: 1;
+  /* Pas de `both` : à la fin de l'anim la carte reprend son transform CSS normal
+     (repos = identité, ou :hover) → pas de conflit/flicker comme les peg-boutons. */
+  animation: pg-card-fly 0.44s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
 }
 
 .pg-card-lux:hover {
-  transform: translate(-2px, -3px);
-  filter: drop-shadow(6px 8px 0 rgba(0,0,0,0.72)) brightness(1.2);
+  transform: translate(-3px, -5px) scale(1.04);
+  box-shadow:
+    inset 2px 2px 0 0 var(--pg-bevel-hi),
+    inset -2px -2px 0 0 var(--pg-bevel-lo),
+    8px 11px 0 0 rgba(0, 0, 0, 0.7);
+  filter: brightness(1.2);
 }
 
 .pg-card-lux:active {
-  transform: translate(1px, 2px);
-  filter: drop-shadow(2px 2px 0 rgba(0,0,0,0.6)) brightness(0.88);
+  transform: translate(2px, 2px) scale(0.97);
+  box-shadow:
+    inset 2px 2px 0 0 var(--pg-bevel-lo),
+    inset -2px -2px 0 0 var(--pg-bevel-hi),
+    1px 1px 0 0 rgba(0, 0, 0, 0.7);
+  filter: brightness(0.88);
 }
 
 /* Bande couleur en haut de la card (indique la rareté) */
@@ -1602,7 +1549,8 @@
 
 .pg-diag-title-pause {
   color: #a6e85c;
-  text-shadow: 0 0 10px rgba(166,232,92,0.65), 0 0 28px rgba(100,200,40,0.3), 0 2px 0 rgba(0,0,0,0.95);
+  /* Ombre pixel dure (outline net) au lieu d'un halo flou. */
+  text-shadow: 2px 2px 0 rgba(0,0,0,0.95), -1px -1px 0 var(--pg-green-deep);
 }
 
 /* Animation compound : entrée + glow continu */
@@ -1648,7 +1596,8 @@
   font-weight: bold;
   color: #f2e6c2;
   line-height: 1;
-  text-shadow: 0 0 20px rgba(242,230,194,0.25), 0 3px 0 rgba(0,0,0,0.9), 0 6px 0 rgba(0,0,0,0.4);
+  /* Ombre pixel dure empilée (relief net) au lieu d'un halo flou. */
+  text-shadow: 0 3px 0 rgba(0,0,0,0.9), 0 6px 0 rgba(0,0,0,0.4), 2px 2px 0 #0a1c08;
 }
 
 /* ─── Badges inline ─────────────────────────────────────────────────────────── */
@@ -1697,7 +1646,7 @@
   letter-spacing: 0.16em;
   text-align: center;
   margin-bottom: 5px;
-  text-shadow: 0 0 8px rgba(220,180,50,0.3), 0 1px 0 rgba(0,0,0,0.9);
+  text-shadow: 0 1px 0 rgba(0,0,0,0.9), 1px 1px 0 rgba(0,0,0,0.5);
 }
 
 .pg-go-rank-row {
@@ -1725,7 +1674,7 @@
 
 .pg-go-rank-me .pg-go-rank-name {
   color: #a6e85c;
-  text-shadow: 0 0 8px rgba(143,224,74,0.45);
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.7);
 }
 
 .pg-go-rank-you {
@@ -1780,97 +1729,39 @@
 .pg-diag-btns {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 2px;
+  align-items: stretch;
+  /* Largeur fixe (comme .pg-pm-panel du menu) → tous les boutons pleine largeur,
+     donc strictement à la même taille, peu importe la longueur du texte. */
+  width: min(230px, 72%);
+  gap: 8px;
   animation: pg-slide-up 0.28s ease-out 0.16s both;
 }
+/* La barre de séparation reste pleine largeur du panneau. */
+.pg-diag-btns .pg-diag-sep { align-self: stretch; }
 
-.pg-diag-btn-row {
-  display: flex;
-  gap: 20px;
-  justify-content: center;
-  align-items: center;
-  margin: 2px 0;
-}
-
-/* ─── Bouton texte pur — aucune boîte ───────────────────────────────────────── */
-
-.pg-diag-btn {
-  position: relative;
-  font-family: var(--pg-font);
-  font-size: 9px;
-  letter-spacing: 0.12em;
-  color: #9fd47a;
-  background: none;
-  border: 0;
-  padding: 6px 12px;
-  cursor: pointer;
-  text-align: center;
-  line-height: 1.4;
-  text-shadow: 0 0 5px rgba(120,220,60,0.15), 0 2px 3px rgba(0,0,0,0.95);
-  transition: color 0.1s, text-shadow 0.1s;
-  -webkit-tap-highlight-color: transparent;
-  white-space: nowrap;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-}
-
-.pg-diag-btn:hover {
-  color: var(--pg-green-hi);
-  text-shadow: 0 0 12px rgba(160,232,92,0.65), 0 2px 3px rgba(0,0,0,0.95);
-}
-
-.pg-diag-btn:active { color: #fff; }
-
-/* CTA vert — REPRENDRE / REJOUER */
-.pg-diag-btn-primary {
-  font-size: 11px;
-  color: #a6e85c;
-  letter-spacing: 0.15em;
-  text-shadow: 0 0 10px rgba(166,232,92,0.5), 0 2px 3px rgba(0,0,0,0.95);
-  padding: 8px 12px;
-}
-.pg-diag-btn-primary:hover {
-  color: #d0f890;
-  text-shadow: 0 0 20px rgba(166,232,92,0.9), 0 0 40px rgba(100,200,40,0.4), 0 2px 3px rgba(0,0,0,0.95);
-}
-
-/* CTA or — CLASSEMENT */
-.pg-diag-btn-gold {
-  font-size: 11px;
-  color: #ffd24a;
-  letter-spacing: 0.15em;
-  text-shadow: 0 0 10px rgba(255,210,74,0.5), 0 2px 3px rgba(0,0,0,0.95);
-  padding: 8px 12px;
-}
-.pg-diag-btn-gold:hover {
-  color: #fff7c8;
-  text-shadow: 0 0 16px #ffd24a, 0 0 32px #ffaa00, 0 2px 3px rgba(0,0,0,0.95);
-}
-
-/* Discret — seed / menu / rejouer seed */
-.pg-diag-btn-muted {
-  font-size: 7px;
-  color: #88a86c;
-  letter-spacing: 0.08em;
-  text-shadow: 0 2px 3px rgba(0,0,0,0.95);
-}
-.pg-diag-btn-muted:hover {
-  color: #a6e85c;
-  text-shadow: 0 0 8px rgba(120,220,60,0.4), 0 2px 3px rgba(0,0,0,0.95);
-}
-
-/* Pill ON/OFF inline dans le bouton musique */
-.pg-diag-toggle-pill {
+/* ─── Puce seed en partie — discrète, coin bas-gauche du plateau ────────────── */
+.pg-seed-chip {
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+  z-index: 3;
   font-family: var(--pg-font);
   font-size: 6px;
-  padding: 2px 7px;
-  border: 1px solid;
-  letter-spacing: 0.06em;
-  line-height: 1.4;
-  flex-shrink: 0;
+  letter-spacing: 0.08em;
+  color: var(--pg-text-muted);
+  background: rgba(3, 8, 2, 0.55);
+  border: 2px solid var(--pg-ink);
+  border-radius: 5px;
+  padding: 3px 6px;
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 0.12s, color 0.12s;
+  image-rendering: pixelated;
+}
+
+.pg-seed-chip:hover {
+  opacity: 1;
+  color: var(--pg-leaf);
 }
 
 /* ─── Bloc astuce — pause & game over ───────────────────────────────────────── */
@@ -1884,15 +1775,14 @@
   padding: 7px 12px;
   margin: 2px 0 8px;
   background: rgba(6, 14, 4, 0.55);
-  border-top: 1px solid rgba(46, 82, 32, 0.55);
-  border-bottom: 1px solid rgba(46, 82, 32, 0.55);
+  border: 1px solid rgba(46, 82, 32, 0.55);
+  border-radius: var(--pm-radius, 8px);
   animation: pg-slide-up 0.32s ease-out 0.2s both;
 }
 
 /* Variante game over — bordure or tamisée */
 .pg-diag-tip-go {
-  border-top-color: rgba(96, 64, 16, 0.5);
-  border-bottom-color: rgba(96, 64, 16, 0.5);
+  border-color: rgba(96, 64, 16, 0.5);
   margin-top: 0;
 }
 
@@ -1915,4 +1805,302 @@
   text-align: center;
   line-height: 1.4;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.95);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   MENU « PEG » — DA pixel-art bouncy inspirée des pegs du jeu
+   Boutons = blocs pixel à coins doux (blob), bevel net, ombre DURE décalée,
+   zéro glow flou. Animations bouncy systématiques (une seule courbe d'overshoot).
+   Préfixe pg-pm-* (peg-menu) — n'interfère avec aucun style in-game existant.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+.peagle-root {
+  /* Courbe de rebond unique réutilisée partout dans le menu peg.
+     Overshoot prononcé (juicy) — le 2.6 fait franchement dépasser puis revenir. */
+  --pm-spring: cubic-bezier(0.34, 2.6, 0.5, 1);
+  /* Rayon « blob » doux des pegs-boutons (assez pour adoucir, pas assez pour faire web). */
+  --pm-radius: 8px;
+}
+
+/* ─── Entrée bouncy d'un peg-bouton (pop depuis le bas, gros overshoot juicy) ────
+   N'utilise QUE opacity + un wrapper de scale via une custom property animée :
+   le transform de positionnement (hover/press) est géré à part pour éviter tout
+   conflit « animation forwards vs :hover » (source de clignotement). */
+@keyframes pg-pm-pop {
+  0%   { opacity: 0; --pm-pop-y: 22px; --pm-pop-s: 0.4;  }
+  50%  { opacity: 1; --pm-pop-y: -8px; --pm-pop-s: 1.14; }
+  68%  {            --pm-pop-y: 4px;  --pm-pop-s: 0.93; }
+  82%  {            --pm-pop-y: -2px; --pm-pop-s: 1.04; }
+  92%  {            --pm-pop-y: 1px;  --pm-pop-s: 0.99; }
+  100% { opacity: 1; --pm-pop-y: 0px;  --pm-pop-s: 1;    }
+}
+
+/* @property : nécessaire pour que les custom properties soient INTERPOLÉES dans
+   l'animation (sinon elles « sautent » d'une keyframe à l'autre). */
+@property --pm-pop-y {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --pm-pop-s {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 1;
+}
+/* Variables hover/press — déclarées en @property pour transitionner en douceur. */
+@property --pm-hx { syntax: "<length>"; inherits: false; initial-value: 0px; }
+@property --pm-hy { syntax: "<length>"; inherits: false; initial-value: 0px; }
+@property --pm-hs { syntax: "<number>"; inherits: false; initial-value: 1; }
+
+/* Idle « respiration » du peg JOUER — pilote les MÊMES variables que le pop
+   (jamais transform directement) pour rester compatible avec le transform unifié. */
+@keyframes pg-pm-breathe {
+  0%, 100% { --pm-pop-y: 0px;  --pm-pop-s: 1;    }
+  50%       { --pm-pop-y: -3px; --pm-pop-s: 1.02; }
+}
+
+/* ─── Panneau menu ─────────────────────────────────────────────────────────────── */
+.pg-pm-panel {
+  width: min(210px, 66%);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(7px, 1.2vh, 10px);
+  align-items: stretch;
+}
+
+/* Sous-groupe des boutons secondaires (CLASSEMENT / INSTRUCTIONS / RÉGLAGES) :
+   serrés entre eux, et rapprochés du CTA « JOUER » au-dessus. */
+.pg-pm-subgroup {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(4px, 0.7vh, 6px);
+  margin-top: clamp(2px, 0.4vh, 4px);
+}
+
+/* ─── Peg-bouton : bloc plein, bevel pixel net, ombre DURE, coins doux ───────────
+   Reprend la recette de pixelSquare() du renderer : aplat + arête claire haut/gauche
+   + arête sombre bas/droite + pastille blanche en coin. AUCUN flou. */
+.pg-pm-btn {
+  position: relative;
+  font-family: var(--pg-font);
+  font-size: clamp(8px, 1.9vw, 10px);
+  letter-spacing: 0.05em;
+  color: #0a1a06;
+  text-align: center;
+  line-height: 1;
+  padding: clamp(8px, 1.4vh, 12px) 12px;
+  width: 100%;
+  cursor: pointer;
+  border: 3px solid var(--pg-ink);
+  border-radius: var(--pm-radius);
+  background: var(--pg-green);
+  /* Arête claire haut/gauche + sombre bas/droite (bevel pixel net, pas de flou). */
+  box-shadow:
+    inset 2px 2px 0 0 var(--pg-green-hi),
+    inset -2px -2px 0 0 var(--pg-green-deep),
+    /* Ombre DURE décalée — le peg « flotte » posé sur la surface. */
+    4px 4px 0 0 rgba(3, 8, 2, 0.85);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.3);
+  image-rendering: pixelated;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+
+  /* ── Transform UNIFIÉ ──────────────────────────────────────────────────────
+     UNE seule déclaration transform combine deux sources qui ne se battent plus :
+     • pop d'entrée  → variables --pm-pop-y / --pm-pop-s (animées par @keyframes)
+     • hover/press   → variables --pm-hx / --pm-hy / --pm-hs (changées par état)
+     Comme c'est toujours la même propriété pilotée par des variables, il n'y a
+     plus de conflit « animation forwards vs :hover » → plus de clignotement. */
+  --pm-pop-y: 0px;
+  --pm-pop-s: 1;
+  --pm-hx: 0px;
+  --pm-hy: 0px;
+  --pm-hs: 1;
+  transform:
+    translate(var(--pm-hx), calc(var(--pm-pop-y) + var(--pm-hy)))
+    scale(calc(var(--pm-pop-s) * var(--pm-hs)));
+  /* Seules les variables hover/press transitionnent (snap). Le pop est piloté
+     par l'animation, pas par la transition. */
+  transition:
+    --pm-hx 0.1s var(--pm-spring),
+    --pm-hy 0.1s var(--pm-spring),
+    --pm-hs 0.1s var(--pm-spring),
+    box-shadow 0.1s, filter 0.1s;
+  animation: pg-pm-pop 0.5s var(--pm-spring) both;
+}
+
+/* Highlight en « L » au coin haut-gauche — IDENTIQUE à celui des pegs du jeu
+   (renderer/pegs.ts : fillRect(x+1,y+1,2,1) + fillRect(x+1,y+1,1,2)). Un carré dont on
+   retire le coin bas-droit via clip-path → angle pixel net, pas une pastille ronde.
+   À l'échelle du bouton on garde l'épaisseur de barre fine (~1.5px) pour rester sobre. */
+.pg-pm-btn::after {
+  content: "";
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  width: 4px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 0;
+  /* polygone en L : barre de 2px (50%) → colonne gauche + ligne haute, coin bas-droit vide */
+  clip-path: polygon(0 0, 100% 0, 100% 50%, 50% 50%, 50% 100%, 0 100%);
+  pointer-events: none;
+}
+
+/* Hover : le peg bondit franchement vers le haut-gauche (variables hover, pas de
+   conflit avec le pop). La transition spring sur les variables donne le rebond. */
+.pg-pm-btn:hover {
+  --pm-hx: -3px;
+  --pm-hy: -5px;
+  --pm-hs: 1.06;
+  box-shadow:
+    inset 2px 2px 0 0 var(--pg-green-hi),
+    inset -2px -2px 0 0 var(--pg-green-deep),
+    8px 10px 0 0 rgba(3, 8, 2, 0.85);
+  filter: brightness(1.1);
+}
+
+/* Press : il s'enfonce d'un coup dans son ombre (bevel inversé). */
+.pg-pm-btn:active {
+  --pm-hx: 3px;
+  --pm-hy: 3px;
+  --pm-hs: 0.94;
+  box-shadow:
+    inset 2px 2px 0 0 var(--pg-green-deep),
+    inset -2px -2px 0 0 var(--pg-green-hi),
+    0 0 0 0 rgba(3, 8, 2, 0.85);
+  filter: brightness(0.92);
+}
+
+/* ─── JOUER : le gros peg orange (la cible du jeu) ─────────────────────────────── */
+.pg-pm-btn-play {
+  font-size: clamp(11px, 2.7vw, 15px);
+  letter-spacing: 0.09em;
+  padding: clamp(13px, 2.2vh, 18px) 14px;
+  color: #1a0a03;
+  background: var(--pg-orange);
+  box-shadow:
+    inset 2px 2px 0 0 var(--pg-orange-glow),
+    inset -2px -2px 0 0 var(--pg-orange-deep),
+    5px 5px 0 0 rgba(3, 8, 2, 0.85);
+  /* Pop d'entrée puis respiration en boucle — les DEUX pilotent les mêmes variables
+     --pm-pop-* (jamais transform directement) → zéro conflit avec hover/press. */
+  animation:
+    pg-pm-pop 0.5s var(--pm-spring) both,
+    pg-pm-breathe 2.2s ease-in-out 0.5s infinite;
+}
+.pg-pm-btn-play:hover {
+  --pm-hx: -3px;
+  --pm-hy: -5px;
+  --pm-hs: 1.06;
+  box-shadow:
+    inset 2px 2px 0 0 var(--pg-orange-glow),
+    inset -2px -2px 0 0 var(--pg-orange-deep),
+    9px 11px 0 0 rgba(3, 8, 2, 0.85);
+  filter: brightness(1.1);
+}
+.pg-pm-btn-play:active {
+  --pm-hx: 3px;
+  --pm-hy: 3px;
+  --pm-hs: 0.94;
+  box-shadow:
+    inset 2px 2px 0 0 var(--pg-orange-deep),
+    inset -2px -2px 0 0 var(--pg-orange-glow),
+    0 0 0 0 rgba(3, 8, 2, 0.85);
+  filter: brightness(0.92);
+}
+
+/* ─── Modificateurs <PegBtn> ─────────────────────────────────────────────────────
+   Le peg du menu est pleine largeur par défaut (empilé dans .pg-pm-panel). Hors du
+   menu (pause, game over, fenêtres) on veut souvent un bouton qui s'ajuste au texte
+   et des tailles compactes / mises en avant. Ces modificateurs n'altèrent QUE la
+   géométrie (largeur, padding, police) — la DA peg reste intacte. */
+.pg-pm-btn-auto {
+  width: auto;
+}
+.pg-pm-btn-sm {
+  font-size: clamp(7px, 1.6vw, 8px);
+  padding: clamp(7px, 1.1vh, 9px) 12px;
+  letter-spacing: 0.04em;
+}
+.pg-pm-btn-lg {
+  font-size: clamp(10px, 2.3vw, 12px);
+  padding: clamp(11px, 1.8vh, 14px) 18px;
+  letter-spacing: 0.09em;
+}
+
+/* Ghost : même peg mais atténué (transparent, sans ombre dure ni pastille) — pour
+   les actions discrètes « passer / actualiser » qui ne doivent pas concurrencer le CTA. */
+.pg-pm-btn-ghost {
+  background: transparent;
+  color: var(--pg-text-muted);
+  box-shadow: none;
+  text-shadow: none;
+  filter: none;
+  animation: none;
+}
+.pg-pm-btn-ghost::after { display: none; }
+.pg-pm-btn-ghost:hover {
+  --pm-hx: -2px;
+  --pm-hy: -3px;
+  --pm-hs: 1.04;
+  border-color: var(--pg-leaf);
+  color: var(--pg-leaf);
+  box-shadow: none;
+  filter: none;
+}
+.pg-pm-btn-ghost:active {
+  --pm-hx: 1px;
+  --pm-hy: 1px;
+  --pm-hs: 0.98;
+  box-shadow: none;
+}
+.pg-pm-btn-ghost.pg-pm-btn-warn:hover {
+  border-color: var(--pg-orange);
+  color: var(--pg-orange);
+}
+
+/* ─── Bannière version — petit peg doré discret, posé en bas ─────────────────────── */
+.pg-pm-version {
+  align-self: center;
+  font-family: var(--pg-font);
+  font-size: clamp(7px, 1.8vw, 9px);
+  line-height: 1.5;
+  letter-spacing: 0.08em;
+  color: #1a1404;
+  text-align: center;
+  padding: 8px 14px;
+  cursor: pointer;
+  border: 3px solid var(--pg-ink);
+  border-radius: var(--pm-radius);
+  background: var(--pg-gold);
+  box-shadow:
+    inset 2px 2px 0 0 #ffe870,
+    inset -2px -2px 0 0 #b08010,
+    4px 4px 0 0 rgba(3, 8, 2, 0.85);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
+  image-rendering: pixelated;
+  transition: transform 0.08s var(--pm-spring), box-shadow 0.08s, filter 0.08s;
+  -webkit-tap-highlight-color: transparent;
+}
+.pg-pm-version:hover {
+  transform: translate(-2px, -3px) scale(1.04);
+  box-shadow:
+    inset 2px 2px 0 0 #ffe870,
+    inset -2px -2px 0 0 #b08010,
+    7px 8px 0 0 rgba(3, 8, 2, 0.85);
+  filter: brightness(1.08);
+}
+.pg-pm-version:active {
+  transform: translate(2px, 2px) scale(0.99);
+  box-shadow:
+    inset 2px 2px 0 0 #b08010,
+    inset -2px -2px 0 0 #ffe870,
+    1px 1px 0 0 rgba(3, 8, 2, 0.85);
+}
+
+.pg-pm-version-num {
+  font-weight: bold;
+  font-size: clamp(9px, 2.4vw, 12px);
+  letter-spacing: 0.1em;
 }

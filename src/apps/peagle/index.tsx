@@ -12,6 +12,7 @@ import { LoadingScreen } from "./components/LoadingScreen";
 import { MainMenu } from "./components/MainMenu";
 import { UpgradePicker } from "./components/UpgradePicker";
 import { SidePanel } from "./components/SidePanel";
+import { CrtOverlay } from "./components/CrtOverlay";
 import { DevPanel } from "./components/DevPanel";
 import type { DevConfig, DevTriggerScreen } from "./components/DevPanel";
 import { W } from "./engine/constants";
@@ -100,9 +101,11 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     setLbLoading(true);
     try {
       const res = await fetch("/api/peagle/scores");
-      const data = await res.json() as LeaderboardEntry[];
-      setLeaderboard(data);
-    } catch { /* silent */ }
+      const data = await res.json() as unknown;
+      // L'API peut renvoyer { error } (DB indispo…) — ne stocker QUE si c'est bien
+      // un tableau, sinon on retombe sur l'état vide plutôt que de crasher au .map().
+      setLeaderboard(Array.isArray(data) ? (data as LeaderboardEntry[]) : []);
+    } catch { setLeaderboard([]); }
     finally { setLbLoading(false); }
   }, []);
 
@@ -271,22 +274,6 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     transitionTo("game");
   }, [resetGame, fadeToGameTrack, cancelUpgradeTimer, transitionTo]);
 
-  // Rejouer avec exactement le même seed (upgrades remises à zéro).
-  const handleReplaySeed = useCallback(() => {
-    cancelUpgradeTimer();
-    const seed = runStateRef.current.seed;
-    runStateRef.current = makeRunStateWithSeed(seed);
-    devConfigRef.current = null;
-    // setCurrentSeed reste inchangé (même seed)
-    resetGame(false);
-    setScoreSubmitted(false);
-    setUpgradeOffer(null);
-    setPaused(false);
-    setDevSessionActive(false);
-    fadeToGameTrack();
-    transitionTo("game");
-  }, [resetGame, fadeToGameTrack, cancelUpgradeTimer, transitionTo]);
-
   const handleAssetsReady = useCallback(() => {
     transitionTo("menu");
   }, [transitionTo]);
@@ -296,8 +283,13 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     else if (s === "lose") forceLose();
     else if (s === "day") forceDay();
     else if (s === "new-record") forceNewRecord();
+    else if (s === "upgrade") {
+      // Offre pleine (3 bonus) avec un seed aléatoire → varie à chaque déclenchement.
+      cancelUpgradeTimer();
+      setUpgradeOffer(generateUpgradeOffer([], Math.floor(Math.random() * 0xffffffff)));
+    }
     else forceNight();
-  }, [forceWin, forceLose, forceDay, forceNight, forceNewRecord]);
+  }, [forceWin, forceLose, forceDay, forceNight, forceNewRecord, cancelUpgradeTimer]);
 
   // Callbacks stables passés à GameCanvas (mémoïsé) — évite de casser sa memo.
   const handleResume = useCallback(() => setPaused(false), []);
@@ -379,7 +371,6 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
                 onReplay={handleReplay}
-                onReplaySeed={handleReplaySeed}
                 onLeaderboard={handleGoToLeaderboard}
                 onMenu={handleGoToMenu}
                 onSkipLevel={skipLevel}
@@ -401,6 +392,10 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
           <SidePanel side="right" clutchMode={ui.clutch} />
         </div>
       </div>
+
+      {/* ── Effets CRT globaux (Scanlines / Pixel) — par-dessus toute la zone de
+            jeu, sous le voile de transition ──────────────────────────────── */}
+      <CrtOverlay />
 
       {/* ── Transition overlay — CSS transition, toujours monté ─────────────── */}
       <div

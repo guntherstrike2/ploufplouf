@@ -7,10 +7,10 @@ import { DevPanel } from "./DevPanel";
 import type { DevConfig } from "./DevPanel";
 import { TitleCanvas } from "./TitleCanvas";
 import type { BeatBands } from "../hooks/useMusic";
-import { parseSeed } from "../engine/roguelite";
 import { PG } from "../styles";
 import { PatchNotes } from "./PatchNotes";
 import { Instructions } from "./Instructions";
+import { Options } from "./Options";
 import { PEAGLE_CURRENT_VERSION } from "../peagle-versions";
 
 interface MainMenuProps {
@@ -42,17 +42,7 @@ export function MainMenu({
   const [showSettings, setShowSettings] = useState(false);
   const [showPatchNotes, setShowPatchNotes] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
-  const [seedInput, setSeedInput] = useState("");
-  const [seedError, setSeedError] = useState(false);
   const { playMenuClick, playMenuHover, playMenuReveal, playTitleImpact, playEagleCryShort, playEagleCryLong } = usePeagleSounds();
-
-  const handlePlayWithSeed = useCallback(() => {
-    const clean = seedInput.trim().toUpperCase().replace(/[^0-9A-Z]/g, '');
-    if (!clean) { setSeedError(true); return; }
-    setSeedError(false);
-    playMenuClick();
-    onPlayWithSeed(parseSeed(clean));
-  }, [seedInput, onPlayWithSeed, playMenuClick]);
 
   // Texte des boutons qui réagit aux impacts d'œufs sur le titre.
   // Onde de choc lointaine → amplitude volontairement minuscule (~force × 3px),
@@ -116,80 +106,15 @@ export function MainMenu({
         <Instructions onClose={() => setShowInstructions(false)} />
       )}
 
-      {/* Panneau Réglages — overlay pixel centré. */}
+      {/* Menu Options — carte diégétique partagée avec la pause (Musique,
+          Scanlines, Pixel, seed). Fermeture via FERMER ou clic sur l'overlay. */}
       {showSettings && (
-        <div
-          className="pg-settings-overlay"
-          onClick={() => { playMenuClick(); setShowSettings(false); }}
-        >
-          <div className="pg-dialog pg-settings-dialog" onClick={(e) => e.stopPropagation()}>
-            <div className="pg-titlebar">
-              <span className="pg-caption-btn">⚙</span>
-              <span style={{ fontSize: 9, letterSpacing: "0.1em" }}>RÉGLAGES</span>
-            </div>
-            <div className="pg-settings-body">
-              <div className="pg-settings-row">
-                <span>MUSIQUE</span>
-                <button
-                  className={`pg-btn ${musicMuted ? "" : "pg-btn-primary"}`}
-                  onPointerEnter={playMenuHover}
-                  onClick={() => { playMenuClick(); onToggleMusic(); }}
-                >
-                  {musicMuted ? "OFF" : "ON"}
-                </button>
-              </div>
-
-              {/* ── Seed personnalisé ──────────────────────────────── */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6 }}>
-                <span style={{ fontSize: 7, letterSpacing: "0.06em" }}>SEED (6 CAR.)</span>
-                <div style={{ display: "flex", gap: 4 }}>
-                  <input
-                    type="text"
-                    maxLength={6}
-                    placeholder="ex: 4XZ2K1"
-                    value={seedInput}
-                    onChange={e => { setSeedInput(e.target.value.toUpperCase()); setSeedError(false); }}
-                    onKeyDown={e => { if (e.key === "Enter") handlePlayWithSeed(); }}
-                    style={{
-                      flex: 1,
-                      fontFamily: "var(--pg-font)",
-                      fontSize: 9,
-                      padding: "4px 6px",
-                      background: seedError ? "#2a0808" : PG.bg,
-                      color: seedError ? PG.red : PG.leaf,
-                      border: `1px solid ${seedError ? "#aa3333" : PG.border}`,
-                      outline: "none",
-                      letterSpacing: "0.12em",
-                      textTransform: "uppercase",
-                    }}
-                  />
-                  <button
-                    className="pg-btn pg-btn-primary"
-                    style={{ padding: "4px 8px", fontSize: 7 }}
-                    onPointerEnter={playMenuHover}
-                    onClick={handlePlayWithSeed}
-                  >
-                    ▶ JOUER
-                  </button>
-                </div>
-                {seedError && (
-                  <span style={{ fontSize: 6, color: PG.red, letterSpacing: "0.04em" }}>
-                    Entre un code valide (A-Z, 0-9)
-                  </span>
-                )}
-              </div>
-
-              <button
-                className="pg-btn"
-                style={{ alignSelf: "center", marginTop: 8 }}
-                onPointerEnter={playMenuHover}
-                onClick={() => { playMenuClick(); setShowSettings(false); }}
-              >
-                FERMER
-              </button>
-            </div>
-          </div>
-        </div>
+        <Options
+          musicMuted={musicMuted}
+          onToggleMusic={onToggleMusic}
+          onPlaySeed={onPlayWithSeed}
+          onClose={() => setShowSettings(false)}
+        />
       )}
 
       {/* DEV TOOLS — lien discret en coin, réservé admin, hors de la pile de CTA
@@ -200,7 +125,7 @@ export function MainMenu({
           onClick={() => { playMenuClick(); setShowDev(true); }}
           title="Outils développeur"
         >
-          ⚙ dev
+          dev
         </button>
       )}
 
@@ -223,73 +148,79 @@ export function MainMenu({
             pointerEvents: "none"
           }}
         >
-          ▶ TOUCHEZ POUR PASSER
+          TOUCHEZ POUR PASSER
         </div>
       )}
 
-      {/* Menu diégétique — pas de fenêtre OS, intégré à la scène, tactile */}
+      {/* Menu diégétique — peg-boutons bouncy, intégrés à la scène, tactiles.
+          Chaque bouton « pop » en décalé (animationDelay) au reveal du menu. */}
       <div
-        className="pg-menu-panel"
+        className="pg-pm-panel"
         style={{
           zIndex: 2,
-          marginBottom: "clamp(110px, 15vh, 150px)",
+          marginBottom: "clamp(96px, 13vh, 140px)",
           opacity: showMenu ? 1 : 0,
-          transform: showMenu ? "translateY(0)" : "translateY(40px)",
-          transition:
-            "opacity 0.45s ease-out, transform 0.45s cubic-bezier(0.34,1.56,0.64,1)",
+          transition: "opacity 0.3s ease-out",
           pointerEvents: showMenu ? "auto" : "none"
         }}
       >
         <button
           ref={(el) => { btnRefs.current[0] = el; }}
-          className="pg-menu-btn pg-menu-btn-primary"
+          className="pg-pm-btn pg-pm-btn-play"
+          style={{ animationDelay: "0.04s" }}
           onPointerEnter={playMenuHover}
           onClick={() => { playMenuClick(); onPlay(); }}
         >
           JOUER
         </button>
 
-        <button
-          ref={(el) => { btnRefs.current[1] = el; }}
-          className="pg-menu-btn"
-          onPointerEnter={playMenuHover}
-          onClick={() => { playMenuClick(); onLeaderboard(); }}
-        >
-          CLASSEMENT
-        </button>
+        {/* Boutons secondaires — regroupés et serrés, détachés du CTA « JOUER »
+            par un espace plus large pour hiérarchiser la lecture. */}
+        <div className="pg-pm-subgroup">
+          <button
+            ref={(el) => { btnRefs.current[1] = el; }}
+            className="pg-pm-btn"
+            style={{ animationDelay: "0.12s" }}
+            onPointerEnter={playMenuHover}
+            onClick={() => { playMenuClick(); onLeaderboard(); }}
+          >
+            CLASSEMENT
+          </button>
 
-        <button
-          ref={(el) => { btnRefs.current[2] = el; }}
-          className="pg-menu-btn"
-          onPointerEnter={playMenuHover}
-          onClick={() => { playMenuClick(); setShowInstructions(true); }}
-        >
-          INSTRUCTIONS
-        </button>
+          <button
+            ref={(el) => { btnRefs.current[2] = el; }}
+            className="pg-pm-btn"
+            style={{ animationDelay: "0.18s" }}
+            onPointerEnter={playMenuHover}
+            onClick={() => { playMenuClick(); setShowInstructions(true); }}
+          >
+            INSTRUCTIONS
+          </button>
 
-        <button
-          ref={(el) => { btnRefs.current[3] = el; }}
-          className="pg-menu-btn"
-          onPointerEnter={playMenuHover}
-          onClick={() => { playMenuClick(); setShowSettings(true); }}
-        >
-          RÉGLAGES
-        </button>
+          <button
+            ref={(el) => { btnRefs.current[3] = el; }}
+            className="pg-pm-btn"
+            style={{ animationDelay: "0.24s" }}
+            onPointerEnter={playMenuHover}
+            onClick={() => { playMenuClick(); setShowSettings(true); }}
+          >
+            OPTIONS
+          </button>
+        </div>
       </div>
 
-      {/* Bannière version — épinglée en bas, cliquable pour les notes de maj. */}
+      {/* Bannière version — petit peg doré épinglé en bas, cliquable pour les MAJ. */}
       {showMenu && (
         <div className="pg-menu-footer" style={{ pointerEvents: "auto" }}>
           <button
-            className="pg-welcome-banner"
-            style={{ cursor: "pointer", border: "none", display: "block" }}
+            className="pg-pm-version"
             onPointerEnter={playMenuHover}
             onClick={() => { playMenuClick(); setShowPatchNotes(true); }}
             title="Voir les notes de mise à jour"
           >
             NOTES DE MAJ
             <br />
-            <span className="pg-alpha">V{PEAGLE_CURRENT_VERSION}</span>
+            <span className="pg-pm-version-num">V{PEAGLE_CURRENT_VERSION}</span>
           </button>
         </div>
       )}

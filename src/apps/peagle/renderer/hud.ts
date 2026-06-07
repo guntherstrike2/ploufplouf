@@ -5,6 +5,7 @@ import type { GameState } from "../engine/types";
 import type { GameTheme, PegTheme } from "../engine/game-theme";
 import { isClutchActive } from "../engine/clutch";
 import { eagleFace, getFaceMood, gameFaceCtx } from "./face";
+import { cornerHighlightL } from "./helpers";
 
 // ─── HUD in-canvas — épuré ───────────────────────────────────────────────────
 //
@@ -74,19 +75,23 @@ function eggSprite(ctx: CanvasRenderingContext2D, cx: number, cy: number, st: Ba
   ctx.fillStyle = "rgba(0,0,0,0.5)";
   ctx.fillRect(bx - r + 1, by + r - 1, r * 2 - 2, 1);
   ctx.fillRect(bx + r - 1, by - r + 1, 1, r * 2 - 2);
-  ctx.fillStyle = "rgba(255,255,255,0.9)";
-  ctx.fillRect(bx - r + 1, by - r + 1, 2, 1);
-  ctx.fillRect(bx - r + 1, by - r + 1, 1, 2);
+  cornerHighlightL(ctx, bx - r, by - r, 0.9);
 }
 
+// Peg orange du HUD — mêmes coins arrondis 1px que les pegs du jeu (cf. renderer/pegs.ts
+// pixelRoundBody) : corps = union d'un rect vertical + un rect horizontal, bevel rogné.
 function pegSprite(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, t: PegTheme, clutch: boolean): void {
   const s = Math.round(r * 2), x = Math.round(cx - r), y = Math.round(cy - r);
   const fill = clutch ? t.orangeClutch : t.orange;
   const hi   = clutch ? t.orangeGlow : t.orangeHi;
-  ctx.fillStyle = fill; ctx.fillRect(x, y, s, s);
-  ctx.fillStyle = hi; ctx.fillRect(x, y, s, 1); ctx.fillRect(x, y, 1, s);
-  ctx.fillStyle = t.orangeDark; ctx.fillRect(x, y + s - 1, s, 1); ctx.fillRect(x + s - 1, y, 1, s);
-  ctx.fillStyle = "rgba(255,255,255,0.7)"; ctx.fillRect(x + 1, y + 1, 2, 1); ctx.fillRect(x + 1, y + 1, 1, 2);
+  ctx.fillStyle = fill;
+  ctx.fillRect(x + 1, y, s - 2, s);     // colonne centrale (pleine hauteur)
+  ctx.fillRect(x, y + 1, s, s - 2);     // ligne centrale (pleine largeur)
+  ctx.fillStyle = hi;
+  ctx.fillRect(x + 1, y, s - 2, 1); ctx.fillRect(x, y + 1, 1, s - 2);       // top + left
+  ctx.fillStyle = t.orangeDark;
+  ctx.fillRect(x + 1, y + s - 1, s - 2, 1); ctx.fillRect(x + s - 1, y + 1, 1, s - 2); // bottom + right
+  cornerHighlightL(ctx, x, y);
 }
 
 // ── Texte ─────────────────────────────────────────────────────────────────────

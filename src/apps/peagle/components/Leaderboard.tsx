@@ -4,6 +4,7 @@ import "../peagle.css";
 import type { LeaderboardEntry } from "../engine/types";
 import { PG } from "../styles";
 import { PixelSprite } from "./PixelSprite";
+import { PegBtn } from "./PegBtn";
 
 interface LeaderboardProps {
   entries: LeaderboardEntry[];
@@ -51,9 +52,9 @@ export function Leaderboard({ entries, loading, currentUserId, onRefresh, showLo
           zIndex: 1,
         }}
       >
-        <button onClick={onBack} className="pg-btn-lux" style={{ fontSize: 7, padding: "9px 14px", width: "auto" }}>
-          ◀ MENU
-        </button>
+        <PegBtn onClick={onBack} variant="primary" size="sm">
+          MENU
+        </PegBtn>
 
         <span
           style={{
@@ -72,19 +73,14 @@ export function Leaderboard({ entries, loading, currentUserId, onRefresh, showLo
           GRANDS CHASSEURS — TOP 10
         </span>
 
-        <button
+        <PegBtn
           onClick={onRefresh}
           disabled={loading}
-          className="pg-btn pg-btn-ghost"
-          style={{
-            fontSize: 7,
-            padding: "8px 12px",
-            opacity: loading ? 0.5 : 1,
-            cursor: loading ? "default" : "pointer",
-          }}
+          variant="ghost"
+          size="sm"
         >
-          {loading ? "..." : "↻ ACTUALISER"}
-        </button>
+          {loading ? "..." : "ACTUALISER"}
+        </PegBtn>
       </div>
 
       {/* ── Table container ──────────────────────────────────────────────── */}

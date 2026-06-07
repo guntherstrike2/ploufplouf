@@ -65,6 +65,9 @@ export function drawFrame(
   }
 
   if (showHitboxes) drawDebugHitboxes(ctx, s);
+
+  // Effets CRT (scanlines + pixel) : rendus par l'overlay DOM global
+  // `CrtOverlay`, plus aucun post-process canvas ici.
 }
 
 function drawDebugHitboxes(ctx: CanvasRenderingContext2D, s: GameState): void {

@@ -132,14 +132,7 @@ function SidePanelComponent({ side, clutchMode = false }: SidePanelProps) {
         pointerEvents: "none",
       }} />
 
-      {/* Scanlines légères */}
-      <div style={{
-        position: "absolute",
-        inset: 0,
-        background: "repeating-linear-gradient(to bottom, transparent 0px, transparent 1px, rgba(0,0,0,0.05) 2px, rgba(0,0,0,0.05) 2px)",
-        pointerEvents: "none",
-        zIndex: 2,
-      }} />
+      {/* (Scanlines retirées — gérées globalement par `CrtOverlay`.) */}
 
       {/* ── Lucioles ── */}
       {fireflies.map((ff, i) => (

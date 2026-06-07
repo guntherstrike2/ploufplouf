@@ -10,6 +10,8 @@ import { PixelSprite } from "./PixelSprite";
 import { eagleFace } from "../renderer/face";
 import type { FaceMood } from "../renderer/face";
 import { randomTip } from "../engine/tips";
+import { PegBtn } from "./PegBtn";
+import { Options } from "./Options";
 import "../peagle.css";
 
 // ─── Mascotte dégoûtée pour le game over ────────────────────────────────────
@@ -280,13 +282,8 @@ function GameOverRanking({
     );
   }
 
-  if (entries.length === 0) {
-    return (
-      <div className="pg-go-rank">
-        <div className="pg-go-rank-hint">Premier sang. Le ciel n&rsquo;a pas encore de maître.</div>
-      </div>
-    );
-  }
+  // Classement vide : on n'affiche rien — la bulle de BD de l'aigle suffit.
+  if (entries.length === 0) return null;
 
   const myIdx = currentUserId ? entries.findIndex((e) => e.userId === currentUserId) : -1;
 
@@ -347,7 +344,6 @@ interface GameCanvasProps {
   onPointerMove: (e: PointerEvent<HTMLCanvasElement>) => void;
   onPointerUp: (e: PointerEvent<HTMLCanvasElement>) => void;
   onReplay: () => void;
-  onReplaySeed: () => void;
   onLeaderboard: () => void;
   onMenu: () => void;
   onSkipLevel?: () => void;
@@ -372,7 +368,6 @@ function GameCanvasComponent({
   onPointerMove,
   onPointerUp,
   onReplay,
-  onReplaySeed,
   onLeaderboard,
   onMenu,
   onSkipLevel,
@@ -401,7 +396,21 @@ function GameCanvasComponent({
   }, []);
 
   const [seedCopied, setSeedCopied] = useState(false);
+  const [showOptions, setShowOptions] = useState(false);
   const seedCode = formatSeed(currentSeed);
+
+  // Le seed est tiré au hasard (Math.random au boot) → diffère entre le rendu
+  // serveur et client. On n'affiche la puce qu'après montage pour éviter un
+  // mismatch d'hydratation sur son texte.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
+  // Referme le panneau Options dès que la pause se lève (sinon il réapparaîtrait
+  // à la prochaine pause).
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (!paused) setShowOptions(false);
+  }, [paused]);
 
   const copySeed = useCallback(() => {
     navigator.clipboard.writeText(seedCode).catch(() => {});
@@ -452,59 +461,46 @@ function GameCanvasComponent({
           onPointerUp={onPointerUp}
         />
 
+        {/* ── Seed en partie — petite puce discrète, cliquable pour copier ───── */}
+        {mounted && !isGameOver && !paused && (
+          <button
+            type="button"
+            className="pg-seed-chip"
+            onClick={copySeed}
+            title="Copier le code seed"
+          >
+            {seedCopied ? "COPIÉ !" : `SEED ${seedCode}`}
+          </button>
+        )}
+
         {/* ── MENU PAUSE ───────────────────────────────────────────────────── */}
         {paused && !isGameOver && (
           <div className="pg-diag-overlay absolute inset-0">
 
             {/* Titre */}
-            <div className="pg-diag-title pg-diag-title-pause">⏸ PAUSE</div>
+            <div className="pg-diag-title pg-diag-title-pause">PAUSE</div>
 
             {/* Mascotte */}
             <div className="pg-eagle-bob" style={{ marginBottom: 8 }}>
               <PauseMascot size={60} />
             </div>
 
-            {/* Astuce */}
-            <div className="pg-diag-tip">
-              <span className="pg-diag-tip-label">★ ASTUCE</span>
-              <span className="pg-diag-tip-text">{pauseTip}</span>
-            </div>
-
-            {/* Boutons */}
+            {/* Boutons secondaires au gabarit standard ; REPRENDRE en peg orange
+                « play », surdimensionné comme le bouton JOUER du menu principal. */}
             <div className="pg-diag-btns">
-              <button onClick={onResume} className="pg-diag-btn pg-diag-btn-primary">
-                ▶ REPRENDRE
-              </button>
-              <button onClick={onReplay} className="pg-diag-btn">
-                ↻ RECOMMENCER
-              </button>
+              <PegBtn onClick={onResume} variant="play" fullWidth>
+                REPRENDRE
+              </PegBtn>
+              <PegBtn onClick={onReplay} variant="primary" fullWidth>
+                RECOMMENCER
+              </PegBtn>
               <div className="pg-diag-sep" />
-              <button
-                onClick={onToggleMusic}
-                className="pg-diag-btn"
-              >
-                ♪ MUSIQUE
-                <span
-                  className="pg-diag-toggle-pill"
-                  style={{
-                    borderColor: musicMuted ? "#4a1010" : PG.greenDeep,
-                    color: musicMuted ? PG.red : PG.leaf,
-                    background: musicMuted ? "#140808" : "#081808",
-                  }}
-                >
-                  {musicMuted ? "OFF" : "ON"}
-                </span>
-              </button>
-              <button
-                onClick={copySeed}
-                className="pg-diag-btn pg-diag-btn-muted"
-                title="Copier le code seed"
-              >
-                {seedCopied ? "✓ COPIÉ !" : `SEED : ${seedCode}`}
-              </button>
-              <button onClick={onMenu} className="pg-diag-btn pg-diag-btn-muted">
-                ≡ MENU PRINCIPAL
-              </button>
+              <PegBtn onClick={() => setShowOptions(true)} variant="primary" fullWidth>
+                OPTIONS
+              </PegBtn>
+              <PegBtn onClick={onMenu} variant="primary" fullWidth>
+                MENU PRINCIPAL
+              </PegBtn>
             </div>
 
             {/* Section dev */}
@@ -514,22 +510,40 @@ function GameCanvasComponent({
                   — DEV —
                 </div>
                 {showDevTools && (
-                  <button
+                  <PegBtn
                     onClick={() => { onResume(); onSkipLevel?.(); }}
-                    className="pg-diag-btn"
+                    variant="neutral"
                     style={{ color: PG.purpleHi, textShadow: `0 0 8px ${PG.purple}, 0 2px 3px rgba(0,0,0,0.95)` }}
                   >
-                    ⏭ NIVEAU SUIVANT
-                  </button>
+                    NIVEAU SUIVANT
+                  </PegBtn>
                 )}
-                <button
+                <PegBtn
                   onClick={() => { onResume(); onOpenDevPanel?.(); }}
-                  className="pg-diag-btn"
+                  variant="neutral"
                   style={{ color: PG.purpleHi, textShadow: `0 0 8px ${PG.purple}, 0 2px 3px rgba(0,0,0,0.95)` }}
                 >
-                  ⚙ DEV TOOLS
-                </button>
+                  DEV TOOLS
+                </PegBtn>
               </div>
+            )}
+
+            {/* Astuce — tout en bas, après les boutons */}
+            <div className="pg-diag-tip" style={{ marginTop: 28, marginBottom: 0 }}>
+              <span className="pg-diag-tip-label">ASTUCE</span>
+              <span className="pg-diag-tip-text">{pauseTip}</span>
+            </div>
+
+            {/* Menu Options partagé avec le menu principal (Musique, Scanlines,
+                Pixel). En partie, le seed est affiché en lecture seule — on ne
+                change pas de seed au milieu d'un run. */}
+            {showOptions && (
+              <Options
+                musicMuted={musicMuted}
+                onToggleMusic={onToggleMusic}
+                currentSeed={currentSeed}
+                onClose={() => setShowOptions(false)}
+              />
             )}
           </div>
         )}
@@ -538,18 +552,18 @@ function GameCanvasComponent({
         {isLost && !upgradeOfferPending && (
           <div className="pg-diag-overlay absolute inset-0 pg-diag-overlay-lost">
 
+            {/* Bulle de BD de l'aigle — au-dessus de la tête (queue vers le bas) */}
+            <div className="pg-eagle-bubble pg-eagle-bubble-below" style={{ marginBottom: 10, maxWidth: "min(260px, 82%)" }}>
+              {quip}
+            </div>
+
             {/* Tête d'aigle dégoûtée */}
             <div className="pg-gameover-face" style={{ marginBottom: 4 }}>
               <GameOverMascot size={100} />
             </div>
 
-            {/* Bulle de BD de l'aigle */}
-            <div className="pg-eagle-bubble" style={{ marginBottom: 10, maxWidth: "min(260px, 82%)" }}>
-              {quip}
-            </div>
-
             {/* Titre */}
-            <div className="pg-diag-title pg-diag-title-lost">✕ GAME OVER</div>
+            <div className="pg-diag-title pg-diag-title-lost">GAME OVER</div>
 
             {/* Score */}
             <div className="pg-diag-score">
@@ -558,7 +572,7 @@ function GameCanvasComponent({
             </div>
 
             {isRecord && (
-              <div className="pg-diag-record">★ NOUVEAU RECORD ! ★</div>
+              <div className="pg-diag-record">NOUVEAU RECORD !</div>
             )}
 
             {/* Mini-classement — la place du joueur, montrée sur place */}
@@ -570,27 +584,27 @@ function GameCanvasComponent({
               isLoggedIn={!!user}
             />
 
-            {/* Astuce */}
-            <div className="pg-diag-tip pg-diag-tip-go">
-              <span className="pg-diag-tip-label">★ ASTUCE</span>
-              <span className="pg-diag-tip-text">{gameOverTip}</span>
-            </div>
-
             <div className="pg-diag-sep" />
 
-            {/* Actions */}
-            <div className="pg-diag-btn-row">
-              <button onClick={onReplay} className="pg-diag-btn pg-diag-btn-primary">
-                ▶ REJOUER
-              </button>
-              <button onClick={onLeaderboard} className="pg-diag-btn pg-diag-btn-gold">
-                ★ CLASSEMENT
-              </button>
+            {/* Actions — même layout que la pause : boutons empilés, même largeur,
+                action principale (REJOUER) en peg orange « play » comme JOUER du menu. */}
+            <div className="pg-diag-btns">
+              <PegBtn onClick={onReplay} variant="play" fullWidth>
+                REJOUER
+              </PegBtn>
+              <PegBtn onClick={onLeaderboard} variant="primary" fullWidth>
+                CLASSEMENT
+              </PegBtn>
+              <PegBtn onClick={onMenu} variant="primary" fullWidth>
+                MENU PRINCIPAL
+              </PegBtn>
             </div>
 
-            <button onClick={onMenu} className="pg-diag-btn pg-diag-btn-muted">
-              ≡ MENU PRINCIPAL
-            </button>
+            {/* Astuce — tout en bas, après les boutons */}
+            <div className="pg-diag-tip pg-diag-tip-go" style={{ marginTop: 28, marginBottom: 0 }}>
+              <span className="pg-diag-tip-label">ASTUCE</span>
+              <span className="pg-diag-tip-text">{gameOverTip}</span>
+            </div>
           </div>
         )}
 

@@ -10,6 +10,7 @@ import {
 } from "../engine/assets";
 import { BALL_R } from "../engine/constants";
 import { eagleFace, getFaceMood, titleFaceCtx, type FaceContext, type FaceMood } from "../renderer/face";
+import { roundGlowRect } from "../renderer/helpers";
 import type { BeatBands } from "../hooks/useMusic";
 
 // ─── Écran-titre animé (canvas) ──────────────────────────────────────────────
@@ -256,6 +257,12 @@ function buildEggSprite(): HTMLCanvasElement | null {
 // (highlight) et un liseré sombre en bas (ombre) → vrai look pixel-art bombé.
 type LetterSprite = { cv: HTMLCanvasElement; cols: number; rows: number };
 
+// Super-sampling : on rend chaque cellule de glyphe sur une sous-grille SS×SS. Ça
+// double la définition du logo et permet un arrondi de coin d'UN sous-pixel (fin,
+// au lieu de grignoter un demi-trait à la résolution d'origine). cols/rows exposés
+// restent en CELLULES logiques (W/H) → le layout amont est inchangé.
+const SS = 2;
+
 function buildLetterSprite(
   glyph: string[],
   fill: { top: string; mid: string; bot: string; deep: string },
@@ -267,47 +274,89 @@ function buildLetterSprite(
   const W = cols + 2;
   const H = rows + 2;
   const cv = document.createElement("canvas");
-  cv.width = W;
-  cv.height = H;
+  cv.width = W * SS;
+  cv.height = H * SS;
   const c = cv.getContext("2d");
   if (!c) return null;
 
-  const on = (r: number, cc: number) =>
+  const srcOn = (r: number, cc: number) =>
     r >= 0 && r < rows && cc >= 0 && cc < cols && glyph[r]![cc] === "1";
 
-  // 1) contour : toute cellule vide adjacente (8-voisins) à une cellule pleine
-  c.fillStyle = C.outline;
-  for (let r = -1; r <= rows; r++) {
-    for (let cc = -1; cc <= cols; cc++) {
-      if (on(r, cc)) continue;
-      let touch = false;
-      for (let dr = -1; dr <= 1 && !touch; dr++)
-        for (let dc = -1; dc <= 1; dc++) if (on(r + dr, cc + dc)) { touch = true; break; }
-      if (touch) c.fillRect(cc + 1, r + 1, 1, 1);
+  // ── 1) Sur-échantillonnage + ÉPAISSISSEMENT ───────────────────────────────────
+  // Grille fine F[gr][gc] (taille (rows)*SS × (cols)*SS). Une sous-cellule est pleine
+  // si sa cellule source l'est (upscale ×SS) OU si une cellule source voisine l'est et
+  // qu'on est sur le bord adjacent (dilatation douce → traits plus gras sans empâter).
+  const FR = rows * SS, FC = cols * SS;
+  const fine: boolean[][] = [];
+  for (let gr = 0; gr < FR; gr++) {
+    fine[gr] = [];
+    for (let gc = 0; gc < FC; gc++) {
+      const r = (gr / SS) | 0, cc = (gc / SS) | 0;
+      let v = srcOn(r, cc);
+      // Épaississement : déborde d'un sous-pixel vers un voisin plein — MAIS jamais
+      // dans une contre-forme étroite (creux pincé entre deux pleins), sinon on bouche
+      // les creux de 1 cellule (ex. la branche du milieu du E). On ne déborde donc que
+      // si le côté OPPOSÉ est vide (vrai bord extérieur, pas un creux interne).
+      if (!v) {
+        const subR = gr % SS, subC = gc % SS;
+        if (subR === 0 && srcOn(r - 1, cc) && !srcOn(r + 1, cc)) v = true;        // ← voisin haut
+        else if (subR === SS - 1 && srcOn(r + 1, cc) && !srcOn(r - 1, cc)) v = true; // ← voisin bas
+        else if (subC === 0 && srcOn(r, cc - 1) && !srcOn(r, cc + 1)) v = true;   // ← voisin gauche
+        else if (subC === SS - 1 && srcOn(r, cc + 1) && !srcOn(r, cc - 1)) v = true; // ← voisin droit
+      }
+      fine[gr]![gc] = v;
     }
   }
 
-  // 2) remplissage dégradé + shading
-  for (let r = 0; r < rows; r++) {
-    const t = r / (rows - 1);
+  const onRaw = (gr: number, gc: number) =>
+    gr >= 0 && gr < FR && gc >= 0 && gc < FC && fine[gr]![gc] === true;
+
+  // ── 2) Arrondi : rogne le sous-pixel de coin extérieur saillant ────────────────
+  const isClipped = (gr: number, gc: number): boolean => {
+    if (!onRaw(gr, gc)) return false;
+    const top = !onRaw(gr - 1, gc), bot = !onRaw(gr + 1, gc);
+    const left = !onRaw(gr, gc - 1), right = !onRaw(gr, gc + 1);
+    return (
+      (top && left && !bot && !right) ||
+      (top && right && !bot && !left) ||
+      (bot && left && !top && !right) ||
+      (bot && right && !top && !left)
+    );
+  };
+  const on = (gr: number, gc: number) => onRaw(gr, gc) && !isClipped(gr, gc);
+
+  // ── 3) Contour (sous-grille) : sous-cellule vide adjacente (8-voisins) à une pleine
+  const off = SS; // marge d'1 cellule = SS sous-pixels
+  c.fillStyle = C.outline;
+  for (let gr = -1; gr <= FR; gr++) {
+    for (let gc = -1; gc <= FC; gc++) {
+      if (on(gr, gc)) continue;
+      let touch = false;
+      for (let dr = -1; dr <= 1 && !touch; dr++)
+        for (let dc = -1; dc <= 1; dc++) if (on(gr + dr, gc + dc)) { touch = true; break; }
+      if (touch) c.fillRect(gc + off, gr + off, 1, 1);
+    }
+  }
+
+  // ── 4) Remplissage dégradé + shading (sous-grille) ─────────────────────────────
+  for (let gr = 0; gr < FR; gr++) {
+    const t = gr / (FR - 1);
     const base = t < 0.28 ? fill.top : t < 0.6 ? fill.mid : fill.bot;
-    for (let cc = 0; cc < cols; cc++) {
-      if (!on(r, cc)) continue;
-      const x = cc + 1;
-      const y = r + 1;
-      // highlight : bord supérieur OU gauche exposé
-      const topEdge = !on(r - 1, cc);
-      const leftEdge = !on(r, cc - 1);
-      const botEdge = !on(r + 1, cc);
-      const rightEdge = !on(r, cc + 1);
+    for (let gc = 0; gc < FC; gc++) {
+      if (!on(gr, gc)) continue;
+      const topEdge = !on(gr - 1, gc);
+      const leftEdge = !on(gr, gc - 1);
+      const botEdge = !on(gr + 1, gc);
+      const rightEdge = !on(gr, gc + 1);
       let col = base;
       if (topEdge || leftEdge) col = fill.top;
       else if (botEdge || rightEdge) col = fill.deep;
       c.fillStyle = col;
-      c.fillRect(x, y, 1, 1);
+      c.fillRect(gc + off, gr + off, 1, 1);
     }
   }
 
+  // cols/rows exposés = cellules logiques (inchangés) ; le canvas a SS× plus de pixels.
   return { cv, cols: W, rows: H };
 }
 
@@ -1468,25 +1517,26 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, onEagle
               const br = Math.round(R * (2.5 + k * 1.5));
               ctx!.globalAlpha = bloom * moonAlpha * (0.13 - k * 0.025);
               ctx!.fillStyle = "#88aaff";
-              ctx!.fillRect(Math.round(moonX - br), Math.round(moonY - br), br * 2, br * 2);
+              roundGlowRect(ctx!, Math.round(moonX - br), Math.round(moonY - br), br * 2);
             }
             ctx!.restore();
           }
 
-          // Halo permanent (carrés concentriques décroissants)
+          // Halo permanent (carrés concentriques décroissants, coins arrondis)
           for (let k = 0; k < 5; k++) {
             const hr = Math.round(R * (1.5 + k * 0.7));
             ctx!.globalAlpha = moonAlpha * (0.15 - k * 0.024) * (1 + beat * 1.2);
             ctx!.fillStyle = "#c0d4f8";
-            ctx!.fillRect(Math.round(moonX - hr), Math.round(moonY - hr), hr * 2, hr * 2);
+            roundGlowRect(ctx!, Math.round(moonX - hr), Math.round(moonY - hr), hr * 2);
           }
 
-          // Corps carré nacré avec dégradé vertical
+          // Corps nacré avec dégradé vertical — coins arrondis 1px (lignes extrêmes rentrées)
           ctx!.globalAlpha = moonAlpha;
           for (let dy = -R; dy <= R; dy++) {
             const t = (dy + R) / (R * 2);
             ctx!.fillStyle = t < 0.3 ? "#e8f0ff" : t < 0.65 ? "#d5e8f8" : "#c0d8ee";
-            ctx!.fillRect(Math.round(moonX - R), Math.round(moonY + dy), R * 2, 1);
+            const inset = (dy === -R || dy === R) ? 1 : 0;
+            ctx!.fillRect(Math.round(moonX - R) + inset, Math.round(moonY + dy), R * 2 - inset * 2, 1);
           }
 
           // Cratères
@@ -1596,7 +1646,8 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, onEagle
         ctx!.translate(lx, ly);
         ctx!.rotate(rotG);
         ctx!.scale(scale * pulse, scale * pulse);
-        ctx!.drawImage(GS.cv, -GS.cols / 2, -GS.rows / 2);
+        // taille logique explicite (cols×rows) : le canvas a SS× plus de pixels.
+        ctx!.drawImage(GS.cv, -GS.cols / 2, -GS.rows / 2, GS.cols, GS.rows);
         ctx!.restore();
 
         // 6 petites étoiles qui orbitent autour du logo

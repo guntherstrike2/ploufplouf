@@ -26,7 +26,7 @@ export const DEFAULT_DEV_CONFIG: DevConfig = {
   upgrades: [],
 };
 
-export type DevTriggerScreen = "day" | "night" | "win" | "lose" | "new-record";
+export type DevTriggerScreen = "day" | "night" | "win" | "lose" | "new-record" | "upgrade";
 
 interface DevPanelProps {
   initial?: DevConfig;
@@ -68,7 +68,7 @@ export function DevPanel({ initial, onClose, onLaunch, onTriggerScreen }: DevPan
       <div className="pg-dialog" style={{ width: 360, maxWidth: "calc(100vw - 32px)" }}>
         <div className="pg-titlebar">
           <span style={{ fontSize: 8, color: "#cc88ff", flex: 1, fontFamily: "var(--pg-font)", letterSpacing: "0.05em" }}>
-            ⚙ DEV TOOLS
+            DEV TOOLS
           </span>
           <div style={captionBtn} onClick={onClose}>×</div>
         </div>
@@ -222,7 +222,29 @@ export function DevPanel({ initial, onClose, onLaunch, onTriggerScreen }: DevPan
                   letterSpacing: "0.04em",
                 }}
               >
-                ★ NEW RECORD
+                NEW RECORD
+              </button>
+              <button
+                onClick={() => { onTriggerScreen("upgrade"); onClose(); }}
+                style={{
+                  width: "100%",
+                  padding: "7px 0",
+                  marginBottom: 8,
+                  fontFamily: "var(--pg-font)",
+                  fontSize: 8,
+                  cursor: "pointer",
+                  background: PG.surface2,
+                  color: "#aaee66",
+                  borderWidth: 1,
+                  borderStyle: "solid",
+                  borderTopColor: PG.hi,
+                  borderLeftColor: PG.hi,
+                  borderBottomColor: PG.sh,
+                  borderRightColor: PG.sh,
+                  letterSpacing: "0.04em",
+                }}
+              >
+                CHOIX DE BONUS
               </button>
             </>
           )}
@@ -249,7 +271,7 @@ export function DevPanel({ initial, onClose, onLaunch, onTriggerScreen }: DevPan
               textShadow: "0 1px 0 rgba(0,0,0,0.5)",
             }}
           >
-            ▶ LANCER LA PARTIE DEV
+            LANCER LA PARTIE DEV
           </button>
         </div>
       </div>

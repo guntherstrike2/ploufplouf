@@ -4,6 +4,7 @@ import { getActiveBird, getActiveBucket, getActiveAssetId, EAGLE_BODY, EAGLE_WIN
 import type { BirdSprite, BucketStyle } from "../engine/assets";
 import type { GameState } from "../engine/types";
 import { eagleFace, getFaceMood, gameFaceCtx } from "./face";
+import { pixelGlow3 } from "./helpers";
 
 // ── Offscreen canvas pour l'aigle — isole le corps des ailes/pattes ─────────
 // Le corps a des pixels '.' transparents sur ses bords. Sans isolation, les ailes
@@ -578,13 +579,7 @@ function drawNestEgg(
     // cohérent avec pixelGlow (pegs.ts) / le glow de la balle : ~10× moins cher (pas de passe gaussienne GPU).
     const glow = 0.6 + 0.4 * Math.sin(animClock * 9);
     const gx0 = eggCx - eggRx, gy0 = eggCy - eggRy, gw = eggRx * 2, gh = eggRy * 2;
-    const b = 14 * glow;
-    const b1 = Math.ceil(b * 0.3), b2 = Math.ceil(b * 0.6), b3 = Math.ceil(b);
-    ctx.fillStyle = style.eggHi;
-    ctx.globalAlpha = 0.28; ctx.fillRect(gx0 - b1, gy0 - b1, gw + b1 * 2, gh + b1 * 2);
-    ctx.globalAlpha = 0.13; ctx.fillRect(gx0 - b2, gy0 - b2, gw + b2 * 2, gh + b2 * 2);
-    ctx.globalAlpha = 0.06; ctx.fillRect(gx0 - b3, gy0 - b3, gw + b3 * 2, gh + b3 * 2);
-    ctx.globalAlpha = 1;
+    pixelGlow3(ctx, gx0, gy0, gw, gh, style.eggHi, 14 * glow);
   }
 
   ctx.fillStyle = style.egg;
