@@ -268,7 +268,8 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     setPaused(false);
     setDevSessionActive(false);
     fadeToGameTrack();
-  }, [resetGame, fadeToGameTrack, cancelUpgradeTimer]);
+    transitionTo("game");
+  }, [resetGame, fadeToGameTrack, cancelUpgradeTimer, transitionTo]);
 
   // Rejouer avec exactement le même seed (upgrades remises à zéro).
   const handleReplaySeed = useCallback(() => {
@@ -283,7 +284,8 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     setPaused(false);
     setDevSessionActive(false);
     fadeToGameTrack();
-  }, [resetGame, fadeToGameTrack, cancelUpgradeTimer]);
+    transitionTo("game");
+  }, [resetGame, fadeToGameTrack, cancelUpgradeTimer, transitionTo]);
 
   const handleAssetsReady = useCallback(() => {
     transitionTo("menu");
