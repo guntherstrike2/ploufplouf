@@ -1,11 +1,10 @@
 "use client";
 
-import { useRef, useEffect, useState, useMemo, useCallback, memo } from "react";
+import { useRef, useEffect, useState, useMemo, memo } from "react";
 import type { RefObject, PointerEvent } from "react";
 import type { UiState, LeaderboardEntry } from "../engine/types";
 import { W, H } from "../engine/constants";
 import { PG } from "../styles";
-import { formatSeed } from "../engine/roguelite";
 import { PixelSprite } from "./PixelSprite";
 import { eagleFace } from "../renderer/face";
 import type { FaceMood } from "../renderer/face";
@@ -395,15 +394,7 @@ function GameCanvasComponent({
     return () => ro.disconnect();
   }, []);
 
-  const [seedCopied, setSeedCopied] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
-  const seedCode = formatSeed(currentSeed);
-
-  // Le seed est tiré au hasard (Math.random au boot) → diffère entre le rendu
-  // serveur et client. On n'affiche la puce qu'après montage pour éviter un
-  // mismatch d'hydratation sur son texte.
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
 
   // Referme le panneau Options dès que la pause se lève (sinon il réapparaîtrait
   // à la prochaine pause).
@@ -411,12 +402,6 @@ function GameCanvasComponent({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!paused) setShowOptions(false);
   }, [paused]);
-
-  const copySeed = useCallback(() => {
-    navigator.clipboard.writeText(seedCode).catch(() => {});
-    setSeedCopied(true);
-    setTimeout(() => setSeedCopied(false), 1800);
-  }, [seedCode]);
 
   const isLost = ui.phase === "lost";
   const isWon = ui.phase === "won";
@@ -460,18 +445,6 @@ function GameCanvasComponent({
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
         />
-
-        {/* ── Seed en partie — petite puce discrète, cliquable pour copier ───── */}
-        {mounted && !isGameOver && !paused && (
-          <button
-            type="button"
-            className="pg-seed-chip"
-            onClick={copySeed}
-            title="Copier le code seed"
-          >
-            {seedCopied ? "COPIÉ !" : `SEED ${seedCode}`}
-          </button>
-        )}
 
         {/* ── MENU PAUSE ───────────────────────────────────────────────────── */}
         {paused && !isGameOver && (

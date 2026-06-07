@@ -60,10 +60,7 @@ export function PegBtn({
       disabled={disabled}
       onClick={onClick}
       onPointerEnter={onPointerEnter}
-      style={{
-        opacity: disabled ? 0.5 : 1,
-        ...style,
-      }}
+      style={style}
     >
       {children}
     </button>

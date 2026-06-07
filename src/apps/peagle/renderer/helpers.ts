@@ -39,9 +39,9 @@ export function pixelGlow3(
   color: string, blur: number,
   alphas: readonly [number, number, number] = [0.28, 0.13, 0.06],
 ): void {
-  const g1 = Math.ceil(blur * 0.3) | 0;
-  const g2 = Math.ceil(blur * 0.6) | 0;
-  const g3 = Math.ceil(blur) | 0;
+  const g1 = Math.ceil(blur * 0.3);
+  const g2 = Math.ceil(blur * 0.6);
+  const g3 = Math.ceil(blur);
   ctx.fillStyle = color;
   ctx.globalAlpha = alphas[0]; roundGlowRect(ctx, x - g1, y - g1, w + g1 * 2, h + g1 * 2);
   ctx.globalAlpha = alphas[1]; roundGlowRect(ctx, x - g2, y - g2, w + g2 * 2, h + g2 * 2);

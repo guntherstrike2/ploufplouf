@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Installe les git hooks du repo (idempotent).
-# Lancé via `pnpm hooks:install`, ou automatiquement au `pnpm install` (postinstall).
+# Opt-in : à lancer une fois via `pnpm hooks:install`.
 
 set -euo pipefail
 
@@ -13,7 +13,15 @@ HOOK_DIR="$ROOT/.git/hooks"
 
 chmod +x "$ROOT/scripts/peagle-prepush.sh"
 
-cat > "$HOOK_DIR/pre-push" <<'EOF'
+# Un pre-push existe déjà et n'est PAS le nôtre → on le sauvegarde plutôt que de
+# l'écraser (ne pas détruire le hook d'un contributeur).
+HOOK="$HOOK_DIR/pre-push"
+if [[ -f "$HOOK" ]] && ! grep -q "peagle-prepush.sh" "$HOOK" 2>/dev/null; then
+  mv "$HOOK" "$HOOK.bak"
+  echo "ℹ  pre-push existant sauvegardé → pre-push.bak"
+fi
+
+cat > "$HOOK" <<'EOF'
 #!/usr/bin/env bash
 # Auto-généré par scripts/install-hooks.sh — ne pas éditer ici.
 exec "$(git rev-parse --show-toplevel)/scripts/peagle-prepush.sh" "$@"

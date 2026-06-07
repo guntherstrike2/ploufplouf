@@ -50,9 +50,9 @@ export function PatchNotes({ onClose }: PatchNotesProps) {
     >
       {PEAGLE_VERSIONS.map((release, i) => (
         <div key={release.version} style={{ flexShrink: 0 }}>
-          {/* Filet de séparation entre versions (sauf la première). */}
+          {/* Filet de séparation entre versions (sauf la première). Espace au-dessus =
+              gap flex de la carte ; espace en-dessous = marginBottom du filet. */}
           {i > 0 && <div className="pg-settings-divider" aria-hidden style={{ marginBottom: 12 }} />}
-          {/* (le gap flex de la carte gère l'espace au-dessus du filet) */}
 
           {/* En-tête de version — à plat, sur la matière de la carte. */}
           <div

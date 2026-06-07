@@ -4,7 +4,6 @@
   "private": true,
   "scripts": {
     "hooks:install": "bash scripts/install-hooks.sh",
-    "postinstall": "bash scripts/install-hooks.sh",
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "node migrate.js && next start",
