@@ -10,6 +10,7 @@ import type { BeatBands } from "../hooks/useMusic";
 import { parseSeed } from "../engine/roguelite";
 import { PG } from "../styles";
 import { PatchNotes } from "./PatchNotes";
+import { Instructions } from "./Instructions";
 import { PEAGLE_CURRENT_VERSION } from "../peagle-versions";
 
 interface MainMenuProps {
@@ -40,6 +41,7 @@ export function MainMenu({
   const [showMenu, setShowMenu] = useState(skipIntro);
   const [showSettings, setShowSettings] = useState(false);
   const [showPatchNotes, setShowPatchNotes] = useState(false);
+  const [showInstructions, setShowInstructions] = useState(false);
   const [seedInput, setSeedInput] = useState("");
   const [seedError, setSeedError] = useState(false);
   const { playMenuClick, playMenuHover, playMenuReveal, playTitleImpact, playEagleCryShort, playEagleCryLong } = usePeagleSounds();
@@ -108,6 +110,10 @@ export function MainMenu({
 
       {showPatchNotes && (
         <PatchNotes onClose={() => setShowPatchNotes(false)} />
+      )}
+
+      {showInstructions && (
+        <Instructions onClose={() => setShowInstructions(false)} />
       )}
 
       {/* Panneau Réglages — overlay pixel centré. */}
@@ -254,6 +260,15 @@ export function MainMenu({
 
         <button
           ref={(el) => { btnRefs.current[2] = el; }}
+          className="pg-menu-btn"
+          onPointerEnter={playMenuHover}
+          onClick={() => { playMenuClick(); setShowInstructions(true); }}
+        >
+          INSTRUCTIONS
+        </button>
+
+        <button
+          ref={(el) => { btnRefs.current[3] = el; }}
           className="pg-menu-btn"
           onPointerEnter={playMenuHover}
           onClick={() => { playMenuClick(); setShowSettings(true); }}
