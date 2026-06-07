@@ -25,20 +25,39 @@ const EAGLE_HYPE: readonly (readonly string[])[] = [
 
 const HYPE_COLORS = ["#ffe06a", "#ffb43a", "#ff7a2e", "#ff4d6b", "#d06bff", "#7fe0ff"] as const;
 
-function pushEagleHype(s: GameState, x: number, y: number, mult: number): void {
+// Expression de combo poussée dans la ZONE HYPE dédiée (pile centrée sous le
+// lanceur), et non plus à côté du peg. Le mot et sa couleur escaladent avec le
+// palier de combo ; le multiplicateur chiffré reste lisible sur le +N près du peg.
+function pushEagleHype(s: GameState, mult: number): void {
   const tier = Math.max(0, Math.min(EAGLE_HYPE.length - 1, mult - 1));
   const words = EAGLE_HYPE[tier]!;
-  s.floatingTexts.push({
-    x, y,
+  s.hypeTexts.push({
     text: words[Math.floor(s.rng() * words.length)]!,
     life: 1,
-    maxLife: 1.7,
+    maxLife: 1.6,
     color: HYPE_COLORS[tier]!,
-    combo: true,
-    exclaim: true,
-    fontSize: Math.min(26, 15 + tier * 2),
+    fontSize: Math.min(28, 16 + tier * 2),
+    tier,
     spin: (s.rng() - 0.5) * 2,
   });
+}
+
+// Texte de score « +N » près du peg, version discrète (B2). Anti-collision : si
+// un score récent occupe déjà la place, on empile le nouveau juste au-dessus
+// pour qu'aucun ne soit masqué pendant une rafale de combo.
+function pushScoreText(
+  s: GameState, x: number, y: number, text: string, color: string, fontSize: number,
+): void {
+  let ny = y;
+  for (let pass = 0; pass < 6; pass++) {
+    let moved = false;
+    for (const t of s.floatingTexts) {
+      if (t.combo || t.exclaim || t.life < 0.35) continue;
+      if (Math.abs(t.x - x) < 24 && Math.abs(t.y - ny) < 12) { ny = t.y - 12; moved = true; }
+    }
+    if (!moved) break;
+  }
+  s.floatingTexts.push({ x, y: ny, text, life: 1, maxLife: 1, color, combo: false, fontSize });
 }
 
 export function processBallPhysics(
@@ -182,23 +201,19 @@ export function processBallPhysics(
         }
       }
 
-      // Texte de score flottant
+      // Texte de score flottant (discret, près du peg, anti-collision).
       const comboBonus = s.combo >= BALANCE.combo.interval && s.combo % BALANCE.combo.interval === 0;
       const popFontSize = Math.min(18, 11 + Math.floor(totalMult * 1.5));
       const textColor = def.isTarget ? "#88ccff" : p.kind === "bumper" ? "#ffcc44" : "#ffffff";
-      s.floatingTexts.push({
-        x: p.x + (s.rng() - 0.5) * 20,
-        y: p.y,
-        text: totalMult > 1 ? `+${earned} ×${comboMult}` : `+${earned}`,
-        life: 1, maxLife: 1,
-        color: textColor,
-        combo: comboBonus,
-        fontSize: comboBonus ? popFontSize + 2 : popFontSize,
-      });
+      pushScoreText(
+        s, p.x + (s.rng() - 0.5) * 20, p.y,
+        totalMult > 1 ? `+${earned} ×${comboMult}` : `+${earned}`,
+        textColor, popFontSize,
+      );
       if (comboBonus) {
-        // Petit "×N" doré juste au-dessus du score, puis l'exclamation hype.
-        s.floatingTexts.push({ x: p.x, y: p.y - 18, text: `COMBO ×${comboMult}`, life: 1, maxLife: 1.4, color: "#ffcc44", combo: true, fontSize: Math.min(18, 12 + comboMult) });
-        pushEagleHype(s, p.x, p.y - 40, comboMult);
+        // Palier de combo franchi → l'expression hype part dans la zone dédiée
+        // (plus de badge "COMBO ×N" entassé près du peg : le ×N figure sur le +N).
+        pushEagleHype(s, comboMult);
       }
 
       events.push({ kind: "sound", id: def.sound, x: p.x });

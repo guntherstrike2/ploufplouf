@@ -68,6 +68,22 @@ export interface FloatingText {
   spin?: number;
 }
 
+// Expression « hype » de combo (JUICY!, AIGLE ROYAL!…) affichée dans une ZONE
+// DÉDIÉE centrée sous le lanceur, et non plus à côté du peg touché. Sur gros
+// combo les mots s'empilaient autour des pegs et noyaient la lisibilité : ici
+// ils forment une pile verticale unique (max 3), les plus anciens remontant et
+// s'estompant. `tier` = palier de combo (pilote la taille/couleur), `spin` =
+// graine d'inclinaison/oscillation pour le wobble.
+export interface HypeText {
+  text: string;
+  life: number;
+  maxLife: number;
+  color: string;
+  fontSize: number;
+  tier: number;
+  spin: number;
+}
+
 export interface Star {
   x: number;
   y: number;
@@ -122,6 +138,7 @@ export interface GameState {
   scoreMultiplier: number;
   particles: Particle[];
   floatingTexts: FloatingText[];
+  hypeTexts: HypeText[];
   impactRings: ImpactRing[];
   clutchPulse: number;
   animClock: number;

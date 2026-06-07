@@ -66,6 +66,7 @@ export function makeInitialState(
     scoreMultiplier: 1,
     particles: [],
     floatingTexts: [],
+    hypeTexts: [],
     impactRings: [],
     clutchPulse: 0,
     animClock: 0,

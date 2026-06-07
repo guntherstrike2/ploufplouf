@@ -6,7 +6,7 @@ import { drawBackground } from "./background";
 import { drawPegs } from "./pegs";
 import { drawAimLine, drawLauncher, drawBuckets } from "./ui";
 import { drawBall } from "./ball";
-import { drawParticles, drawFloatingTexts, drawScreenFlash, drawSlowMoOverlay, drawBezel, drawImpactRings } from "./effects";
+import { drawParticles, drawFloatingTexts, drawHypeTexts, drawScreenFlash, drawSlowMoOverlay, drawBezel, drawImpactRings } from "./effects";
 import { drawHud } from "./hud";
 import { drawCelebration } from "./celebration";
 
@@ -48,6 +48,7 @@ export function drawFrame(
   if (s.ball?.active) drawBall(ctx, s.ball, inSlowMo, orangeLeft === 0);
 
   drawFloatingTexts(ctx, s);
+  drawHypeTexts(ctx, s);
   drawLauncher(ctx, s, aimAngle);
   drawBuckets(ctx, s);
 
