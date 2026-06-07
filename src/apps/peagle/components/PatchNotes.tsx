@@ -30,7 +30,7 @@ export function PatchNotes({ onClose }: PatchNotesProps) {
   return (
     <PegDialog
       icon="📋"
-      title="NOTES DE MISE À JOUR"
+      title="CHANGELOG"
       badge={`v${PEAGLE_CURRENT_VERSION}`}
       badgeColor={PG.gold}
       width="min(380px, 94%)"

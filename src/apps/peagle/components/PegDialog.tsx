@@ -9,7 +9,7 @@ import { PG } from "../styles";
  * et le badge vivent en tête du corps ; le contenu est scrollable et borné en
  * hauteur (rien ne peut être coupé, même avec beaucoup de versions).
  *
- * Utilisé par les overlays riches (notes de MAJ, instructions).
+ * Utilisé par les overlays riches (changelog, instructions).
  */
 interface PegDialogProps {
   /** Glyphe affiché à gauche du titre. */
@@ -98,8 +98,9 @@ export function PegDialog({
         {/* Séparateur pixel (même que les Réglages). */}
         <div className="pg-settings-divider" aria-hidden style={{ margin: "0 16px", flexShrink: 0 }} />
 
-        {/* Corps scrollable */}
+        {/* Corps scrollable (barre de défilement masquée) */}
         <div
+          className="pg-no-scrollbar"
           style={{
             flex: 1,
             minHeight: 0,

@@ -216,9 +216,9 @@ export function MainMenu({
             className="pg-pm-version"
             onPointerEnter={playMenuHover}
             onClick={() => { playMenuClick(); setShowPatchNotes(true); }}
-            title="Voir les notes de mise à jour"
+            title="Voir le changelog"
           >
-            NOTES DE MAJ
+            CHANGELOG
             <br />
             <span className="pg-pm-version-num">V{PEAGLE_CURRENT_VERSION}</span>
           </button>

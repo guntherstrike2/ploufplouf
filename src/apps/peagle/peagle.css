@@ -675,6 +675,10 @@
   .pg-hud-scrollable::-webkit-scrollbar { display: none; }
 }
 
+/* Scroll sans barre visible (dialogs, listes). Le scroll reste actif. */
+.pg-no-scrollbar { scrollbar-width: none; }
+.pg-no-scrollbar::-webkit-scrollbar { display: none; }
+
 /* Record masqué dans le HUD en mode large (il apparaît dans SidePanel) */
 @media (min-aspect-ratio: 1/1) {
   .pg-hud-record-wide {
