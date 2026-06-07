@@ -86,7 +86,7 @@ export const BACKGROUNDS: AssetVariant<BgVariant>[] = [
     id: "foret", name: "Forêt",
     value: {
       bg: {
-        skyTop: [54, 184, 244], skyBot: [255, 232, 168],
+        skyTop: [70, 155, 245], skyBot: [150, 205, 250],
         skyTopClutch: [8, 4, 28], skyBotClutch: [18, 10, 52],
         groundColor: "#3fc62e", groundColorClutch: "#0a0a28",
         subGroundColor: "#229c16", subGroundColorClutch: "#050514",

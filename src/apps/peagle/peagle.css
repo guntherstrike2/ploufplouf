@@ -1509,14 +1509,38 @@
   z-index: 6;
   padding: 16px;
   box-sizing: border-box;
-  overflow-y: auto;
-  scrollbar-width: none;
   animation: pg-backdrop-in 0.2s ease-out both;
   background:
     repeating-linear-gradient(to bottom, transparent 0 3px, rgba(0,0,0,0.1) 3px 4px),
     rgba(3, 6, 2, 0.64);
 }
 .pg-diag-overlay::-webkit-scrollbar { display: none; }
+
+/* Carte « fenêtre » qui enveloppe le contenu pause / game over — même coquille
+   diégétique que la carte Réglages (bevel pixel, bordure encre, ombre portée
+   dure). Le contenu flottant (titre, mascotte, boutons, classement) vit dedans. */
+.pg-diag-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(320px, 92%);
+  max-height: 100%;
+  overflow-y: auto;
+  scrollbar-width: none;
+  box-sizing: border-box;
+  padding: 18px 16px;
+  background: var(--pg-surface);
+  border: 3px solid var(--pg-ink);
+  border-radius: calc(var(--pm-radius, 8px) + 2px);
+  box-shadow:
+    inset 2px 2px 0 0 var(--pg-bevel-hi),
+    inset -2px -2px 0 0 var(--pg-bevel-lo),
+    6px 7px 0 0 rgba(3, 8, 2, 0.7);
+  image-rendering: pixelated;
+  animation: pg-pm-panel-pop 0.42s var(--pm-spring, cubic-bezier(0.34, 2.6, 0.5, 1)) both;
+}
+.pg-diag-card::-webkit-scrollbar { display: none; }
 
 /* Vignette rouge aux bords pour la défaite */
 .pg-diag-overlay-lost {
@@ -1636,10 +1660,9 @@
   margin: 2px 0 6px;
   padding: 8px 10px;
   box-sizing: border-box;
-  border-top: 1px solid rgba(96,64,16,0.45);
-  border-bottom: 1px solid rgba(96,64,16,0.45);
   background:
     linear-gradient(to bottom, rgba(20,28,10,0.42), rgba(6,12,4,0.42));
+  clip-path: var(--pg-clip-panel);
   animation: pg-slide-up 0.3s ease-out 0.22s both;
 }
 
@@ -1664,6 +1687,7 @@
 .pg-go-rank-me {
   background: rgba(126,209,58,0.14);
   box-shadow: inset 0 0 0 1px rgba(126,209,58,0.28);
+  clip-path: var(--pg-clip-btn);
 }
 
 .pg-go-rank-name {

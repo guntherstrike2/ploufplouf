@@ -967,7 +967,6 @@ interface ForetPalette {
   cloud:       string; cloudHi:     string;
   hillFar:     string; hillNear:    string;
   forestSil:   string; forestSilHi: string;
-  ray:         string;
 }
 
 function foretPalette(clutchMode: boolean, bg: BgTheme): ForetPalette {
@@ -980,7 +979,6 @@ function foretPalette(clutchMode: boolean, bg: BgTheme): ForetPalette {
       hillFar:   "#0f0d30",               hillNear:    "#09071e",
       // Silhouettes d'arbres lointains — assez sombres mais distinguables
       forestSil: "#100c3e",               forestSilHi: "#1e1862",
-      ray:       "rgba(150,110,255,0.05)",
     };
   }
   return {
@@ -988,7 +986,6 @@ function foretPalette(clutchMode: boolean, bg: BgTheme): ForetPalette {
     cloud:     "rgba(255,252,250,0.82)", cloudHi:     "rgba(255,255,255,1)",
     hillFar:   "#00ee55",                hillNear:    "#00dd00",
     forestSil: "#008830",                forestSilHi: "#00ff55",
-    ray:       "rgba(255,220,80,0.16)",
   };
 }
 
@@ -1026,50 +1023,6 @@ function buildForetSky(pal: ForetPalette, clutchMode: boolean): OffCanvas {
       ctx.fillStyle = `rgba(255,220,140,${(t * t * 0.18).toFixed(3)})`;
       ctx.fillRect(LX0, GROUND_Y - 115 + row * 10, CW_L, 12);
     }
-
-    // Rayons de soleil baked — écriture directe dans l'ImageData pour éviter
-    // les ~144 000 appels fillRect individuels que génère la double boucle pixel.
-    const sx = SUN_X, sy = SUN_Y;
-    const RAY_DEFS = [
-      { a: Math.PI * 0.54, hw0: 15, len: 280, alpha: 0.068 },
-      { a: Math.PI * 0.63, hw0: 26, len: 340, alpha: 0.082 },
-      { a: Math.PI * 0.73, hw0: 20, len: 310, alpha: 0.062 },
-      { a: Math.PI * 0.82, hw0: 30, len: 370, alpha: 0.076 },
-      { a: Math.PI * 0.91, hw0: 16, len: 350, alpha: 0.058 },
-      { a: Math.PI * 1.05, hw0: 24, len: 410, alpha: 0.070 },
-    ] as const;
-    // getImageData opère en coords canvas physiques (ignorant le translate).
-    // Le translate(LAYER_MARGIN, VPAD) de makeLayerCanvas décale les coords jeu :
-    //   canvas_px = jeu_x + LAYER_MARGIN,  canvas_py = jeu_y + VPAD
-    const imgData = ctx.getImageData(0, 0, CW_L, CH_L);
-    const data = imgData.data;
-    for (const ray of RAY_DEFS) {
-      // Soleil déplacé à gauche → on miroir les angles (π − a) pour que les rayons
-      // balaient vers le bas-droite (le centre du ciel), au lieu de sortir par la gauche.
-      const rayAngle = Math.PI - ray.a;
-      const cosA = Math.cos(rayAngle), sinA = Math.sin(rayAngle);
-      const perpX = -sinA, perpY = cosA;
-      for (let d = 8; d < ray.len; d += 1) {
-        const t = d / ray.len;
-        const a = (1 - t) * (1 - t) * ray.alpha;
-        if (a < 0.002) continue;
-        const cx = sx + cosA * d;
-        const cy = sy + sinA * d;
-        if (cy > GROUND_Y || cy < -VPAD) continue;
-        const hw = Math.max(1, Math.round(ray.hw0 * (1 - t * 0.88)));
-        for (let i = -hw; i <= hw; i++) {
-          const px = Math.round(cx + perpX * i) + LAYER_MARGIN;
-          const py = Math.round(cy + perpY * i) + VPAD;
-          if (px < 0 || px >= CW_L || py < 0 || py >= CH_L) continue;
-          const idx = (py * CW_L + px) * 4;
-          // Blend rgba(255,235,155,a) sur un fond opaque
-          data[idx]!     = Math.round(data[idx]!     + (255 - data[idx]!)     * a);
-          data[idx + 1]! = Math.round(data[idx + 1]! + (235 - data[idx + 1]!) * a);
-          data[idx + 2]! = Math.round(data[idx + 2]! + (155 - data[idx + 2]!) * a);
-        }
-      }
-    }
-    ctx.putImageData(imgData, 0, 0);
   }
   return canvas;
 }

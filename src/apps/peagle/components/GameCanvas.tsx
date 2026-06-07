@@ -124,6 +124,9 @@ function GameOverMascot({ size = 100 }: { size?: number }) {
 // ─── Mascotte animée pour le menu pause ──────────────────────────────────────
 function PauseMascot({ size = 80 }: { size?: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
+  // Regard suivi : `look` lissé vers la cible dictée par la position du curseur.
+  const lookRef = useRef(0);
+  const targetLookRef = useRef(0);
 
   useEffect(() => {
     const canvas = ref.current;
@@ -134,12 +137,25 @@ function PauseMascot({ size = 80 }: { size?: number }) {
     canvas.width = 28;
     canvas.height = 32;
 
+    // Cible le regard sur l'horizontale du curseur, relative au centre de la tête.
+    function onPointerMove(e: globalThis.PointerEvent) {
+      const rect = canvas!.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const dx = e.clientX - cx;
+      // Mappe l'écart vers -1..1, saturé à ~120px de chaque côté.
+      targetLookRef.current = Math.max(-1, Math.min(1, dx / 120));
+    }
+    window.addEventListener("pointermove", onPointerMove);
+
     let raf = 0;
     let startT = 0;
 
     function frame(now: number) {
       if (!startT) startT = now;
       const t = (now - startT) / 1000;
+
+      // Lissage vers la cible (suivi souple, pas de saccade).
+      lookRef.current += (targetLookRef.current - lookRef.current) * 0.18;
 
       ctx!.clearRect(0, 0, 28, 32);
       ctx!.imageSmoothingEnabled = false;
@@ -150,7 +166,7 @@ function PauseMascot({ size = 80 }: { size?: number }) {
         brow: "flat",
         eyeRed: false,
         wide: false,
-        look: Math.sin(t * 0.55) * 1.2,
+        look: lookRef.current,
         pop: 0,
         starEyes: false,
         tears: false,
@@ -162,7 +178,10 @@ function PauseMascot({ size = 80 }: { size?: number }) {
     }
 
     raf = requestAnimationFrame(frame);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("pointermove", onPointerMove);
+    };
   }, []);
 
   return (
@@ -449,12 +468,10 @@ function GameCanvasComponent({
         {/* ── MENU PAUSE ───────────────────────────────────────────────────── */}
         {paused && !isGameOver && (
           <div className="pg-diag-overlay absolute inset-0">
-
-            {/* Titre */}
-            <div className="pg-diag-title pg-diag-title-pause">PAUSE</div>
+           <div className="pg-diag-card">
 
             {/* Mascotte */}
-            <div className="pg-eagle-bob" style={{ marginBottom: 8 }}>
+            <div style={{ marginBottom: 8 }}>
               <PauseMascot size={60} />
             </div>
 
@@ -506,6 +523,7 @@ function GameCanvasComponent({
               <span className="pg-diag-tip-label">ASTUCE</span>
               <span className="pg-diag-tip-text">{pauseTip}</span>
             </div>
+           </div>
 
             {/* Menu Options partagé avec le menu principal (Musique, Scanlines,
                 Pixel). En partie, le seed est affiché en lecture seule — on ne
@@ -524,6 +542,7 @@ function GameCanvasComponent({
         {/* ── GAME OVER (défaite) ──────────────────────────────────────────── */}
         {isLost && !upgradeOfferPending && (
           <div className="pg-diag-overlay absolute inset-0 pg-diag-overlay-lost">
+           <div className="pg-diag-card">
 
             {/* Bulle de BD de l'aigle — au-dessus de la tête (queue vers le bas) */}
             <div className="pg-eagle-bubble pg-eagle-bubble-below" style={{ marginBottom: 10, maxWidth: "min(260px, 82%)" }}>
@@ -578,6 +597,7 @@ function GameCanvasComponent({
               <span className="pg-diag-tip-label">ASTUCE</span>
               <span className="pg-diag-tip-text">{gameOverTip}</span>
             </div>
+           </div>
           </div>
         )}
 

@@ -1,4 +1,4 @@
-export const PEAGLE_CURRENT_VERSION = "0.4.0";
+export const PEAGLE_CURRENT_VERSION = "0.4.1";
 
 export interface PeagleRelease {
   version: string;
@@ -7,6 +7,16 @@ export interface PeagleRelease {
 }
 
 export const PEAGLE_VERSIONS: PeagleRelease[] = [
+  {
+    version: "0.4.1",
+    releasedAt: "2026-06-07",
+    notes: [
+      "Pause & game over : contenu posé dans une carte « forêt » encadrée, comme le menu OPTIONS, au lieu de flotter à l'écran",
+      "Pause : l'aigle suit désormais le curseur du regard",
+      "Décor : ciel de la forêt adouci en dégradé bleu, suppression des rayons de soleil",
+      "Classement : lignes et surbrillance du joueur retaillées à la charte pixel",
+    ],
+  },
   {
     version: "0.4.0",
     releasedAt: "2026-06-07",
