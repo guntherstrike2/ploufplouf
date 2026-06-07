@@ -1,8 +1,11 @@
 # Changelog
 
-## [0.3.0] - 2026-06-06
+## [0.3.0] - 2026-06-07
 
 ### Peagle 98
+- L'aigle te nargue à la fin : le texte de game over passe en bulle de BD avec une réplique sarcastique de l'oiseau — ou une félicitation si tu bats ton record
+- Bumpers calmés : la balle ne s'envole plus dans tous les sens après un rebond
+- Fix : « NOUVEAU RECORD » ne s'affiche plus quand tu fais le même score qu'avant — il faut vraiment faire mieux
 - Rework des textes flottants : plus diegésiques, plus lisibles
   - Exclamations (JUICY!, TASTY!…) : aberration chromatique → étoile pixel burst + dérive latérale organique
   - Box combo Win98 grise → badge banner sombre avec bandes colorées
