@@ -186,12 +186,53 @@ const WIN_QUIPS = [
 ];
 
 const LOSE_QUIPS = [
-  "Plus d'œufs. L'aigle hausse les épaules. Il n'a pas d'épaules.",
-  "Game Over. Les cibles orange survivent. Elles vont fêter ça.",
-  "L'aigle demande si vous avez lu les astuces du menu. Vous n'avez pas lu les astuces.",
-  "Défaite. Le Pélican est déçu. Le Faucon dit qu'il l'avait prévu.",
-  "Raté. La physique est responsable. Comme toujours. La physique ne s'excuse pas.",
-  "Pas de chance. Ou de talent. L'aigle ne tranche pas.",
+  "Tu vises comme un manchot. Et les manchots n'ont pas de mains.",
+  "Même mes œufs ont plus de talent que toi.",
+  "J'ai vu des tortues faire mieux. Des tortues mortes.",
+  "Continue comme ça et je vais être obligé de migrer.",
+  "Mes plumes tombent une par une à chaque fois que tu joues.",
+  "J'ai survécu à des tornades. Pas à ce score.",
+  "Tu sais que les aigles ont une vision 8× supérieure aux humains ? Toi t'as loupé des trucs de 50 pixels.",
+  "Je suis un symbole de liberté et de grandeur. Toi tu es une honte.",
+  "Même un poussin sorti de l'œuf hier ferait mieux.",
+  "L'Empire romain avait un aigle comme emblème. Ils ont quand même chuté. Je comprends mieux pourquoi.",
+  "Comment t'as joué, là ? Sans les yeux ?",
+  "Je ne pleurerai pas. Les aigles ne pleurent pas. *pleure*",
+  "On dit que l'aigle vole toujours seul. Après t'avoir regardé jouer, je comprends.",
+  "J'ai des serres acérées. Je ne commente pas davantage.",
+  "Quelqu'un devrait t'interdire de toucher à ce jeu.",
+  "Je suis le roi des cieux. Toi t'es même pas roi de ton clavier.",
+  "Les écureuils jouent mieux que toi. Oui. Les écureuils.",
+  "Je vole à 150 km/h en piqué. Toi tu tombes en score.",
+  "Ma grand-mère aigle joue mieux. Et elle a 40 ans.",
+  "J'ai vu des lapins prendre de meilleures décisions stratégiques.",
+  "À ce rythme, les cibles vont te demander de l'argent.",
+  "Je suis inscrit sur les armoiries de 15 nations. Pas pour ça.",
+  "Tu veux que je te montre comment on fait ? J'ai pas de mains non plus.",
+  "Même Icare a tenu plus longtemps. Et il avait des ailes en cire.",
+  "Un aigle ne perd jamais la face. Toi tu la perds à chaque partie.",
+  "Ton score va rester dans les annales. Pas pour les bonnes raisons.",
+  "Il paraît que c'est en jouant qu'on devient joueur. Apparemment pas pour toi.",
+  "Les cibles orange t'ont vu venir de loin. Très loin.",
+  "C'est officiel : l'aigle a honte. L'aigle n'a jamais honte.",
+  "Je pensais que c'était un bug. Non, c'est juste toi.",
+  "Même les pigeons te regardent de travers. Les pigeons.",
+  "Tu as le même niveau que quelqu'un qui n'a jamais joué. Sauf que toi t'as joué.",
+  "L'aigle plisse les yeux. Pas d'admiration. De perplexité.",
+  "Si la médiocrité était un sport, tu serais champion olympique.",
+];
+
+const RECORD_QUIPS = [
+  "Nouveau record... ton ancien score était tellement bas que c'était facile.",
+  "Félicitations. La barre était tellement basse qu'un ver de terre l'aurait franchie.",
+  "Record battu ! C'est triste pour l'ancien record.",
+  "Tu t'es surpassé. Ça veut pas dire grand chose, mais quand même.",
+  "Nouveau record ! L'aigle applaudit... avec ses ailes. Ça fait du bruit.",
+  "Pour une fois, tu n'es pas une honte totale. Presque.",
+  "Record personnel ! Tu fêtes ça comment ? Avec des graines ?",
+  "Bien joué. J'ai dit 'bien'. Pas 'très bien'. Nuance.",
+  "L'aigle reconnaît tes efforts. À contrecœur.",
+  "Tu as battu ton record. L'aigle va noter ça dans ses plumes.",
 ];
 
 // ─── Mini-classement diégétique pour le game over ───────────────────────────
@@ -373,11 +414,12 @@ function GameCanvasComponent({
   const isRecord = ui.isNewRecord;
   const displayUser = user?.name ?? user?.email ?? null;
   /* eslint-disable react-hooks/purity */
-  const quip = useMemo(() => isWon
-    ? WIN_QUIPS[Math.floor(Math.random() * WIN_QUIPS.length)]!
-    : LOSE_QUIPS[Math.floor(Math.random() * LOSE_QUIPS.length)]!,
+  const quip = useMemo(() => {
+    if (isRecord) return RECORD_QUIPS[Math.floor(Math.random() * RECORD_QUIPS.length)]!;
+    if (isWon) return WIN_QUIPS[Math.floor(Math.random() * WIN_QUIPS.length)]!;
+    return LOSE_QUIPS[Math.floor(Math.random() * LOSE_QUIPS.length)]!;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  [isGameOver, isWon]);
+  }, [isGameOver, isWon, isRecord]);
   /* eslint-enable react-hooks/purity */
 
   return (
@@ -485,8 +527,13 @@ function GameCanvasComponent({
           <div className="pg-diag-overlay absolute inset-0 pg-diag-overlay-lost">
 
             {/* Tête d'aigle dégoûtée */}
-            <div className="pg-gameover-face" style={{ marginBottom: 10 }}>
+            <div className="pg-gameover-face" style={{ marginBottom: 4 }}>
               <GameOverMascot size={100} />
+            </div>
+
+            {/* Bulle de BD de l'aigle */}
+            <div className="pg-eagle-bubble" style={{ marginBottom: 10, maxWidth: "min(260px, 82%)" }}>
+              {quip}
             </div>
 
             {/* Titre */}
@@ -501,11 +548,6 @@ function GameCanvasComponent({
             {isRecord && (
               <div className="pg-diag-record">★ NOUVEAU RECORD ! ★</div>
             )}
-
-            {/* Quip aigle */}
-            <div className="pg-quip-lux" style={{ marginBottom: 8, maxWidth: "min(260px, 82%)" }}>
-              &ldquo;{quip}&rdquo;
-            </div>
 
             {/* Mini-classement — la place du joueur, montrée sur place */}
             <GameOverRanking
