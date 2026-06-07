@@ -131,6 +131,7 @@ export function LoadingScreen({ onReady }: LoadingScreenProps) {
         cursor: loaded ? "pointer" : "default",
         userSelect: "none",
         gap: 24,
+        position: "relative",
       }}
       onClick={handleStart}
     >

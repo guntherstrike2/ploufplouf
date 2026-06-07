@@ -31,8 +31,8 @@ const SECTIONS = [
     color: PG.orange,
     lines: [
       "🟠 Orange — cible : doit être détruite pour gagner.",
-      "⚪ Normal — bonus de points, disparaît au contact.",
-      "🔵 Bumper — obstacle permanent qui propulse l'œuf fort.",
+      "🔵 Bleu — peg bonus, disparaît au contact et rapporte des points.",
+      "🟡 Doré — bumper : obstacle permanent qui propulse l'œuf fort.",
     ],
   },
   {
