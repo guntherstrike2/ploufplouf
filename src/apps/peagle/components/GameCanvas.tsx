@@ -402,8 +402,6 @@ function GameCanvasComponent({
 
   const [seedCopied, setSeedCopied] = useState(false);
   const seedCode = formatSeed(currentSeed);
-  const pauseTip = useMemo(() => randomTip(), []);
-  const gameOverTip = useMemo(() => randomTip(), []);
 
   const copySeed = useCallback(() => {
     navigator.clipboard.writeText(seedCode).catch(() => {});
@@ -423,6 +421,11 @@ function GameCanvasComponent({
     return LOSE_QUIPS[Math.floor(Math.random() * LOSE_QUIPS.length)]!;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isGameOver, isWon, isRecord]);
+  // Astuce fraîche à chaque ouverture de la pause / à chaque game over.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const pauseTip = useMemo(() => randomTip(), [paused]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const gameOverTip = useMemo(() => randomTip(), [isGameOver]);
   /* eslint-enable react-hooks/purity */
 
   return (
