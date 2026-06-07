@@ -73,12 +73,36 @@ function easeOutBack(x: number, c1 = 3.0): number {
   return 1 + c3 * p * p * p + c1 * p * p;
 }
 
+// Zone HYPE dédiée : pile centrée horizontalement, ancrée sous le lanceur et
+// au-dessus du gros des pegs. Le plus récent est en bas (HYPE_ANCHOR_Y), les
+// précédents remontent d'un cran et s'estompent → lisibilité même en plein combo.
+const HYPE_ANCHOR_Y = 168;
+const HYPE_STACK_GAP = 30;
+
 export function drawFloatingTexts(ctx: CanvasRenderingContext2D, s: GameState): void {
   for (const t of s.floatingTexts) {
     if (t.y < -20 || t.y > H + 20) continue;
     const age = 1 - t.life;
     const lifeRatio = Math.min(1, t.life * 2);
     const fontSize = t.fontSize ?? (t.combo ? 13 : 11);
+    const isBadge = t.combo && fontSize >= 13;
+
+    // ── Score discret (B2) : le juice (pop/squash/glow) est réservé aux
+    // expressions hype et aux événements. Ici, simple scale-in + fondu + contour
+    // léger pour que les +N s'effacent visuellement derrière l'action. ──
+    if (!t.exclaim && !isBadge) {
+      const appear = Math.min(1, age / 0.12);
+      const popScale = 0.72 + appear * 0.28;   // 0.72 → 1.0, sans overshoot
+      ctx.save();
+      ctx.globalAlpha = lifeRatio * 0.9;
+      ctx.translate(t.x, t.y);
+      ctx.scale(popScale, popScale);
+      ctx.font = `bold ${fontSize}px "MS Sans Serif", monospace`;
+      ctx.textAlign = "center";
+      drawScoreText(ctx, t.text, t.color);
+      ctx.restore();
+      continue;
+    }
 
     // Overshoot calibré par type : exclaim = dramatique, combo = moyen, score = doux.
     const appearDur = t.exclaim ? 0.24 : 0.18;
@@ -137,8 +161,9 @@ export function drawFloatingTexts(ctx: CanvasRenderingContext2D, s: GameState): 
         ctx.restore();
       }
       drawExclaimText(ctx, t.text, t.color, fontSize, lifeRatio);
-    } else if (t.combo && fontSize >= 13) {
-      // Badge banner : fond sombre + bandes colorées top/bottom → plus jeu, moins UI
+    } else {
+      // Badge banner (jackpot/série/bonus…) : fond sombre + bandes colorées
+      // top/bottom → plus jeu, moins UI. Les scores +N passent par drawScoreText.
       const tw = ctx.measureText(t.text).width;
       const ph = 8, pv = 4;
       const bx = -tw / 2 - ph;
@@ -157,33 +182,95 @@ export function drawFloatingTexts(ctx: CanvasRenderingContext2D, s: GameState): 
       ctx.fillText(t.text, 1, 1);
       ctx.fillStyle = t.color;
       ctx.fillText(t.text, 0, 0);
-    } else {
-      // Contour pixel 8 directions : lisible sur n'importe quel fond, même dense.
-      ctx.fillStyle = "rgba(0,0,0,0.88)";
-      for (let dx = -1; dx <= 1; dx++) {
-        for (let dy = -1; dy <= 1; dy++) {
-          if (dx || dy) ctx.fillText(t.text, dx, dy);
-        }
-      }
-      // Multiplier en doré pour démarquer le ×N du score de base
-      const multAt = t.text.indexOf(" ×");
-      if (multAt >= 0) {
-        const numPart = t.text.slice(0, multAt);
-        const mulPart = t.text.slice(multAt);
-        const totW = ctx.measureText(t.text).width;
-        const numW = ctx.measureText(numPart).width;
-        ctx.textAlign = "left";
-        ctx.fillStyle = t.color;
-        ctx.fillText(numPart, -totW / 2, 0);
-        ctx.fillStyle = "#ffd050";
-        ctx.fillText(mulPart, -totW / 2 + numW, 0);
-        ctx.textAlign = "center";
-      } else {
-        ctx.fillStyle = t.color;
-        ctx.fillText(t.text, 0, 0);
-      }
     }
 
+    ctx.restore();
+  }
+}
+
+// Score +N discret (B2) : contour léger 4 directions (moins d'encre que les
+// exclamations) + corps coloré, le ×N de combo démarqué en doré. Suppose
+// textAlign="center" et la police déjà posés par l'appelant.
+function drawScoreText(ctx: CanvasRenderingContext2D, text: string, color: string): void {
+  ctx.fillStyle = "rgba(0,0,0,0.55)";
+  ctx.fillText(text, 1, 0); ctx.fillText(text, -1, 0);
+  ctx.fillText(text, 0, 1); ctx.fillText(text, 0, -1);
+
+  const multAt = text.indexOf(" ×");
+  if (multAt >= 0) {
+    const numPart = text.slice(0, multAt);
+    const mulPart = text.slice(multAt);
+    const totW = ctx.measureText(text).width;
+    const numW = ctx.measureText(numPart).width;
+    ctx.textAlign = "left";
+    ctx.fillStyle = color;
+    ctx.fillText(numPart, -totW / 2, 0);
+    ctx.fillStyle = "#ffd050";
+    ctx.fillText(mulPart, -totW / 2 + numW, 0);
+    ctx.textAlign = "center";
+  } else {
+    ctx.fillStyle = color;
+    ctx.fillText(text, 0, 0);
+  }
+}
+
+// Zone HYPE : pile d'expressions de combo dans un emplacement dédié et stable,
+// hors de la zone des pegs. Réserve tout le « gras » (glow, burst pixel, pop
+// élastique, squash & stretch) à ces mots — c'est l'élément hero de la lisibilité
+// B2. Le plus récent pulse en bas ; les précédents remontent et s'estompent.
+export function drawHypeTexts(ctx: CanvasRenderingContext2D, s: GameState): void {
+  const hs = s.hypeTexts;
+  for (let i = 0; i < hs.length; i++) {
+    const h = hs[i]!;
+    const depth = hs.length - 1 - i;          // 0 = le plus récent (en bas de pile)
+    const age = 1 - h.life;
+    const fade = Math.min(1, h.life * 2.2);
+    const stackFade = depth === 0 ? 1 : 0.55;  // les anciens s'effacent derrière le neuf
+
+    // Pop élastique + squash & stretch, même recette dramatique que les exclamations.
+    const appearDur = 0.22;
+    const appear = Math.min(1, age / appearDur);
+    const eb = easeOutBack(appear, 4.5);
+    const ebC = Math.min(1, eb);
+    const sqFac = 1 - ebC;
+    const scaleX = 1 + sqFac * 0.15;
+    const scaleY = 1 - sqFac * 0.18;
+    let popScale = 0.4 + eb * 0.72;
+    const settleAge = Math.max(0, age - appearDur);
+    popScale *= 1 + Math.sin(settleAge * 32) * 0.05 * Math.exp(-settleAge * 14);
+
+    const y = HYPE_ANCHOR_Y - depth * HYPE_STACK_GAP - (1 - h.life) * 4;
+    const wobble = Math.sin(age * 16 + h.spin * 3) * 0.05 * h.life;
+
+    ctx.save();
+    ctx.globalAlpha = fade * stackFade;
+    ctx.translate(W / 2, y);
+    ctx.rotate(h.spin * 0.04 + wobble);
+    ctx.scale(popScale * scaleX, popScale * scaleY);
+    ctx.font = `bold ${h.fontSize}px "MS Sans Serif", monospace`;
+    ctx.textAlign = "center";
+
+    // Étoile pixel burst au spawn, réservée au mot le plus récent.
+    const burstI = Math.max(0, 1 - age * h.maxLife * 1.8);
+    if (depth === 0 && burstI > 0.02) {
+      ctx.save();
+      ctx.globalAlpha = fade * burstI * 0.5;
+      ctx.strokeStyle = h.color;
+      ctx.lineWidth = Math.max(1, Math.round(burstI * 2));
+      ctx.lineCap = "square";
+      const r0 = h.fontSize * 0.3;
+      const r1 = h.fontSize * (0.9 + burstI * 0.4);
+      for (let k = 0; k < 8; k++) {
+        const a = (k / 8) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a) * r0, Math.sin(a) * r0);
+        ctx.lineTo(Math.cos(a) * r1, Math.sin(a) * r1);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    drawExclaimText(ctx, h.text, h.color, h.fontSize, fade * stackFade);
     ctx.restore();
   }
 }
