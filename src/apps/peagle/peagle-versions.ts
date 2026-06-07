@@ -11,8 +11,9 @@ export const PEAGLE_VERSIONS: PeagleRelease[] = [
     version: "0.4.2",
     releasedAt: "2026-06-07",
     notes: [
-      "Notes de MAJ et Instructions : mêmes fenêtres en « carte forêt » que le menu OPTIONS, sans barre de titre — titre et version posés directement en tête",
-      "Notes de MAJ : versions séparées par un filet discret, mise en page allégée et plus aérée",
+      "Changelog et Instructions : mêmes fenêtres en « carte forêt » que le menu OPTIONS, sans barre de titre — titre et version posés directement en tête",
+      "Changelog : versions séparées par un filet discret, mise en page allégée et plus aérée, barre de défilement masquée",
+      "« Notes de mise à jour » renommé CHANGELOG partout dans l'UI",
       "Boutons unifiés sur le style « peg » du menu principal partout : gros peg orange pour l'action principale, pegs verts pour le reste, actions discrètes atténuées",
     ],
   },
