@@ -1,6 +1,6 @@
 # Peagle 98 — Instructions spécifiques
 
-Roguelite Peggle-style en canvas. Toute modification doit respecter les invariants de la boucle de jeu et conserver la cohérence du changelog.
+Respecte les invariants de la boucle de jeu à 60 FPS et mets à jour le changelog à chaque changement visible.
 
 ## Changelog obligatoire
 
@@ -41,7 +41,7 @@ components/      ← UI React (menus, HUD, overlays)
 
 ### Events (`engine/events.ts`)
 
-Les sons ne se déclenchent **pas** directement dans l'engine. L'engine émet des events (`PeagleEvent`) que `useGameLoop.ts` intercepte et passe à `usePeagleSounds`.
+Ne déclenche jamais de son depuis `engine/`. Émets un `PeagleEvent` — `useGameLoop.ts` l'intercepte et le passe à `usePeagleSounds`.
 
 ## Renderer (`renderer/`)
 
@@ -52,21 +52,11 @@ Les sons ne se déclenchent **pas** directement dans l'engine. L'engine émet de
 
 ## Extension points
 
-### Ajouter un upgrade
-1. Déclarer l'ID + entrée dans `engine/roguelite.ts`
-2. Appliquer dans `engine/state/init.ts` (valeur `effective*`) ou branche dans `ball.ts`
-3. Afficher dans `components/UpgradePicker.tsx`
+**Nouvel upgrade** — déclare dans `engine/roguelite.ts`, applique via une valeur `effective*` dans `engine/state/init.ts` (ou branche dans `ball.ts`), affiche dans `components/UpgradePicker.tsx`.
 
-### Ajouter un type de peg
-1. `engine/peg-kinds.ts` — déclarer kind + propriétés
-2. `engine/state/ball.ts` — logique de collision spéciale
-3. `renderer/pegs.ts` — rendu
-4. `engine/game-theme.ts` — couleurs par thème
+**Nouveau type de peg** — déclare dans `engine/peg-kinds.ts`, collision dans `engine/state/ball.ts`, rendu dans `renderer/pegs.ts`, couleurs dans `engine/game-theme.ts`.
 
-### Ajouter un motif de niveau
-1. Fonction builder dans `engine/levels.ts` utilisant `tableau.ts`
-2. Ajouter au pipeline de génération dans `buildLevel()`
-3. Tester la validation (min orange pegs, pas de cluster impossible)
+**Nouveau motif de niveau** — fonction builder dans `engine/levels.ts` via les helpers `tableau.ts`, enregistre dans `buildLevel()`. Valide : min orange pegs respecté, pas de cluster inatteignable.
 
 ## Audio
 
@@ -89,4 +79,4 @@ Les sons ne se déclenchent **pas** directement dans l'engine. L'engine émet de
 
 ## DevPanel
 
-`components/DevPanel.tsx` est visible uniquement pour les admins (`user.role === "admin"`). Pour tester des cas limites (clutch, board clear, level skip), l'utiliser plutôt que de modifier temporairement le code.
+`components/DevPanel.tsx` est réservé aux admins (`user.role === "admin"`). Pour tester les cas limites (clutch, board clear, level skip), utilise le DevPanel — ne modifie jamais le code à titre temporaire pour déboguer.
