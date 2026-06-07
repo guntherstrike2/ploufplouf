@@ -1,4 +1,4 @@
-export const PEAGLE_CURRENT_VERSION = "0.4.1";
+export const PEAGLE_CURRENT_VERSION = "0.4.2";
 
 export interface PeagleRelease {
   version: string;
@@ -7,6 +7,15 @@ export interface PeagleRelease {
 }
 
 export const PEAGLE_VERSIONS: PeagleRelease[] = [
+  {
+    version: "0.4.2",
+    releasedAt: "2026-06-07",
+    notes: [
+      "Notes de MAJ et Instructions : mêmes fenêtres en « carte forêt » que le menu OPTIONS, sans barre de titre — titre et version posés directement en tête",
+      "Notes de MAJ : versions séparées par un filet discret, mise en page allégée et plus aérée",
+      "Boutons unifiés sur le style « peg » du menu principal partout : gros peg orange pour l'action principale, pegs verts pour le reste, actions discrètes atténuées",
+    ],
+  },
   {
     version: "0.4.1",
     releasedAt: "2026-06-07",

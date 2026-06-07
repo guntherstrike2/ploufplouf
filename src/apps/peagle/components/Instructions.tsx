@@ -72,6 +72,7 @@ export function Instructions({ onClose }: InstructionsProps) {
             <div
               key={sec.label}
               style={{
+                flexShrink: 0,
                 border: `2px solid ${PG.border}`,
                 borderRadius: 6,
                 background: PG.bg,

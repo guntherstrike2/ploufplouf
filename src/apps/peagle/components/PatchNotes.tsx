@@ -34,6 +34,7 @@ export function PatchNotes({ onClose }: PatchNotesProps) {
       badge={`v${PEAGLE_CURRENT_VERSION}`}
       badgeColor={PG.gold}
       width="min(380px, 94%)"
+      bodyGap={12}
       footerJustify="space-between"
       onClose={handleClose}
       footer={
@@ -48,30 +49,19 @@ export function PatchNotes({ onClose }: PatchNotesProps) {
       }
     >
       {PEAGLE_VERSIONS.map((release, i) => (
-        <div
-          key={release.version}
-          style={{
-            border: `2px solid ${PG.border}`,
-            borderRadius: 6,
-            overflow: "hidden",
-            background: i === 0 ? "var(--pg-surface)" : "var(--pg-bg)",
-          }}
-        >
-          {/* En-tête de version */}
+        <div key={release.version} style={{ flexShrink: 0 }}>
+          {/* Filet de séparation entre versions (sauf la première). */}
+          {i > 0 && <div className="pg-settings-divider" aria-hidden style={{ marginBottom: 12 }} />}
+          {/* (le gap flex de la carte gère l'espace au-dessus du filet) */}
+
+          {/* En-tête de version — à plat, sur la matière de la carte. */}
           <div
             style={{
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
               gap: 8,
-              padding: "6px 10px",
-              borderBottom: `1px solid ${PG.border}`,
-              background: i === 0
-                ? "linear-gradient(to bottom, #1c3812 0%, #122a0c 55%, #0c1c08 100%)"
-                : "var(--pg-surface-2)",
-              boxShadow: i === 0
-                ? "inset 0 1px 0 0 var(--pg-bevel-hi), inset 0 -3px 0 0 var(--pg-green-deep)"
-                : undefined,
+              marginBottom: 6,
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
@@ -113,7 +103,7 @@ export function PatchNotes({ onClose }: PatchNotesProps) {
           {/* Notes — police UI (VT323) pour la lisibilité */}
           <ul style={{
             margin: 0,
-            padding: "8px 12px 9px 24px",
+            padding: "0 0 0 18px",
             display: "flex",
             flexDirection: "column",
             gap: 3,

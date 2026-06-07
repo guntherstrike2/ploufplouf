@@ -4,18 +4,18 @@ import type { CSSProperties, ReactNode } from "react";
 import { PG } from "../styles";
 
 /**
- * Dialog pixel partagé — fenêtre « Bosquet » avec titlebar, corps scrollable et
- * footer fixe. Utilisé par les overlays riches (notes de MAJ, instructions).
+ * Dialog pixel partagé — **même DA que le menu Réglages/Options** : carte forêt
+ * diégétique (`pg-settings-card`), sans barre de titre « fenêtre OS ». Le titre
+ * et le badge vivent en tête du corps ; le contenu est scrollable et borné en
+ * hauteur (rien ne peut être coupé, même avec beaucoup de versions).
  *
- * Le corps est **toujours scrollable** et la fenêtre est bornée en hauteur
- * (`maxHeight`) : le contenu ne peut plus déborder ni se faire couper, même avec
- * beaucoup de versions au changelog.
+ * Utilisé par les overlays riches (notes de MAJ, instructions).
  */
 interface PegDialogProps {
-  /** Glyphe affiché dans la pastille de titre. */
+  /** Glyphe affiché à gauche du titre. */
   icon?: ReactNode;
   title: string;
-  /** Badge à droite de la titlebar (ex: version). */
+  /** Badge à droite du titre (ex: version). */
   badge?: ReactNode;
   badgeColor?: string;
   children: ReactNode;
@@ -45,31 +45,58 @@ export function PegDialog({
       onClick={onClose}
       style={{ zIndex: 5, padding: 16 }}
     >
+      {/* Carte forêt diégétique — identique au menu Réglages (pas de titlebar). */}
       <div
-        className="pg-dialog"
+        className="pg-settings-card"
         onClick={(e) => e.stopPropagation()}
         style={{
           width,
-          // Borne la fenêtre dans l'overlay (qui a 16px de padding) → jamais
-          // plus haute que la scène, donc rien n'est coupé.
+          // Borne la carte dans l'overlay (16px de padding) → jamais plus haute
+          // que la scène, donc rien n'est coupé.
           maxHeight: "100%",
           display: "flex",
           flexDirection: "column",
           minHeight: 0,
         }}
       >
-        {/* Titlebar */}
-        <div className="pg-titlebar" style={{ flexShrink: 0 }}>
-          {icon != null && <span className="pg-caption-btn">{icon}</span>}
-          <span style={{ fontSize: 8, letterSpacing: "0.1em", flex: 1, color: PG.text }}>
+        {/* En-tête léger : titre + badge, dans la matière de la carte (pas une
+            barre de titre OS). */}
+        <div
+          style={{
+            flexShrink: 0,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "14px 16px 10px",
+          }}
+        >
+          {icon != null && (
+            <span style={{ fontSize: 14, lineHeight: 1, flexShrink: 0 }}>{icon}</span>
+          )}
+          <span style={{
+            fontFamily: "var(--pg-font)",
+            fontSize: 9,
+            letterSpacing: "0.1em",
+            color: PG.text,
+            flex: 1,
+          }}>
             {title}
           </span>
           {badge != null && (
-            <span style={{ fontSize: 7, letterSpacing: "0.06em", color: badgeColor }}>
+            <span style={{
+              fontFamily: "var(--pg-font)",
+              fontSize: 8,
+              letterSpacing: "0.06em",
+              color: badgeColor,
+              flexShrink: 0,
+            }}>
               {badge}
             </span>
           )}
         </div>
+
+        {/* Séparateur pixel (même que les Réglages). */}
+        <div className="pg-settings-divider" aria-hidden style={{ margin: "0 16px", flexShrink: 0 }} />
 
         {/* Corps scrollable */}
         <div
@@ -77,7 +104,7 @@ export function PegDialog({
             flex: 1,
             minHeight: 0,
             overflowY: "auto",
-            padding: "10px 12px",
+            padding: "12px 16px",
             display: "flex",
             flexDirection: "column",
             gap: bodyGap,
@@ -88,20 +115,21 @@ export function PegDialog({
 
         {/* Footer fixe */}
         {footer != null && (
-          <div
-            style={{
-              flexShrink: 0,
-              padding: "8px 12px",
-              borderTop: `2px solid ${PG.border}`,
-              display: "flex",
-              justifyContent: footerJustify,
-              alignItems: "center",
-              gap: 8,
-              background: "var(--pg-surface)",
-            }}
-          >
-            {footer}
-          </div>
+          <>
+            <div className="pg-settings-divider" aria-hidden style={{ margin: "0 16px", flexShrink: 0 }} />
+            <div
+              style={{
+                flexShrink: 0,
+                padding: "10px 16px 14px",
+                display: "flex",
+                justifyContent: footerJustify,
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              {footer}
+            </div>
+          </>
         )}
       </div>
     </div>
