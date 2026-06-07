@@ -9,6 +9,7 @@ import { formatSeed } from "../engine/roguelite";
 import { PixelSprite } from "./PixelSprite";
 import { eagleFace } from "../renderer/face";
 import type { FaceMood } from "../renderer/face";
+import { randomTip } from "../engine/tips";
 import "../peagle.css";
 
 // ─── Mascotte dégoûtée pour le game over ────────────────────────────────────
@@ -401,6 +402,8 @@ function GameCanvasComponent({
 
   const [seedCopied, setSeedCopied] = useState(false);
   const seedCode = formatSeed(currentSeed);
+  const pauseTip = useMemo(() => randomTip(), []);
+  const gameOverTip = useMemo(() => randomTip(), []);
 
   const copySeed = useCallback(() => {
     navigator.clipboard.writeText(seedCode).catch(() => {});
@@ -454,8 +457,14 @@ function GameCanvasComponent({
             <div className="pg-diag-title pg-diag-title-pause">⏸ PAUSE</div>
 
             {/* Mascotte */}
-            <div className="pg-eagle-bob" style={{ marginBottom: 10 }}>
+            <div className="pg-eagle-bob" style={{ marginBottom: 8 }}>
               <PauseMascot size={60} />
+            </div>
+
+            {/* Astuce */}
+            <div className="pg-diag-tip">
+              <span className="pg-diag-tip-label">★ ASTUCE</span>
+              <span className="pg-diag-tip-text">{pauseTip}</span>
             </div>
 
             {/* Boutons */}
@@ -557,6 +566,12 @@ function GameCanvasComponent({
               playerScore={ui.score}
               isLoggedIn={!!user}
             />
+
+            {/* Astuce */}
+            <div className="pg-diag-tip pg-diag-tip-go">
+              <span className="pg-diag-tip-label">★ ASTUCE</span>
+              <span className="pg-diag-tip-text">{gameOverTip}</span>
+            </div>
 
             <div className="pg-diag-sep" />
 

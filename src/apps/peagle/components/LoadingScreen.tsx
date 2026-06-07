@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useSoundContext } from "@/lib/contexts/sound-context";
 import { loadBuffer } from "@/lib/audio/engine";
 import { PG } from "../styles";
 import { eagleFace } from "../renderer/face";
+import { randomTip } from "../engine/tips";
 import "../peagle.css";
 
 const TRACKS = ["/sounds/peagle-theme.mp3", "/sounds/peagle-track1.mp3"];
@@ -115,6 +116,7 @@ export function LoadingScreen({ onReady }: LoadingScreenProps) {
   }, [handleStart]);
 
   const pct = Math.round(progress * 100);
+  const tip = useMemo(() => randomTip(), []);
 
   return (
     <div
@@ -169,6 +171,49 @@ export function LoadingScreen({ onReady }: LoadingScreenProps) {
         >
           {loaded ? "▶ PRESS ANY KEY" : `LOADING... ${pct}%`}
         </div>
+      </div>
+
+      {/* Astuce aléatoire — visible dès le début du chargement */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: 20,
+          left: 0,
+          right: 0,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 4,
+          padding: "0 16px",
+          pointerEvents: "none",
+          animation: "pg-slide-up 0.4s ease-out 0.3s both",
+        }}
+      >
+        <span
+          style={{
+            fontFamily: "var(--pg-font)",
+            fontSize: 6,
+            letterSpacing: "0.14em",
+            color: PG.gold,
+            textShadow: `0 0 8px ${PG.gold}66`,
+            marginBottom: 2,
+          }}
+        >
+          ★ ASTUCE
+        </span>
+        <span
+          style={{
+            fontFamily: "var(--pg-font-ui)",
+            fontSize: 14,
+            color: PG.text,
+            textAlign: "center",
+            lineHeight: 1.4,
+            maxWidth: 260,
+            textShadow: "0 2px 4px rgba(0,0,0,0.95)",
+          }}
+        >
+          {tip}
+        </span>
       </div>
     </div>
   );

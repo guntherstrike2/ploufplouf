@@ -1,4 +1,4 @@
-export const PEAGLE_CURRENT_VERSION = "0.3.1";
+export const PEAGLE_CURRENT_VERSION = "0.3.2";
 
 export interface PeagleRelease {
   version: string;
@@ -7,6 +7,16 @@ export interface PeagleRelease {
 }
 
 export const PEAGLE_VERSIONS: PeagleRelease[] = [
+  {
+    version: "0.3.2",
+    releasedAt: "2026-06-07",
+    notes: [
+      "Bouton INSTRUCTIONS dans le menu principal — règles complètes du jeu",
+      "Astuces aléatoires sur l'écran de chargement (★ ASTUCE)",
+      "Astuce contextuelle dans le menu pause",
+      "Astuce en bas de l'écran game over avant les boutons d'action",
+    ],
+  },
   {
     version: "0.3.1",
     releasedAt: "2026-06-07",
