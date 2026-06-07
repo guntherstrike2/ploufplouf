@@ -71,23 +71,22 @@ Every app lives in `src/apps/<slug>/` with exactly two files: `index.tsx` (compo
 
 | Theme id | Style | Description |
 |---|---|---|
-| `win98` | Boîte grise + bordure raised | Défaut, old school authentique |
-| `pixel` | Fond coloré + outline noir | Style jeu vidéo 16-bit |
-| `lucide` | Fond coloré + bordure raised | SVG moderne par app |
-| `neon` | Fond noir + lueur colorée | Cyberpunk |
-| `crt` | Fond noir + phosphore vert | Terminal rétro monochrome |
-| `flat` | Icône SVG colorée, sans fond | Minimaliste |
-| `emoji` | Emoji string | Lecture du champ `emoji` du manifest |
+| `win98` | Grey box + raised border | Default, authentic old-school |
+| `pixel` | Colored bg + black outline | 16-bit video game style |
+| `lucide` | Colored bg + raised border | Modern per-app SVG |
+| `neon` | Black bg + colored glow | Cyberpunk |
+| `crt` | Black bg + green phosphor | Retro monochrome terminal |
+| `flat` | Colored SVG icon, no bg | Minimalist |
+| `emoji` | Emoji string | Reads the manifest's `emoji` field |
 
-**`<OsIcon slug="my-app" size={N} />`** (`src/components/ui/os-icon.tsx`) — composant central. Il lit le thème courant via `useIconTheme()` et rend l'icône adaptée. Toujours utiliser ce composant plutôt que d'afficher `app.emoji` directement.
+**`<OsIcon slug="my-app" size={N} />`** (`src/components/ui/os-icon.tsx`) — central component. Reads the current theme via `useIconTheme()` and renders the right icon. Always use this component instead of rendering `app.emoji` directly.
 
-**`useIconTheme()`** (`src/lib/contexts/icon-theme-context.tsx`) — retourne le `IconTheme` actif. Utile pour lire `theme.style` ou accéder à `theme.icons[slug]` si besoin de rendu custom.
+**`useIconTheme()`** (`src/lib/contexts/icon-theme-context.tsx`) — returns the active `IconTheme`. Useful to read `theme.style` or access `theme.icons[slug]` for custom rendering.
 
-**Ajouter les icônes pour un nouvel app** (étape 5 après les 4 étapes standard) :
-1. Dans `src/lib/icon-themes/themes/lucide.tsx` — ajouter `"my-app": { icon: SomeLucideIcon, color: "#hexcolor" }` dans `icons`
-2. Dans `src/lib/icon-themes/themes/neon.ts` — ajouter `"my-app": { ...lucideTheme.icons["my-app"]!, color: "#brightercolor" }`
-3. Les thèmes win98 / pixel / crt / flat héritent automatiquement de lucide — rien à faire.
-4. Le thème emoji lit `manifest.emoji` — rien à faire si le champ est renseigné.
+**Adding icons for a new app** (do this after the 5 steps above):
+1. In `src/lib/icon-themes/themes/lucide.tsx` — add `"my-app": { icon: SomeLucideIcon, color: "#hexcolor" }` to `icons`
+2. In `src/lib/icon-themes/themes/neon.ts` — add `"my-app": { ...lucideTheme.icons["my-app"]!, color: "#brightercolor" }`
+3. win98 / pixel / crt / flat inherit from lucide, and emoji reads `manifest.emoji` — nothing to do for those.
 
 ### Window manager
 
@@ -167,7 +166,7 @@ import { OsIcon } from "@/components/ui/os-icon";
 <OsIcon slug="radio" size={16} />  // titlebar/taskbar-size
 ```
 
-Sizes courantes : 16 (titlebar/taskbar), 18 (start menu), 20 (fenêtre ouverte), 46 (desktop).
+Common sizes: 16 (titlebar/taskbar), 18 (start menu), 20 (open window), 46 (desktop).
 
 ### Open another app
 
