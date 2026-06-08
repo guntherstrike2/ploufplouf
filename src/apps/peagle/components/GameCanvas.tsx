@@ -5,7 +5,6 @@ import type { RefObject, PointerEvent } from "react";
 import type { UiState, LeaderboardEntry } from "../engine/types";
 import { W, H } from "../engine/constants";
 import { PG } from "../styles";
-import { PixelSprite } from "./PixelSprite";
 import { eagleFace } from "../renderer/face";
 import type { FaceMood } from "../renderer/face";
 import { randomTip } from "../engine/tips";
@@ -427,7 +426,6 @@ function GameCanvasComponent({
   const isWon = ui.phase === "won";
   const isGameOver = isLost || isWon;
   const isRecord = ui.isNewRecord;
-  const displayUser = user?.name ?? user?.email ?? null;
   /* eslint-disable react-hooks/purity */
   const quip = useMemo(() => {
     if (isRecord) return RECORD_QUIPS[Math.floor(Math.random() * RECORD_QUIPS.length)]!;
