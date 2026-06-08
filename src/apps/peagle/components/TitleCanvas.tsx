@@ -902,23 +902,35 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, onEagle
       // en jeu) et pendouillent en balancier amorti (`legSwing`) → effet rigolo.
       {
         const ORANGE = "#f0a81e";
-        const DARK = "#b97812";
-        const OUT = "#1a120a";
+        const HI = "#ffc24a";
         const spread = 0.16 + ponte * 0.85;          // grand écart pendant la ponte
         const wobble = Math.sin(phase) * 0.05;       // petit frémissement idle
+        // Un rectangle arrondi orange avec reflet « L » blanc — même DA que les pegs.
+        const chunk = (x: number, y: number, w: number, h: number, r: number) => {
+          ctx!.fillStyle = ORANGE;
+          ctx!.beginPath();
+          ctx!.roundRect(x, y, w, h, r);
+          ctx!.fill();
+          ctx!.strokeStyle = HI;
+          ctx!.lineWidth = 1.5;
+          ctx!.beginPath();
+          ctx!.moveTo(x + 1.5, y + r + 2);
+          ctx!.lineTo(x + 1.5, y + r);
+          ctx!.arcTo(x + 1.5, y + 1.5, x + r, y + 1.5, r);
+          ctx!.lineTo(x + r + 2, y + 1.5);
+          ctx!.stroke();
+        };
+        // Une patte = 4 rectangles arrondis : 1 jambe + 3 doigts en éventail.
         const drawTalon = (dir: number, hipX: number, ang: number, len: number) => {
           ctx!.save();
           ctx!.translate(dir * hipX, 0);
           ctx!.rotate(-dir * ang);
-          ctx!.fillStyle = OUT; ctx!.fillRect(-2, -1, 4, len + 2);
-          ctx!.fillStyle = ORANGE; ctx!.fillRect(-1.5, 0, 3, len);
-          ctx!.fillStyle = DARK; ctx!.fillRect(0.3, 1, 1, len - 1);
+          chunk(-3, -1, 6, len + 3, 1.5);              // la jambe
           for (const toe of [-0.5, 0, 0.5]) {
             ctx!.save();
             ctx!.translate(0, len);
             ctx!.rotate(toe);
-            ctx!.fillStyle = OUT; ctx!.fillRect(-1.5, 0, 3, 7);
-            ctx!.fillStyle = ORANGE; ctx!.fillRect(-1, 0, 2, 6);
+            chunk(-1.5, 0, 3, 9, 1);                   // un doigt
             ctx!.restore();
           }
           ctx!.restore();
@@ -926,7 +938,7 @@ export function TitleCanvas({ skipIntro = false, onMenuReveal, onImpact, onEagle
         // Tout le bassin balance autour de la hanche (pendule), puis chaque patte
         // s'ouvre vers l'extérieur.
         ctx!.save();
-        ctx!.translate(0, bodyRows / 2 - 3);
+        ctx!.translate(0, bodyRows / 2 - 7);
         ctx!.rotate(legSwing + wobble);
         drawTalon(-1, 4, spread, 13);
         drawTalon(+1, 4, spread, 13);

@@ -26,6 +26,7 @@ export interface FaceMood {
   starEyes: boolean;                  // yeux étoile (victoire)
   tears: boolean;                     // larmes (dernière balle)
   drowsyEyes: boolean;                // yeux mi-clos (somnolence)
+  recoil: number;                     // 0..1 anticipation : la tête recule avant un cri
 }
 
 // ─── Contexte abstrait — découple getFaceMood de GameState ────────────────────
@@ -49,6 +50,7 @@ export interface FaceContext {
   orangeJoy: number;    // 0..1 jubilation décroissante après une cible orange touchée
   whiff: number;        // 0..1 dépit décroissant après un tour totalement raté
   whiffVariant: number; // graine stable d'un raté → choisit la tête (blasé/agacé/dépité/dédaigneux)
+  anticip: number;      // 0..1 anticipation : pic bref juste avant un cri (recoil)
 }
 
 export function gameFaceCtx(s: GameState): FaceContext {
@@ -57,6 +59,9 @@ export function gameFaceCtx(s: GameState): FaceContext {
   // Game over : l'aigle pousse un cri grave dégoûté → bec grand ouvert ~2.2s
   // (attaque vive, léger flutter, fermeture douce), puis il boude bec fermé.
   let screech = 0;
+  // Anticipation (recoil) : la tête se ramasse sur les ~140ms d'attaque du cri,
+  // puis le cri « explose » → effet ressort. Pic au tout début, retombe vite.
+  let anticip = 0;
   if (lost && s.lostAt > 0) {
     const t = s.animClock - s.lostAt;
     if (t >= 0 && t < 2.2) {
@@ -64,6 +69,7 @@ export function gameFaceCtx(s: GameState): FaceContext {
       const rel = Math.min(1, (2.2 - t) / 0.3);
       const flutter = 0.85 + 0.15 * Math.sin(t * 26);
       screech = Math.max(0, Math.min(1, atk * rel * flutter));
+      if (t < 0.14) anticip = Math.max(0, 1 - t / 0.14);
     }
   }
 
@@ -100,6 +106,7 @@ export function gameFaceCtx(s: GameState): FaceContext {
     orangeJoy,
     whiff,
     whiffVariant,
+    anticip,
   };
 }
 
@@ -123,36 +130,61 @@ export function titleFaceCtx(elapsed: number, recoil: number, ponte: number): Fa
     orangeJoy: 0,
     whiff: 0,
     whiffVariant: 0,
+    anticip: 0,
   };
 }
 
 // Tête centrée sur (cx, cy). Boîte ≈ 28×32 px (de -14 à +14 en x, -16 à +16 en y).
 export function eagleFace(ctx: CanvasRenderingContext2D, cx: number, cy: number, m: FaceMood): void {
   ctx.save();
-  ctx.translate(Math.round(cx), Math.round(cy));
-  const scale = 1 + 0.14 * m.pop;
-  if (scale !== 1) ctx.scale(scale, scale);
+  // Recoil d'anticipation : avant un cri, la tête se ramasse vers le bas/arrière
+  // (squash de préparation), comme un ressort qu'on comprime avant de relâcher.
+  const recoilY = m.recoil * 2.5;
+  ctx.translate(Math.round(cx), Math.round(cy + recoilY));
+
+  // Squash & stretch « juicy » à l'impact (m.pop). Au lieu d'un zoom uniforme, la
+  // tête s'ÉCRASE (large + plate) au pic du choc puis REBONDIT (étroite + haute) en
+  // overshoot quand pop redescend — courbe en sin pour le rebond élastique.
+  // L'anticipation (recoil) pré-écrase aussi un peu, dans le même langage.
+  const squash = m.pop;                          // 0..1 intensité du choc
+  const wobble = Math.sin(m.pop * Math.PI);      // pic à mi-course → rebond
+  const sx = 1 + 0.14 * squash - 0.10 * m.recoil; // large à l'impact, ramassé au recoil
+  const sy = 1 - 0.10 * wobble + 0.06 * squash;   // plate au pic, puis légèrement haute
+  if (sx !== 1 || sy !== 1) ctx.scale(sx, sy);
 
   const px = (x: number, y: number, w: number, h: number, c: string) => {
     ctx.fillStyle = c; ctx.fillRect(x, y, w, h);
   };
 
-  // épaules brunes (derrière la tête)
+  // épaules brunes (derrière la tête) — restent accrochées au corps.
   px(-14, 7, 6, 9, FACE.nape);  px(-14, 7, 6, 1, "#8a5a2c");
   px(8, 7, 6, 9, FACE.nape);    px(8, 7, 6, 1, "#8a5a2c");
   px(-14, 14, 6, 2, FACE.napeLo); px(8, 14, 6, 2, FACE.napeLo);
 
-  // dôme de la tête
-  px(-6, -16, 12, 3, FACE.head);
-  px(-9, -13, 18, 3, FACE.head);
-  px(-12, -10, 24, 18, FACE.head);
-  px(-10, 8, 20, 4, FACE.head);
-  px(-7, 12, 14, 2, FACE.head);
-  px(-6, -16, 12, 1, FACE.headHi);
-  px(-12, -10, 1, 18, FACE.headHi);
-  px(11, -10, 1, 18, FACE.headLo);
-  px(-9, 11, 17, 1, FACE.headLo);
-  px(-6, 13, 12, 1, FACE.headLo2);
+  // La tête (crâne + traits) redescend de quelques px sur les épaules : elle est
+  // plus courte depuis qu'elle est carrée, donc on la rabaisse pour qu'elle pose
+  // bien sur le corps au lieu de flotter. Les épaules (ci-dessus) ne bougent pas.
+  ctx.translate(0, 3);
+
+  // Tête carrée à coins arrondis — silhouette chunky façon pegs & boutons : boîte
+  // ~24×24 (aussi large que haute), bords longs et droits, coins courbés d'un rayon
+  // 2px (recul 2px + une marche d'1px, même langage que roundStrokeRect).
+  // Boîte : x ∈ [-12,+11], y ∈ [-14,+9].
+  px(-10, -14, 20, 1, FACE.head);    // bord haut (rentré de 2px = rayon du coin)
+  px(-11, -13, 22, 1, FACE.head);    // marche d'arrondi haute (rentrée d'1px)
+  px(-12, -12, 24, 20, FACE.head);   // corps plein pleine largeur (y -12 → +7)
+  px(-11, 8, 22, 1, FACE.head);      // marche d'arrondi basse (rentrée d'1px)
+  px(-10, 9, 20, 1, FACE.head);      // bord bas (rentré de 2px)
+  // Liserés clair/sombre du bevel + ombres bas/droite.
+  px(-10, -14, 20, 1, FACE.headHi);  // arête haute claire
+  px(-12, -12, 1, 20, FACE.headHi);  // arête gauche claire
+  px(11, -12, 1, 20, FACE.headLo);   // arête droite sombre
+  px(-10, 9, 20, 1, FACE.headLo2);   // arête basse sombre
+  // Reflet « L » signature — posé dans le coin haut-gauche, à +1,+1 du bord arrondi,
+  // exactement comme cornerHighlightL des pegs/œufs/balle : barre horizontale 2×1
+  // + verticale 1×2. Le coin du crâne démarre à (-11,-13) → L à (-10,-12).
+  px(-10, -12, 2, 1, "#ffffff");
+  px(-10, -12, 1, 2, "#ffffff");
 
   // sourcils / expression
   if (m.brow === "angry") {
@@ -228,7 +260,9 @@ export function eagleFace(ctx: CanvasRenderingContext2D, cx: number, cy: number,
   px(-2, 3, 4, 1, FACE.beak);
   px(-4, -1, 1, 4, FACE.beakHi);
   px(3, -1, 1, 4, FACE.beakLo);
+  // deux narines symétriques (une de chaque côté de l'arête du bec)
   px(-2, 0, 1, 1, FACE.beakTip);
+  px(1, 0, 1, 1, FACE.beakTip);
 
   // mandibule inférieure
   const d = Math.round(m.open * 5);
@@ -266,7 +300,7 @@ export function eagleFace(ctx: CanvasRenderingContext2D, cx: number, cy: number,
 export function getFaceMood(ctx: FaceContext): FaceMood {
   const { animClock, hitMag, inClutch, lowBalls, zeroPeg, ponte,
           won, aimIdleSec, bigCombo, oneBall, screech, lost,
-          firing, ballNx, voidTime, orangeJoy, whiff, whiffVariant } = ctx;
+          firing, ballNx, voidTime, orangeJoy, whiff, whiffVariant, anticip } = ctx;
   const screeching = screech > 0.01;
   const pulse = 0.5 + 0.5 * Math.sin(animClock * 6);
   const justHit = hitMag > 0;
@@ -364,5 +398,6 @@ export function getFaceMood(ctx: FaceContext): FaceMood {
     starEyes: won || joy,                                 // yeux étoile aussi sur cible orange
     tears: oneBall && !won,
     drowsyEyes: sleepy || lost || (whiffStyle?.drowsy ?? false),   // paupières lourdes = blasé / dégoûté
+    recoil: anticip,                                      // ressort d'anticipation avant le cri
   };
 }

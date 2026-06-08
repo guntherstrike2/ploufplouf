@@ -98,6 +98,7 @@ function GameOverMascot({ size = 100 }: { size?: number }) {
         starEyes: false,
         tears,
         drowsyEyes: false,
+        recoil: 0,
       };
 
       eagleFace(ctx!, 14, 16, mood);
@@ -171,6 +172,7 @@ function PauseMascot({ size = 80 }: { size?: number }) {
         starEyes: false,
         tears: false,
         drowsyEyes: false,
+        recoil: 0,
       };
 
       eagleFace(ctx!, 14, 16, mood);

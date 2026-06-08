@@ -1,20 +1,24 @@
-import { W, H, BUCKET_W, BUCKET_H, LAUNCHER_Y, LAUNCHER_MARGIN } from "../engine/constants";
+import { W, H, BUCKET_W, BUCKET_H, BUCKET_CATCH_HALF_W, LAUNCHER_Y, LAUNCHER_MARGIN } from "../engine/constants";
 import { computeAimLine } from "../engine/physics";
 import { getActiveBird, getActiveBucket, getActiveAssetId, EAGLE_BODY, EAGLE_WING, EAGLE_WING_PIVOT, EAGLE_WING_ANCHOR } from "../engine/assets";
 import type { BirdSprite, BucketStyle } from "../engine/assets";
 import type { GameState } from "../engine/types";
 import { eagleFace, getFaceMood, gameFaceCtx } from "./face";
-import { pixelGlow3 } from "./helpers";
+import { chunkPlate, cornerHighlightL, pixelGlow3 } from "./helpers";
 
 // ── Offscreen canvas pour l'aigle — isole le corps des ailes/pattes ─────────
 // Le corps a des pixels '.' transparents sur ses bords. Sans isolation, les ailes
 // et pattes dessinées dessous transparaissent à travers ces zones. On règle ça
 // en dessinant ailes+pattes sur un offscreen, en effaçant la silhouette du corps
 // (destination-out), puis en dessinant les pixels du corps par-dessus.
-const EAGLE_OFF_W = 56;
-const EAGLE_OFF_H = 60;
-const EAGLE_OFF_CX = 28;  // centre aigle en x sur l'offscreen
-const EAGLE_OFF_CY = 22;  // centre aigle en y sur l'offscreen (body top = -19 ↔ row 3)
+// Le tampon doit contenir les ailes déployées au pire cas (battoirs chunky + flap +
+// squash/stretch) : ~±42px de demi-largeur en bout d'aile, d'où W=96 (CX=48). Le
+// drawImage final re-décale de -CX/-CY donc agrandir le tampon ne déplace rien au
+// rendu — ça évite seulement que les bouts d'aile soient rognés par le bord du canvas.
+const EAGLE_OFF_W = 96;
+const EAGLE_OFF_H = 68;
+const EAGLE_OFF_CX = 48;  // centre aigle en x sur l'offscreen
+const EAGLE_OFF_CY = 24;  // centre aigle en y sur l'offscreen
 
 let _eagleOffCv: HTMLCanvasElement | null = null;
 let _eagleOffCtx: CanvasRenderingContext2D | null = null;
@@ -124,24 +128,42 @@ export function drawAimLine(ctx: CanvasRenderingContext2D, s: GameState, aimAngl
   ctx.restore();
 }
 
-// Une patte d'aigle (tibia orange + 3 doigts en éventail), dessinée pointant
-// vers +y. `dir` = -1 (gauche) / +1 (droite) ; `ang` = ouverture vers l'extérieur.
+// Une patte d'aigle = 4 rectangles arrondis (roundRect natif) : 1 jambe + 3 doigts
+// en éventail. `dir` = -1 (gauche) / +1 (droite) ; `ang` = ouverture vers l'extérieur.
+// Même esprit chunky que les pegs : bloc orange + reflet « L » blanc en haut-gauche.
 function drawTalonLeg(ctx: CanvasRenderingContext2D, dir: number, hipX: number, hipY: number, ang: number, len: number): void {
-  const ORANGE = "#f0a81e", DARK = "#b97812", OUT = "#1a120a";
+  const ORANGE = "#f0a81e", HI = "#ffc24a";
+
+  // Un rectangle arrondi orange avec reflet « L » blanc au coin haut-gauche.
+  const chunk = (x: number, y: number, w: number, h: number, r: number) => {
+    ctx.fillStyle = ORANGE;
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, r);
+    ctx.fill();
+    // Reflet « L » blanc dans le coin haut-gauche (signature DA des pegs/tête).
+    ctx.strokeStyle = HI;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x + 1.5, y + r + 2);
+    ctx.lineTo(x + 1.5, y + r);
+    ctx.arcTo(x + 1.5, y + 1.5, x + r, y + 1.5, r);
+    ctx.lineTo(x + r + 2, y + 1.5);
+    ctx.stroke();
+  };
+
   ctx.save();
   ctx.translate(dir * hipX, hipY);
   ctx.rotate(-dir * ang); // ouverture vers l'extérieur (axe y vers le bas)
-  // tibia
-  ctx.fillStyle = OUT; ctx.fillRect(-2, -1, 4, len + 2);
-  ctx.fillStyle = ORANGE; ctx.fillRect(-1.5, 0, 3, len);
-  ctx.fillStyle = DARK; ctx.fillRect(0.3, 1, 1, len - 1);
-  // pied : 3 doigts en éventail
-  for (const toe of [-0.5, 0, 0.5]) {
+
+  // 1) la jambe (tibia épais).
+  chunk(-3, -1, 6, len + 3, 1.5);
+
+  // 2-4) les 3 doigts en éventail.
+  for (const toe of [-0.42, 0, 0.42]) {
     ctx.save();
     ctx.translate(0, len);
     ctx.rotate(toe);
-    ctx.fillStyle = OUT; ctx.fillRect(-1.5, 0, 3, 7);
-    ctx.fillStyle = ORANGE; ctx.fillRect(-1, 0, 2, 6);
+    chunk(-1.5, 0, 3, 9, 1);
     ctx.restore();
   }
   ctx.restore();
@@ -152,12 +174,13 @@ function drawTalonLeg(ctx: CanvasRenderingContext2D, dir: number, hipX: number, 
 // quand l'aigle se déplace, comme sur l'écran-titre. L'écartement reste piloté
 // par `ponte` (mécanique de ponte conservée).
 function drawEagleLegs(ctx: CanvasRenderingContext2D, ponte: number, swing: number): void {
-  const ang = 0.12 + ponte * 0.8; // 0.12 rad au repos → grand écart à la ponte
+  const ang = 0.1 + ponte * 0.8; // léger écart au repos → grand écart à la ponte
   ctx.save();
-  ctx.translate(0, 9);    // pivot de hanche
+  ctx.translate(0, 5);    // pivot de hanche
   ctx.rotate(swing);      // tout le bassin balance
-  drawTalonLeg(ctx, -1, 3.5, 3, ang, 13);
-  drawTalonLeg(ctx, +1, 3.5, 3, ang, 13);
+  // Hanches écartées (±5) pour loger les tibias épais sans qu'ils se chevauchent.
+  drawTalonLeg(ctx, -1, 5, 3, ang, 12);
+  drawTalonLeg(ctx, +1, 5, 3, ang, 12);
   ctx.restore();
 }
 
@@ -186,17 +209,33 @@ function getWingCanvas(): HTMLCanvasElement | null {
 
 // Battement : chaque aile tourne autour de l'épaule (ancre). `flap` < 0 = aile
 // levée, > 0 = aile baissée. La droite est l'image miroir de la gauche.
-function drawEagleWings(ctx: CanvasRenderingContext2D, flap: number): void {
+//
+// Squash & stretch « juicy » : `flapVel` = vitesse angulaire du battement (= flap',
+// >0 en descente). En descente l'aile s'ÉTIRE le long de l'envergure (x) et
+// s'AMINCIT (y) — elle fend l'air ; en montée elle s'ÉCRASE et s'ÉPAISSIT, comme
+// un élastique qui se replie. Le bout d'aile traîne d'un cran (follow-through) via
+// une rotation additionnelle proportionnelle à la vitesse, appliquée autour du
+// pivot mais amplifiée loin de l'épaule par le stretch en x.
+function drawEagleWings(ctx: CanvasRenderingContext2D, flap: number, flapVel: number): void {
   const wing = getWingCanvas();
   if (!wing) return;
   const { x: ax, y: ay } = EAGLE_WING_ANCHOR;
   const { x: pvx, y: pvy } = EAGLE_WING_PIVOT;
+  // Étirement envergure (x) / amincissement (y) piloté par la vitesse de battement.
+  // Borné pour rester chunky et lisible. Volume ~préservé (sx monte, sy descend).
+  const v = Math.max(-1, Math.min(1, flapVel));
+  const sx = 1 + v * 0.18;   // descente → aile plus longue
+  const sy = 1 - v * 0.12;   // descente → aile plus fine
+  // Follow-through : le bout d'aile retarde sur l'épaule (overlap d'animation).
+  const drag = -v * 0.14;
   ctx.imageSmoothingEnabled = false;
   for (const dir of [-1, 1] as const) {
     ctx.save();
     ctx.translate(dir * -ax, ay);      // épaule (x miroité pour la droite)
     if (dir > 0) ctx.scale(-1, 1);     // aile droite = miroir
     ctx.rotate(flap);
+    ctx.scale(sx, sy);                 // squash & stretch autour de l'épaule
+    ctx.rotate(drag);                  // le bout d'aile traîne (follow-through)
     ctx.drawImage(wing, -pvx, -pvy);
     ctx.restore();
   }
@@ -347,7 +386,9 @@ export function drawLauncher(ctx: CanvasRenderingContext2D, s: GameState, aimAng
   if (getActiveAssetId("bird") === "aigle") {
     // ── Aigle animé : ailes qui battent (vol) + bob + pattes qui s'écartent ──
     const phase = s.animClock * 5.5;
-    const flap = Math.sin(phase) * (0.35 + speed * 0.3); // bat plus fort en mouvement
+    const amp = 0.35 + speed * 0.3;          // bat plus fort en mouvement
+    const flap = Math.sin(phase) * amp;
+    const flapVel = Math.cos(phase) * amp;   // vitesse de battement → squash & stretch
     const bob = Math.cos(phase) * 1.2;       // léger flottement vertical
     ctx.translate(0, bob);
 
@@ -374,7 +415,7 @@ export function drawLauncher(ctx: CanvasRenderingContext2D, s: GameState, aimAng
       offCtx.clearRect(0, 0, EAGLE_OFF_W, EAGLE_OFF_H);
       offCtx.save();
       offCtx.translate(EAGLE_OFF_CX, EAGLE_OFF_CY);
-      drawEagleWings(offCtx, flap);
+      drawEagleWings(offCtx, flap, flapVel);
       drawEagleLegs(offCtx, ponte, legSwing);
       offCtx.save();
       offCtx.globalCompositeOperation = "destination-out";
@@ -390,7 +431,7 @@ export function drawLauncher(ctx: CanvasRenderingContext2D, s: GameState, aimAng
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(offCv, -EAGLE_OFF_CX, -EAGLE_OFF_CY);
     } else {
-      drawEagleWings(ctx, flap);
+      drawEagleWings(ctx, flap, flapVel);
       drawEagleLegs(ctx, ponte, legSwing);
       drawBirdSkin(ctx, EAGLE_BODY, 0, 0, 1);
     }
@@ -407,26 +448,12 @@ export function drawLauncher(ctx: CanvasRenderingContext2D, s: GameState, aimAng
   ctx.restore();
 }
 
-
-function drawTwig(ctx: CanvasRenderingContext2D, cx: number, cy: number, sx: number, sy: number, ex: number, ey: number, color: string): void {
-  const steps = Math.max(Math.abs(ex - sx), Math.abs(ey - sy));
-  if (steps === 0) return;
-  ctx.fillStyle = color;
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps;
-    const px = Math.round(cx + sx + (ex - sx) * t);
-    const py = Math.round(cy + sy + (ey - sy) * t);
-    ctx.fillRect(px, py, 1, 1);
-  }
-}
-
-// ─── Nid ──────────────────────────────────────────────────────────────────────
-// Géométrie partagée entre le corps statique (caché) et l'œuf dynamique.
+// ─── Panier ─────────────────────────────────────────────────────────────────
+// Géométrie du seau, partagée entre le corps statique et la hitbox de capture.
 interface NestGeom {
   cx: number; nW: number; nH: number; bot: number; top: number;
   rimRx: number; rimRy: number; rimThick: number; rimCy: number;
   cavHW: number; cavOpenY: number; cavBot: number; cavH: number;
-  eggCx: number; eggRx: number; eggRy: number; eggCy: number;
 }
 
 function nestGeom(cx: number, cy: number, w: number, h: number): NestGeom {
@@ -443,165 +470,73 @@ function nestGeom(cx: number, cy: number, w: number, h: number): NestGeom {
   const cavOpenY = Math.round(rimCy);
   const cavBot = bot - 2;
   const cavH = cavBot - cavOpenY;
-  const eggRx = Math.round(cavHW * 0.54);
-  const eggRy = Math.max(10, Math.round(cavH * 0.52));
-  const eggCy = cavBot - eggRy - 1;
   return {
     cx, nW, nH, bot, top, rimRx, rimRy, rimThick, rimCy,
-    cavHW, cavOpenY, cavBot, cavH, eggCx: cx, eggRx, eggRy, eggCy,
+    cavHW, cavOpenY, cavBot, cavH,
   };
 }
 
-// Corps statique du nid (ombre → rebord → duvet). Ne dépend que de la géométrie
-// et des couleurs du style → rendu une seule fois puis mis en cache offscreen.
+// Corps statique du panier — DA « chunky rounded-rect pixel art » : UN SEUL bloc
+// plein, exactement la brique de base de la charte (cf. helpers.ts → chunkPlate :
+// coins arrondis 2px, bevel clair haut/gauche + sombre bas/droite, contour sombre,
+// reflet « L » signature). On ne le surcharge PAS de douves/cerclage/trapèze : la
+// DA des pegs et de la tête d'aigle, c'est un bloc net, pas du dessin fin. Une
+// simple fente sombre creusée en haut suggère l'ouverture (= zone de capture).
+//
+// Réemploi des tokens BucketStyle : nestLight = face, nestRim = highlight clair,
+// nestMid = ombre du bevel, nestDark = contour + creux. Le bloc est ancré au sol
+// (bas = `bot`) ; la ligne de capture (constants.ts → BUCKET_RIM_Y = H − 17) est
+// alignée sur le haut de la fente (slotTop = bot − 15) → la hitbox épouse l'ouverture.
 function drawNestBody(ctx: CanvasRenderingContext2D, g: NestGeom, style: BucketStyle): void {
-  const { cx, nW, nH, bot, top, rimRx, rimRy, rimThick, rimCy, cavHW, cavOpenY, cavH } = g;
+  const { cx, nW, bot, cavHW } = g;
+  // Le bloc : pleine largeur nW, plat (fin verticalement) et ANCRÉ AU SOL — son
+  // bas touche `bot` (le bas du niveau), il monte de `blockH`. Panier ramassé,
+  // posé au sol, pas une caisse flottante. L'ouverture occupe le tiers supérieur.
+  const blockX = cx - Math.round(nW / 2);
+  const blockW = Math.round(nW / 2) * 2;
+  const blockH = 18;                          // hauteur courte — silhouette plate
+  const blockBot = bot;
+  const blockTop = blockBot - blockH;
 
   // ── Ombre portée ──────────────────────────────────────────────────────────
-  for (let i = 0; i < 6; i++) {
-    const sw = nW + 4 - i * 2;
-    ctx.fillStyle = `rgba(0,0,0,${(0.24 - i * 0.038).toFixed(3)})`;
-    ctx.fillRect(cx - Math.round(sw / 2), bot + i, sw, 1);
+  for (let i = 0; i < 5; i++) {
+    const sw = blockW + 4 - i * 2;
+    ctx.fillStyle = `rgba(0,0,0,${(0.22 - i * 0.04).toFixed(3)})`;
+    ctx.fillRect(cx - Math.round(sw / 2), blockBot + i, sw, 1);
   }
 
-  // ── Corps — bucket rectangulaire (nestDark) ──────────────────────────────
-  for (let y = top; y < bot; y++) {
-    const t = (y - top) / nH;
-    // Parois droites avec petit chanfrein pixel-art au fond
-    const rHW = t < 0.82
-      ? Math.round((nW / 2) * 0.92)
-      : Math.round((nW / 2) * (0.92 - 0.18 * ((t - 0.82) / 0.18)));
+  // ── Le bloc — une seule plaquette chunky à la charte ───────────────────────
+  // highlightL géré à la main après le creux (le reflet L vit au coin haut-gauche,
+  // juste au-dessus de l'ouverture, donc on le repose en dernier).
+  chunkPlate(ctx, blockX, blockTop, blockW, blockH, {
+    fill: style.nestLight, light: style.nestRim, dark: style.nestMid,
+    outline: style.nestDark, highlightL: false,
+  });
+
+  // ── Fente d'ouverture — creux sombre arrondi dans le haut du bloc ──────────
+  // Largeur = cavHW (alignée sur la hitbox). Sur un bloc plat, la fente prend le
+  // haut : lèvre fine au-dessus, fond à ~75 % de la hauteur.
+  const slotR = 2;
+  const slotTop = blockTop + 3;
+  const slotBot = Math.round(blockTop + blockH * 0.75);
+  for (let y = slotTop; y < slotBot; y++) {
+    const dTop = y - slotTop, dBot = slotBot - 1 - y;
+    const inset = dTop < slotR ? slotR - dTop : dBot < slotR ? slotR - dBot : 0;
+    const w = (cavHW - inset) * 2;
+    if (w <= 0) continue;
+    // Dégradé de profondeur : plus sombre vers le fond.
+    const t = (y - slotTop) / Math.max(1, slotBot - slotTop);
     ctx.fillStyle = style.nestDark;
-    ctx.fillRect(cx - rHW, y, rHW * 2, 1);
+    ctx.fillRect(cx - cavHW + inset, y, w, 1);
+    ctx.fillStyle = `rgba(0,0,0,${(0.35 + 0.35 * t).toFixed(2)})`;
+    ctx.fillRect(cx - cavHW + inset, y, w, 1);
   }
+  // Lèvre interne claire en haut de la fente → l'ouverture creuse, pas posée.
+  ctx.fillStyle = style.nestRim;
+  ctx.fillRect(cx - cavHW + slotR, slotTop, (cavHW - slotR) * 2, 1);
 
-  // ── Croisillons tissés \ (brindilles nestMid) ──────────────────────────────
-  ctx.fillStyle = style.nestMid;
-  for (let y = top; y < bot; y++) {
-    const t = (y - top) / nH;
-    const rHW = t < 0.82
-      ? Math.round((nW / 2) * 0.92)
-      : Math.round((nW / 2) * (0.92 - 0.18 * ((t - 0.82) / 0.18)));
-    const rX = cx - rHW;
-    for (let x = rX; x < rX + rHW * 2; x++) {
-      if (((x + y) % 7 + 7) % 7 < 2) ctx.fillRect(x, y, 1, 1);
-    }
-  }
-
-  // ── Croisillons tissés / (brindilles nestLight) ────────────────────────────
-  ctx.fillStyle = style.nestLight;
-  for (let y = top; y < bot; y++) {
-    const t = (y - top) / nH;
-    const rHW = t < 0.82
-      ? Math.round((nW / 2) * 0.92)
-      : Math.round((nW / 2) * (0.92 - 0.18 * ((t - 0.82) / 0.18)));
-    const rX = cx - rHW;
-    for (let x = rX; x < rX + rHW * 2; x++) {
-      if (((x - y + 1000) % 9) < 2) ctx.fillRect(x, y, 1, 1);
-    }
-  }
-
-  // ── Rebord rectangulaire 3D ──────────────────────────────────────────────
-  // Rebord quasi-carré : plein sur toute la hauteur, chanfrein seulement aux coins extrêmes
-  for (let dy = -rimRy; dy <= rimRy; dy++) {
-    const y = Math.round(rimCy + dy);
-    const absDyN = Math.abs(dy) / rimRy;
-    const chamfer = Math.max(0, absDyN - 0.7) / 0.3;
-    const outerHW = Math.round(rimRx * (1 - chamfer * 0.40));
-    if (outerHW <= 0) continue;
-    const innerHW = Math.max(0, outerHW - rimThick);
-    const shade = dy < -rimRy * 0.55 ? style.nestRim
-                : dy < rimRy * 0.1   ? style.nestLight
-                                     : style.nestMid;
-    ctx.fillStyle = shade;
-    if (innerHW > 0) {
-      ctx.fillRect(cx - outerHW, y, outerHW - innerHW, 1);
-      ctx.fillRect(cx + innerHW, y, outerHW - innerHW, 1);
-    } else {
-      ctx.fillRect(cx - outerHW, y, outerHW * 2, 1);
-    }
-  }
-
-  // ── Brindilles qui dépassent du rebord — organic fringe ───────────────────
-  // Paires gauche (sx/ex négatifs) ; droite = miroir automatique
-  const strayPairs: [number, number, number, number][] = [
-    [-rimRx - 5,  2, -rimRx +  7, -4],
-    [-rimRx - 2,  6, -rimRx + 10,  1],
-    [-rimRx + 2, -3, -rimRx + 15,  3],
-    [-rimRx + 5,  8, -rimRx + 17,  2],
-    [-rimRx + 10,-2, -rimRx + 22,  5],
-    [-rimRx + 14, 9, -rimRx + 24,  3],
-  ];
-  for (const [sx, sy, ex, ey] of strayPairs) {
-    drawTwig(ctx, cx, rimCy, sx, sy, ex, ey, style.nestRim);
-    drawTwig(ctx, cx, rimCy, -sx, sy, -ex, ey, style.nestRim);
-  }
-  for (const [sx, sy, ex, ey] of strayPairs) {
-    drawTwig(ctx, cx, rimCy + 1, sx, sy + 1, ex, ey + 1, style.nestMid);
-    drawTwig(ctx, cx, rimCy + 1, -sx, sy + 1, -ex, ey + 1, style.nestMid);
-  }
-
-  // ── Creux intérieur — ombre profonde + duvet ──────────────────────────────
-  for (let row = 0; row < cavH; row++) {
-    const t = row / cavH;
-    ctx.fillStyle = `rgba(0,0,0,${(0.65 - t * 0.3).toFixed(2)})`;
-    ctx.fillRect(cx - cavHW, cavOpenY + row, cavHW * 2, 1);
-  }
-
-  // Duvet — fond sombre progressif
-  ctx.fillStyle = style.nestDark;
-  for (let row = 3; row < cavH - 1; row++) {
-    const t = row / cavH;
-    const lHW = Math.round(cavHW * (0.25 + 0.75 * t));
-    ctx.fillRect(cx - lHW, cavOpenY + row, lHW * 2, 1);
-  }
-  // Granulés mousse
-  ctx.fillStyle = style.nestMid;
-  for (let row = 4; row < cavH - 1; row += 2) {
-    const t = row / cavH;
-    const lHW = Math.round(cavHW * (0.2 + 0.7 * t));
-    const lX = cx - lHW;
-    for (let x = lX + 1; x < lX + lHW * 2 - 1; x++) {
-      if ((x + row) % 3 === 0) ctx.fillRect(x, cavOpenY + row, 1, 1);
-    }
-  }
-}
-
-// Œuf au creux du nid — dynamique (halo pulsé + couleur de tache selon `flash`).
-// Léger (petite ellipse) → dessiné en direct chaque frame par-dessus le corps caché.
-function drawNestEgg(
-  ctx: CanvasRenderingContext2D, g: NestGeom, style: BucketStyle, flash: boolean, animClock: number,
-): void {
-  const { eggCx, eggRx, eggRy, eggCy } = g;
-
-  if (flash) {
-    // Halo pulsé — faux glow pixel (3 rects concentriques) au lieu de ctx.shadowBlur,
-    // cohérent avec pixelGlow (pegs.ts) / le glow de la balle : ~10× moins cher (pas de passe gaussienne GPU).
-    const glow = 0.6 + 0.4 * Math.sin(animClock * 9);
-    const gx0 = eggCx - eggRx, gy0 = eggCy - eggRy, gw = eggRx * 2, gh = eggRy * 2;
-    pixelGlow3(ctx, gx0, gy0, gw, gh, style.eggHi, 14 * glow);
-  }
-
-  ctx.fillStyle = style.egg;
-  for (let dy = -eggRy; dy <= eggRy; dy++) {
-    const topTaper = dy < 0 ? 0.88 : 1.0;
-    const hw = Math.round(eggRx * topTaper * Math.sqrt(Math.max(0, 1 - (dy / eggRy) ** 2)));
-    if (hw <= 0) continue;
-    ctx.fillRect(eggCx - hw, eggCy + dy, hw * 2, 1);
-  }
-
-  // Reflet haut-gauche
-  ctx.fillStyle = "rgba(255,255,255,0.72)";
-  ctx.fillRect(eggCx - eggRx + 2, eggCy - eggRy + 1, 4, 1);
-  ctx.fillRect(eggCx - eggRx + 1, eggCy - eggRy + 2, 2, 3);
-
-  // Taches (speckles)
-  ctx.fillStyle = flash ? "rgba(255,255,255,0.5)" : "rgba(55,28,8,0.42)";
-  ctx.fillRect(eggCx - 2,         eggCy - eggRy + 4,  2, 1);
-  ctx.fillRect(eggCx + eggRx - 5, eggCy - 2,          2, 1);
-  ctx.fillRect(eggCx - eggRx + 3, eggCy + 2,          1, 2);
-  ctx.fillRect(eggCx + 1,         eggCy + eggRy - 3,  2, 1);
-  ctx.fillRect(eggCx - 1,         eggCy + 2,          1, 1);
+  // ── Reflet « L » signature au coin haut-gauche du bloc ─────────────────────
+  cornerHighlightL(ctx, blockX, blockTop, 0.7);
 }
 
 // Cache offscreen du corps du nid. Le corps est statique (couleurs du style +
@@ -653,9 +588,48 @@ function drawNest(
 export function drawBuckets(ctx: CanvasRenderingContext2D, s: GameState): void {
   const bucketMidY = H - BUCKET_H / 2 - 4;
   const bucket = getActiveBucket();
+  const cx = s.bucket + BUCKET_W / 2;
+  // `bot` du bloc (cf. nestGeom) — le panier squash autour de son point d'appui au sol.
+  const bot = Math.round(bucketMidY + (BUCKET_H + 4) * 0.5);
+  // Haut de l'ouverture (slotTop) — repère pour le glow de capture.
+  const openY = bot - 15;
+
+  // ── Animation de capture « juicy » : squash & stretch + flash ──────────────
+  // s.bucketFlash décroît 1 → 0 sur ~17 frames. p = progression 0 → 1. La courbe
+  // est un ressort amorti : impact (squash : large & plat), rebond (stretch : étroit
+  // & haut), puis retour au repos — anticipation/recoil/follow-through en un seul geste.
+  const flash = Math.max(0, s.bucketFlash);
+  let sx = 1, sy = 1;
+  if (flash > 0.001) {
+    const p = 1 - flash;                         // 0 (impact) → 1 (repos)
+    const spring = Math.sin(p * Math.PI * 1.6) * Math.exp(-p * 3.2);
+    sx = 1 + spring * 0.30;                       // large à l'impact, étroit au rebond
+    sy = 1 - spring * 0.34;                        // aplati à l'impact, étiré au rebond
+  }
+
+  // Glow de capture autour de l'ouverture (faux blur pixel, cohérent avec la balle/pegs).
+  if (flash > 0.02) {
+    const gw = BUCKET_CATCH_HALF_W * 2, gh = 14;
+    ctx.globalAlpha = flash * 0.8;
+    pixelGlow3(ctx, cx - BUCKET_CATCH_HALF_W, openY - 4, gw, gh, bucket.eggHi, 13 * flash);
+    ctx.globalAlpha = 1;
+  }
+
   ctx.save();
-  drawNest(ctx, s.bucket + BUCKET_W / 2, bucketMidY, BUCKET_W, BUCKET_H + 4, bucket);
+  // Squash & stretch ancré au point d'appui (bas, centre x) → le panier ne décolle pas.
+  ctx.translate(cx, bot);
+  ctx.scale(sx, sy);
+  ctx.translate(-cx, -bot);
+  drawNest(ctx, cx, bucketMidY, BUCKET_W, BUCKET_H + 4, bucket);
   ctx.restore();
+
+  // Éclat clair sur la lèvre de l'ouverture juste après la capture (pétille puis s'éteint).
+  if (flash > 0.05) {
+    ctx.globalAlpha = flash * 0.7;
+    ctx.fillStyle = bucket.eggHi;
+    ctx.fillRect(cx - BUCKET_CATCH_HALF_W + 6, openY, BUCKET_CATCH_HALF_W * 2 - 12, 1);
+    ctx.globalAlpha = 1;
+  }
 
   // Sol herbeux sous les nids
   ctx.fillStyle = "#3a8c28";

@@ -5,27 +5,49 @@ import type { GameState } from "../engine/types";
 import type { GameTheme, PegTheme } from "../engine/game-theme";
 import { isClutchActive } from "../engine/clutch";
 import { eagleFace, getFaceMood, gameFaceCtx } from "./face";
-import { cornerHighlightL } from "./helpers";
+import { cornerHighlightL, chunkPlate } from "./helpers";
 
-// ─── HUD in-canvas — épuré ───────────────────────────────────────────────────
+// ─── HUD in-canvas — barre-plaque « chunky » ─────────────────────────────────
 //
-// Pas de panneau, pas de décor forêt : juste un léger ombrage en haut (sans
-// bord) pour la lisibilité, une grosse TÊTE D'AIGLE de face façon Doom qui
-// change d'expression selon l'action, et quatre compteurs nets (niveau, score,
-// cibles, œufs). Bouton pause discret à droite. Sprites œuf/peg réutilisés.
+// Le HUD est une seule longue PLAQUE chunky (DA « chunky rounded-rect » : bloc
+// plein, coins arrondis 2px, bevel clair-haut/sombre-bas, reflet L) qui porte
+// quatre compteurs (niveau, score, cibles, œufs) séparés par de fins traits
+// sunken. La TÊTE D'AIGLE façon Doom déborde à gauche comme mascotte et change
+// d'expression. Le bouton pause est une petite plaque chunky à droite. Sprites
+// œuf/peg réutilisés. États d'alerte (peu d'œufs / clutch) : la section concernée
+// se re-teinte sans changer la silhouette → l'arrondi reste.
 
-// Géométrie (espace canvas) — bornes partagées avec le hit-test pause.
+// Géométrie (espace canvas).
 const HX = 6, HW = W - 12;
-const LABEL_Y = 13;   // ligne des intitulés
-const VALUE_Y = 28;   // ligne des valeurs
+const PLATE_Y = 5;                          // haut de la plaque
+const PLATE_H = HUD_H - 9;                   // hauteur de la plaque
+const PLATE_BOT = PLATE_Y + PLATE_H;
+const LABEL_Y = PLATE_Y + 9;                 // ligne des intitulés
+const VALUE_Y = PLATE_Y + 24;                // ligne des valeurs
 
-// Bouton pause (extrémité droite). Exporté pour le hit-test dans useGameLoop.
-export const PAUSE_HIT = { x: HX + HW - 34, y: 10, w: 28, h: 24 } as const;
+// Bouton pause (extrémité droite, dans la plaque). Exporté pour le hit-test.
+const PAUSE_W = 30;
+export const PAUSE_HIT = { x: HX + HW - PAUSE_W - 4, y: PLATE_Y + 3, w: PAUSE_W, h: PLATE_H - 6 } as const;
 
 const INK = {
   cream: "#f5ecca", label: "#cfe2a6", green: "#a6ec56",
   orange: "#ff9a4c", warn: "#ffc24a",
 } as const;
+
+// Palette de la plaque chunky — sombre/translucide pour rester lisible sur le ciel.
+const PLATE = {
+  fill: "rgba(14,22,12,0.74)", light: "rgba(120,150,90,0.55)",
+  dark: "rgba(0,4,0,0.78)", outline: "rgba(0,4,0,0.85)",
+  sep: "rgba(0,4,0,0.55)", sepHi: "rgba(150,180,110,0.30)",
+} as const;
+
+// Trait séparateur vertical sunken entre deux compteurs (ombre + liseré clair).
+function divider(ctx: CanvasRenderingContext2D, x: number): void {
+  ctx.fillStyle = PLATE.sep;
+  ctx.fillRect(x, PLATE_Y + 5, 1, PLATE_H - 10);
+  ctx.fillStyle = PLATE.sepHi;
+  ctx.fillRect(x + 1, PLATE_Y + 5, 1, PLATE_H - 10);
+}
 
 // ── Score ticker + pop animation (module-level pour persister entre les frames) ──
 let _displayedScore = -1;   // score affiché (monte vers s.score par ticker)
@@ -41,7 +63,6 @@ function hudEob(x: number): number {
 // ── Gradients cachés (créés une fois par contexte, réutilisés chaque frame) ──
 let _gradCtx: CanvasRenderingContext2D | null = null;
 let _vigGrad: CanvasGradient | null = null;
-let _shadeGrad: CanvasGradient | null = null;
 let _clutchGrad: CanvasGradient | null = null;
 
 function ensureHudGrads(ctx: CanvasRenderingContext2D): void {
@@ -51,13 +72,8 @@ function ensureHudGrads(ctx: CanvasRenderingContext2D): void {
   vig.addColorStop(0, "rgba(180,20,20,0)");
   vig.addColorStop(1, "rgba(200,30,10,1)");
   _vigGrad = vig;
-  const shade = ctx.createLinearGradient(0, 0, 0, HUD_H + 8);
-  shade.addColorStop(0, "rgba(6,12,4,0.62)");
-  shade.addColorStop(0.65, "rgba(6,12,4,0.22)");
-  shade.addColorStop(1, "rgba(6,12,4,0)");
-  _shadeGrad = shade;
-  const warm = ctx.createLinearGradient(0, 0, 0, HUD_H + 8);
-  warm.addColorStop(0, "rgba(255,120,40,1)");
+  const warm = ctx.createLinearGradient(0, PLATE_Y, 0, PLATE_BOT);
+  warm.addColorStop(0, "rgba(255,120,40,0.9)");
   warm.addColorStop(1, "rgba(255,120,40,0)");
   _clutchGrad = warm;
 }
@@ -119,7 +135,7 @@ function value(
 }
 
 // Intitulé : petite capitale, contour pixel complet (lisible sur le ciel).
-function label(ctx: CanvasRenderingContext2D, text: string, x: number, y: number): void {
+function label(ctx: CanvasRenderingContext2D, text: string, x: number, y: number): number {
   ctx.font = 'bold 8px "MS Sans Serif", monospace';
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
@@ -128,6 +144,19 @@ function label(ctx: CanvasRenderingContext2D, text: string, x: number, y: number
   ctx.fillText(text, x, y + 1); ctx.fillText(text, x, y - 1);
   ctx.fillStyle = INK.label;
   ctx.fillText(text, x, y);
+  return ctx.measureText(text).width;
+}
+
+// Largeur d'un intitulé sans le dessiner (pour pré-calculer la largeur de cellule).
+function labelWidth(ctx: CanvasRenderingContext2D, text: string): number {
+  ctx.font = 'bold 8px "MS Sans Serif", monospace';
+  return ctx.measureText(text).width;
+}
+
+// Largeur d'une valeur sans la dessiner.
+function valueWidth(ctx: CanvasRenderingContext2D, text: string, size: number): number {
+  ctx.font = `bold ${size}px "MS Sans Serif", monospace`;
+  return ctx.measureText(text).width;
 }
 
 function fmt(n: number): string {
@@ -174,93 +203,115 @@ export function drawHud(
     ctx.restore();
   }
 
-  // ── Ombrage : dégradé sans bord qui se fond dans le ciel (pas de panneau) ──
-  ctx.fillStyle = _shadeGrad!;
-  ctx.fillRect(0, 0, W, HUD_H + 8);
+  // ── La barre-plaque chunky qui porte tous les compteurs ──
+  chunkPlate(ctx, HX, PLATE_Y, HW, PLATE_H, {
+    fill: PLATE.fill, light: PLATE.light, dark: PLATE.dark, outline: PLATE.outline,
+    highlightL: 0.45,
+  });
 
-  // Fever : touche chaude diffuse par-dessus l'ombre (toujours sans bord).
+  // Fever : touche chaude diffuse par-dessus la plaque (clippée à la plaque).
   if (inClutch) {
     ctx.save();
-    ctx.globalAlpha = 0.12 + 0.12 * pulse;
+    ctx.beginPath();
+    ctx.rect(HX + 1, PLATE_Y + 1, HW - 2, PLATE_H - 2);
+    ctx.clip();
+    ctx.globalAlpha = 0.14 + 0.14 * pulse;
     ctx.fillStyle = _clutchGrad!;
-    ctx.fillRect(0, 0, W, HUD_H + 8);
+    ctx.fillRect(HX, PLATE_Y, HW, PLATE_H);
     ctx.restore();
   }
 
-  // ── Tête d'aigle (mascotte façon Doom), à gauche ──
-  eagleFace(ctx, HX + 22, 22, face);
-
-  // ── NIVEAU ──
-  label(ctx, "NIVEAU", HX + 54, LABEL_Y);
-  value(ctx, `${s.level}`, HX + 54, VALUE_Y, 15, INK.green);
-
-  // ── SCORE (héros) — ticker + squash & stretch + flash couleur ──
-  label(ctx, "SCORE", HX + 108, LABEL_Y);
+  // ── Layout en cellules mesurées : chaque compteur réserve max(intitulé, valeur) ──
+  // La tête d'aigle occupe la première cellule (mascotte). Chaque compteur calcule
+  // sa largeur AVANT de se dessiner (max entre l'intitulé et icône+valeur), pose un
+  // séparateur dans la gouttière qui le précède, puis pousse le curseur. Fini les
+  // offsets magiques et l'« NIVEAISCORE » qui se chevauche.
+  const GUT = 13;          // gouttière entre deux cellules (le trait sunken s'y loge)
+  const ICON_GAP = 13;     // espace icône → valeur (cibles/œufs)
   const scoreStr = fmt(Math.round(_displayedScore));
+
+  // Largeurs de cellule (icône comprise quand il y en a une).
+  const wNiveau = Math.max(labelWidth(ctx, "NIVEAU"), valueWidth(ctx, `${s.level}`, 15));
+  const wScore  = Math.max(labelWidth(ctx, "SCORE"), valueWidth(ctx, scoreStr, 19));
+  const wCibles = Math.max(labelWidth(ctx, "CIBLES"), ICON_GAP + valueWidth(ctx, `${orangeLeft}/${orangeTotal}`, 15));
+  const wOeufs  = Math.max(labelWidth(ctx, "ŒUFS"), ICON_GAP + valueWidth(ctx, `${s.balls}`, 15));
+
+  const headW = 40;
+  eagleFace(ctx, HX + 6 + headW / 2, PLATE_Y + PLATE_H / 2, face);
+  let x = HX + 6 + headW + GUT;
+
+  // — NIVEAU —
+  divider(ctx, x - Math.round(GUT / 2));
+  label(ctx, "NIVEAU", x, LABEL_Y);
+  value(ctx, `${s.level}`, x, VALUE_Y, 15, INK.green);
+  x += wNiveau + GUT;
+
+  // — SCORE (héros) — ticker + squash & stretch + flash couleur —
+  divider(ctx, x - Math.round(GUT / 2));
+  label(ctx, "SCORE", x, LABEL_Y);
   if (_scorePop > 0.01) {
     const popPhase = hudEob(1 - _scorePop);   // 0 au déclenchement → 1 quand calé
     const sc = 1 + (1 - popPhase) * 0.42;    // scale globale (1.42 → 1.0 avec overshoot)
     const sx = 1 + (1 - popPhase) * 0.22;    // squash X : large au pop
     const sy = 1 - (1 - popPhase) * 0.26;    // squash Y : court au pop
-    ctx.font = `bold 19px "MS Sans Serif", monospace`;
-    ctx.textBaseline = "middle"; ctx.textAlign = "left";
-    const tw = ctx.measureText(scoreStr).width;
-    const cx = HX + 108 + tw / 2;
+    const cx = x + valueWidth(ctx, scoreStr, 19) / 2;
     ctx.save();
     ctx.translate(cx, VALUE_Y);
     ctx.scale(sc * sx, sc * sy);
     ctx.translate(-cx, -VALUE_Y);
-    // Flash cream→blanc pendant le pop
+    // Flash cream→blanc chaud (doré) : reste dans la palette cream/warm du HUD.
     const fa = Math.min(1, _scorePop * 2);
-    // Flash vers blanc chaud (doré) : reste dans la palette cream/warm du HUD.
     const flashColor = `rgb(${Math.round(245 + fa * 10)},${Math.round(236 + fa * 19)},${Math.round(202 + fa * 38)})`;
-    value(ctx, scoreStr, HX + 108, VALUE_Y, 19, flashColor, true);
+    value(ctx, scoreStr, x, VALUE_Y, 19, flashColor, true);
     ctx.restore();
   } else {
-    value(ctx, scoreStr, HX + 108, VALUE_Y, 19, INK.cream, true);
+    value(ctx, scoreStr, x, VALUE_Y, 19, INK.cream, true);
   }
+  x += wScore + GUT;
 
-  // ── CIBLES (sprite peg orange) ──
-  label(ctx, "CIBLES", HX + 244, LABEL_Y);
-  pegSprite(ctx, HX + 249, VALUE_Y, 5, theme.peg, inClutch);
-  value(ctx, `${orangeLeft}/${orangeTotal}`, HX + 258, VALUE_Y, 15,
+  // — CIBLES (sprite peg orange) —
+  divider(ctx, x - Math.round(GUT / 2));
+  label(ctx, "CIBLES", x, LABEL_Y);
+  pegSprite(ctx, x + 5, VALUE_Y, 5, theme.peg, inClutch);
+  value(ctx, `${orangeLeft}/${orangeTotal}`, x + ICON_GAP, VALUE_Y, 15,
     inClutch ? INK.orange : INK.cream, inClutch);
+  x += wCibles + GUT;
 
-  // ── ŒUFS (icône œuf + compteur) ──
-  label(ctx, "ŒUFS", HX + 346, LABEL_Y);
+  // — ŒUFS (icône œuf + compteur) ; section d'alerte chunky si peu d'œufs —
+  divider(ctx, x - Math.round(GUT / 2));
   if (lowBalls) {
-    // Fond rouge pulsant derrière le compteur d'œufs
-    const bgA = 0.28 + 0.22 * pulse;
-    ctx.fillStyle = `rgba(180,30,10,${bgA.toFixed(3)})`;
-    ctx.fillRect(HX + 342, 4, 72, HUD_H - 8);
-    // Liseret warn : bord bas du pavé
-    ctx.fillStyle = `rgba(255,80,40,${(0.55 + 0.35 * pulse).toFixed(3)})`;
-    ctx.fillRect(HX + 342, 4 + HUD_H - 9, 72, 1);
+    // Section re-teintée en rouge pulsant — même silhouette arrondie (chunkPlate),
+    // pas un rect nu : l'arrondi de la barre est préservé.
+    const bgA = 0.30 + 0.24 * pulse;
+    chunkPlate(ctx, x - 6, PLATE_Y + 3, wOeufs + 12, PLATE_H - 6, {
+      fill: `rgba(150,26,8,${bgA.toFixed(3)})`,
+      light: `rgba(255,120,80,${(0.5 + 0.3 * pulse).toFixed(3)})`,
+      dark: "rgba(60,0,0,0.7)", highlightL: 0.3,
+    });
   }
+  label(ctx, "ŒUFS", x, LABEL_Y);
   ctx.save();
   if (lowBalls) ctx.globalAlpha = 0.55 + 0.45 * pulse;   // clignote quand il en reste peu
-  eggSprite(ctx, HX + 351, VALUE_Y, egg, 4);
+  eggSprite(ctx, x + 5, VALUE_Y, egg, 4);
   ctx.restore();
-  value(ctx, `${s.balls}`, HX + 360, VALUE_Y, 15, lowBalls ? INK.warn : INK.cream, lowBalls);
+  value(ctx, `${s.balls}`, x + ICON_GAP, VALUE_Y, 15, lowBalls ? INK.warn : INK.cream, lowBalls);
 
-  // ── Bouton pause (extrémité droite) ──
+  // ── Bouton pause (extrémité droite, plaque chunky) ──
   pauseButton(ctx);
 
   ctx.restore();
 }
 
-// Bouton pause : pavé translucide net + deux barres claires (pas de chrome win98).
+// Bouton pause : petite plaque chunky (DA partagée) + deux barres claires.
 function pauseButton(ctx: CanvasRenderingContext2D): void {
   const { x, y, w, h } = PAUSE_HIT;
-  ctx.fillStyle = "rgba(8,16,6,0.5)";
-  ctx.fillRect(x, y, w, h);
-  ctx.fillStyle = "rgba(255,255,255,0.18)";
-  ctx.fillRect(x, y, w, 1); ctx.fillRect(x, y, 1, h);
-  ctx.fillStyle = "rgba(0,0,0,0.4)";
-  ctx.fillRect(x, y + h - 1, w, 1); ctx.fillRect(x + w - 1, y, 1, h);
+  chunkPlate(ctx, x, y, w, h, {
+    fill: "rgba(20,30,16,0.82)", light: "rgba(150,180,110,0.55)",
+    dark: "rgba(0,4,0,0.8)", outline: "rgba(0,4,0,0.85)", highlightL: 0.55,
+  });
   const cx = x + Math.round(w / 2);
-  const bh = Math.round(h * 0.5), by = y + Math.round((h - bh) / 2);
-  ctx.fillStyle = "rgba(0,0,0,0.55)";
+  const bh = Math.round(h * 0.46), by = y + Math.round((h - bh) / 2);
+  ctx.fillStyle = "rgba(0,4,0,0.6)";
   ctx.fillRect(cx - 5, by - 1, 4, bh + 2); ctx.fillRect(cx + 1, by - 1, 4, bh + 2);
   ctx.fillStyle = INK.cream;
   ctx.fillRect(cx - 5, by, 3, bh); ctx.fillRect(cx + 2, by, 3, bh);

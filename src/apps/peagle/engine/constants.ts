@@ -5,14 +5,15 @@ export const PEG_R = 4;
 export const BUCKET_W = 80;
 export const BUCKET_H = 20;
 
-// ─── Géométrie de capture du nid ─────────────────────────────────────────────
-// DOIT rester alignée sur le rendu du nid (renderer/ui.ts → nestGeom) : le nid
-// dessiné déborde de BUCKET_W (rebord tressé, nW = BUCKET_W + 16) et son
-// ouverture est plus haute que l'ancienne ligne de capture. On dérive ici la
-// même géométrie pour que la hitbox épouse exactement le nid visible.
+// ─── Géométrie de capture du panier ──────────────────────────────────────────
+// DOIT rester alignée sur le rendu du panier (renderer/ui.ts → drawNestBody) : le
+// bloc déborde de BUCKET_W (nW = BUCKET_W + 16), est plat (hauteur 18px) et ancré
+// au sol — son bas touche `bot = H - 2`, son ouverture est dans le tiers supérieur
+// (slotTop = bot - 15). On dérive ici la même géométrie pour que la hitbox épouse
+// exactement l'ouverture visible.
 export const BUCKET_RIM_OVERHANG = 8;                                  // débord du rebord, chaque côté
 export const BUCKET_CATCH_HALF_W = BUCKET_W / 2 + BUCKET_RIM_OVERHANG; // demi-largeur de capture (48)
-export const BUCKET_RIM_Y = H - 2 - Math.round((BUCKET_H + 4) * 1.5) + 9; // niveau de l'ouverture (H − 29)
+export const BUCKET_RIM_Y = H - 2 - 15;                                // niveau de l'ouverture (H − 17)
 export const GRAVITY = 0.18;
 export const LAUNCH_SPEED = 10;
 export const WALL_BOUNCE = 0.72;

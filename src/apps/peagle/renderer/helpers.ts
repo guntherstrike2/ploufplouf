@@ -70,6 +70,56 @@ export function cornerHighlightL(
   ctx.fillRect(x + 1, y + 1, 1, 2);   // barre verticale
 }
 
+// ── Plaquette chunky — la brique de base de la DA « chunky rounded-rect » ──────
+// Bloc plein, coins arrondis ~2px, bevel clair en haut/gauche + sombre en bas/droite,
+// contour sombre arrondi (roundStrokeRect) et reflet « L » signature (cornerHighlightL).
+// C'est `drawTalonLeg.chunk` (renderer/ui.ts) généralisé et promu en helper partagé :
+// toute surface d'UI (HUD, boutons, pavés) doit passer par ici pour rester à la charte
+// au lieu d'un fillRect à angles vifs. (x,y) = coin haut-gauche.
+//
+// `sunken` inverse le bevel (clair en bas/droite) → état enfoncé pour un bouton pressé.
+// `corner` = rayon des coins (défaut 2px, la valeur canon de la DA).
+export function chunkPlate(
+  ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  x: number, y: number, w: number, h: number,
+  opts: {
+    fill: string; light: string; dark: string; outline?: string;
+    sunken?: boolean; highlightL?: boolean | number;
+  },
+): void {
+  const { fill, light, dark, outline, sunken = false, highlightL = true } = opts;
+  const r = 2; // coins arrondis 2px — valeur signature
+
+  // 1) Corps plein, coins ébréchés (mêmes 4 coins que roundGlowRect, étendu au rect plein).
+  ctx.fillStyle = fill;
+  ctx.fillRect(x + 1, y, w - 2, h);   // colonne centrale
+  ctx.fillRect(x, y + 1, w, h - 2);   // ligne centrale
+
+  // 2) Bevel : liseré clair (haut + gauche) / ombre (bas + droite) — inversé si sunken.
+  const top = sunken ? dark : light, bot = sunken ? light : dark;
+  ctx.fillStyle = top;
+  ctx.fillRect(x + r, y, w - 2 * r, 1);          // arête haute
+  ctx.fillRect(x, y + r, 1, h - 2 * r);          // arête gauche
+  ctx.fillStyle = bot;
+  ctx.fillRect(x + r, y + h - 1, w - 2 * r, 1);  // arête basse
+  ctx.fillRect(x + w - 1, y + r, 1, h - 2 * r);  // arête droite
+
+  // 3) Contour sombre arrondi par-dessus (donne le coin net sans angle vif).
+  if (outline) {
+    ctx.fillStyle = outline;
+    // coins en escalier 1px : un pixel diagonal à chaque angle.
+    ctx.fillRect(x + 1, y + 1, 1, 1);
+    ctx.fillRect(x + w - 2, y + 1, 1, 1);
+    ctx.fillRect(x + 1, y + h - 2, 1, 1);
+    ctx.fillRect(x + w - 2, y + h - 2, 1, 1);
+  }
+
+  // 4) Reflet « L » signature au coin haut-gauche.
+  if (highlightL) {
+    cornerHighlightL(ctx, x, y, typeof highlightL === "number" ? highlightL : 0.7);
+  }
+}
+
 // Glow pixel en 3 couches concentriques (faux blur : 3 roundGlowRect empilés au lieu
 // d'une passe gaussienne GPU). Rayons à ×0.3 / ×0.6 / ×1 du blur, alphas dégressifs.
 // Remplace les copies de pegs.ts (peg + bumper) et ui.ts (œuf du nid). (x,y,w,h) = boîte

@@ -1,4 +1,4 @@
-export const PEAGLE_CURRENT_VERSION = "0.4.1";
+export const PEAGLE_CURRENT_VERSION = "0.4.2";
 
 export interface PeagleRelease {
   version: string;
@@ -7,6 +7,17 @@ export interface PeagleRelease {
 }
 
 export const PEAGLE_VERSIONS: PeagleRelease[] = [
+  {
+    version: "0.4.2",
+    releasedAt: "2026-06-08",
+    notes: [
+      "Options : nouveau réglage TREMBLEMENT pour activer ou couper le tremblement d'écran aux impacts (activé par défaut)",
+      "Décor : forêt entièrement repeinte — couleurs adoucies (fini le vert fluo), collines, arbres, herbe et nuages plus variés, feuilles qui dérivent dans l'air, soleil et halo plus doux",
+      "Décor : le panier est redessiné comme un bloc plat posé au sol, dans la charte pixel, et se compresse à la réception d'une bille",
+      "Intro de niveau : les pegs apparaissent selon un motif tiré au hasard à chaque partie (diagonale, spirale, serpent, depuis le centre, confettis…) — le pop de chaque peg respire un peu plus",
+      "Impacts plus percutants : ondes de choc qui voyagent plus loin et grandissent avec les gros combos, éclats de couleur et micro-arrêt sur les coups marquants",
+    ],
+  },
   {
     version: "0.4.1",
     releasedAt: "2026-06-07",

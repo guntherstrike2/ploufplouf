@@ -35,6 +35,7 @@ export function PeagleIcon({ size }: { size: number }) {
       starEyes: false,
       tears: false,
       drowsyEyes: false,
+      recoil: 0,
     });
   }, [size]);
 

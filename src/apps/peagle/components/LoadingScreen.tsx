@@ -59,6 +59,7 @@ function EagleLogoCanvas() {
         starEyes: false,
         tears: false,
         drowsyEyes: false,
+        recoil: 0,
       });
 
       raf = requestAnimationFrame(draw);
