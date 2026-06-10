@@ -1,4 +1,4 @@
-export const PEAGLE_CURRENT_VERSION = "0.5.0";
+export const PEAGLE_CURRENT_VERSION = "0.5.1";
 
 export interface PeagleRelease {
   version: string;
@@ -7,6 +7,17 @@ export interface PeagleRelease {
 }
 
 export const PEAGLE_VERSIONS: PeagleRelease[] = [
+  {
+    version: "0.5.1",
+    releasedAt: "2026-06-10",
+    notes: [
+      "Musiques compressées : environ 6 Mo de téléchargement en moins, sans perte audible",
+      "Classement : requêtes accélérées côté serveur (index en base de données)",
+      "L'envoi du score signale désormais les échecs réseau et peut être retenté au game over suivant",
+      "Les cris d'aigle ne sont plus téléchargés quand le son est coupé",
+      "Optimisations mineures du rendu des textes flottants",
+    ],
+  },
   {
     version: "0.5.0",
     releasedAt: "2026-06-10",
