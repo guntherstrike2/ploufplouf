@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const appMeta = sqliteTable("app_meta", {
   key: text("key").primaryKey(),
@@ -255,7 +255,10 @@ export const peagleScores = sqliteTable("peagle_scores", {
   score: integer("score").notNull(),
   won: integer("won", { mode: "boolean" }).notNull().default(false),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
-});
+}, (t) => [
+  index("peagle_scores_score_idx").on(t.score),       // leaderboard : ORDER BY score DESC
+  index("peagle_scores_user_id_idx").on(t.userId),    // POST : best score par user
+]);
 
 // ── GunthMessenger groupes ────────────────────────────────────────────────────
 

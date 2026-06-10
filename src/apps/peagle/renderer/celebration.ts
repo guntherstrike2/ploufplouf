@@ -1,5 +1,6 @@
 import { W, H } from "../engine/constants";
 import type { GameState } from "../engine/types";
+import { measureTextCached } from "./helpers";
 
 // ─── PRNG ─────────────────────────────────────────────────────────────────────
 
@@ -360,7 +361,7 @@ function drawNewRecord(ctx: CanvasRenderingContext2D, wonAge: number, animClock:
   }
 
   // Dégradé arc-en-ciel animé
-  const tw = ctx.measureText(text).width;
+  const tw = measureTextCached(ctx, text);
   const grad = ctx.createLinearGradient(-tw / 2, 0, tw / 2, 0);
   for (let i = 0; i <= 8; i++) {
     const h = ((animClock * 90 + i * 45) % 360 + 360) % 360;

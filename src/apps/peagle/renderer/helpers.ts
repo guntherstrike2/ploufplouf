@@ -10,6 +10,22 @@ export function alpha(hex: string, a: number): string {
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
 }
 
+// measureText avec cache : appelé chaque frame pour chaque texte flottant (badges,
+// scores +N), alors que (police, texte) se répètent d'une frame à l'autre. Cache
+// borné — vidé s'il déborde, les entrées se reconstruisent au fil de l'eau.
+const _textWidthCache = new Map<string, number>();
+
+export function measureTextCached(ctx: CanvasRenderingContext2D, text: string): number {
+  const key = `${ctx.font}|${text}`;
+  let w = _textWidthCache.get(key);
+  if (w === undefined) {
+    if (_textWidthCache.size > 512) _textWidthCache.clear();
+    w = ctx.measureText(text).width;
+    _textWidthCache.set(key, w);
+  }
+  return w;
+}
+
 // Halo/glow rectangulaire aux coins ébréchés 1px — même langage pixel-art que les pegs,
 // œufs, boutons et astres. À utiliser à la place d'un fillRect pour tout glow, afin que
 // les angles vifs du halo ne réintroduisent pas une silhouette carrée autour d'un élément

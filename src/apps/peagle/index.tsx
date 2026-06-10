@@ -43,7 +43,13 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     balls: 12, score: 0, orangeLeft: 0, orangeTotal: 0,
     phase: "aim", message: "", combo: 0, level: 1, stars: 0, clutch: false, isNewRecord: false,
   });
+  // Miroir React de runStateRef.current.seed (affichage dans Options). Toujours
+  // passer par applyRun pour installer un run — jamais setCurrentSeed directement.
   const [currentSeed, setCurrentSeed] = useState<number>(EMPTY_RUN.seed);
+  const applyRun = useCallback((run: RunState) => {
+    runStateRef.current = run;
+    setCurrentSeed(run.seed);
+  }, []);
 
   const [bestScore, setBestScore] = useState<number>(() => {
     if (typeof window === "undefined") return 0;
@@ -113,15 +119,20 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     if (!user || scoreSubmitted) return;
     setScoreSubmitted(true);
     try {
-      await fetch("/api/peagle/scores", {
+      const res = await fetch("/api/peagle/scores", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ score, won }),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       // Rafraîchit le classement avec le score fraîchement enregistré, pour que
       // l'écran de game over montre la position réelle du joueur.
       fetchLeaderboard();
-    } catch { /* silent */ }
+    } catch (err) {
+      // Réarme le flag : un prochain game over pourra retenter l'envoi.
+      console.error("Peagle: envoi du score échoué", err);
+      setScoreSubmitted(false);
+    }
   }, [user, scoreSubmitted, fetchLeaderboard]);
 
   // À l'entrée en défaite, on précharge le classement (même pour les joueurs non
@@ -215,23 +226,21 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     const run = seedOverride !== undefined
       ? makeRunStateWithSeed(seedOverride)
       : makeInitialRunState();
-    runStateRef.current = run;
-    setCurrentSeed(run.seed);
+    applyRun(run);
     resetGame(false);
     setScoreSubmitted(false);
     setUpgradeOffer(null);
     setPaused(false);
     fadeToGameTrack();
     transitionTo("game");
-  }, [resetGame, transitionTo, fadeToGameTrack, cancelUpgradeTimer]);
+  }, [applyRun, resetGame, transitionTo, fadeToGameTrack, cancelUpgradeTimer]);
 
   const handleDevLaunch = useCallback((cfg: DevConfig) => {
     cancelUpgradeTimer();
     setHasSeenIntro(true);
     devConfigRef.current = cfg;
     const run = { ...makeInitialRunState(), upgrades: cfg.upgrades };
-    runStateRef.current = run;
-    setCurrentSeed(run.seed);
+    applyRun(run);
     resetGame(false, cfg.startLevel);
     setScoreSubmitted(false);
     setUpgradeOffer(null);
@@ -240,7 +249,7 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     setPaused(false);
     fadeToGameTrack();
     transitionTo("game");
-  }, [resetGame, transitionTo, fadeToGameTrack, cancelUpgradeTimer]);
+  }, [applyRun, resetGame, transitionTo, fadeToGameTrack, cancelUpgradeTimer]);
 
   const handleGoToMenu = useCallback(() => {
     cancelUpgradeTimer();
@@ -262,9 +271,8 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
   const handleReplay = useCallback(() => {
     cancelUpgradeTimer();
     const run = makeInitialRunState();
-    runStateRef.current = run;
+    applyRun(run);
     devConfigRef.current = null;
-    setCurrentSeed(run.seed);
     resetGame(false);
     setScoreSubmitted(false);
     setUpgradeOffer(null);
@@ -272,7 +280,7 @@ export function PeagleApp({ windowId: _windowId }: AppProps) {
     setDevSessionActive(false);
     fadeToGameTrack();
     transitionTo("game");
-  }, [resetGame, fadeToGameTrack, cancelUpgradeTimer, transitionTo]);
+  }, [applyRun, resetGame, fadeToGameTrack, cancelUpgradeTimer, transitionTo]);
 
   const handleAssetsReady = useCallback(() => {
     transitionTo("menu");

@@ -10,10 +10,6 @@ export type { UpgradeId, PegKind };
 // La catégorie GAMEPLAY d'un peg est son `kind` (voir peg-kinds.ts).
 export type PegType = "orange" | "normal";
 
-export function getPegType(p: { kind: PegKind }): PegType {
-  return p.kind === "orange" ? "orange" : "normal";
-}
-
 export interface Peg {
   x: number;
   y: number;

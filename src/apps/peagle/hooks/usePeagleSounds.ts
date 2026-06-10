@@ -198,8 +198,12 @@ export function usePeagleSounds() {
   const enabledRef = useRef(settings.soundEnabled);
   useEffect(() => { enabledRef.current = settings.soundEnabled; }, [settings.soundEnabled]);
 
-  // Précharge les cris d'aigle pour qu'ils soient prêts dès l'intro.
-  useEffect(() => { prefetch(CRY_SHORT); prefetch(CRY_LONG); }, []);
+  // Précharge les cris d'aigle pour qu'ils soient prêts dès l'intro — inutile
+  // (et ~150 Ko gaspillés) si le son est coupé ; relancé s'il est réactivé.
+  useEffect(() => {
+    if (!settings.soundEnabled) return;
+    prefetch(CRY_SHORT); prefetch(CRY_LONG);
+  }, [settings.soundEnabled]);
 
   /** Retourne { ctx, dest } (dest = compresseur Peagle) ou null si muet. */
   const cd = useCallback((): { ctx: AudioContext; dest: AudioNode } | null => {

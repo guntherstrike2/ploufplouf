@@ -162,6 +162,13 @@
       "when": 1780608832355,
       "tag": "0022_chubby_marvel_boy",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1781076190502,
+      "tag": "0023_daffy_speed",
+      "breakpoints": true
     }
   ]
 }

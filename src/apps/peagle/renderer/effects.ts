@@ -4,7 +4,7 @@ import type { GameState } from "../engine/types";
 import type { GameTheme } from "../engine/game-theme";
 import { pgUiFont } from "./fonts";
 import { drawBitmapText, bitmapTextWidth, PX_HYPE } from "./text-bitmap";
-import { roundGlowRect, roundStrokeRect } from "./helpers";
+import { roundGlowRect, roundStrokeRect, measureTextCached } from "./helpers";
 
 // fontSize (px, hérité de l'ère ctx.font) → scale de dot bitmap. La cellule fait
 // PX_HYPE.rows dots de haut ; on vise ~fontSize px de haut, arrondi à l'entier le plus
@@ -190,7 +190,7 @@ export function drawFloatingTexts(ctx: CanvasRenderingContext2D, s: GameState): 
     } else {
       // Badge banner (jackpot/série/bonus…) : fond sombre + bandes colorées
       // top/bottom → plus jeu, moins UI. Les scores +N passent par drawScoreText.
-      const tw = ctx.measureText(t.text).width;
+      const tw = measureTextCached(ctx, t.text);
       const ph = 8, pv = 4;
       const bx = -tw / 2 - ph;
       const by = -fontSize - pv;
@@ -226,8 +226,8 @@ function drawScoreText(ctx: CanvasRenderingContext2D, text: string, color: strin
   if (multAt >= 0) {
     const numPart = text.slice(0, multAt);
     const mulPart = text.slice(multAt);
-    const totW = ctx.measureText(text).width;
-    const numW = ctx.measureText(numPart).width;
+    const totW = measureTextCached(ctx, text);
+    const numW = measureTextCached(ctx, numPart);
     ctx.textAlign = "left";
     ctx.fillStyle = color;
     ctx.fillText(numPart, -totW / 2, 0);
