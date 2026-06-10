@@ -6,7 +6,7 @@ import "../palette-style";
 import type { UpgradeId } from "../engine/roguelite";
 import { UPGRADES } from "../engine/roguelite";
 import { PG } from "../styles";
-import { PegBtn } from "./PegBtn";
+import { SkipButtonCanvas } from "./SkipButtonCanvas";
 import { usePeagleSounds } from "../hooks/usePeagleSounds";
 
 // Couleur de bande par upgrade id — donne une identité visuelle (rareté) à chaque bonus.
@@ -87,16 +87,10 @@ export function UpgradePicker({ offers, level, score, onPick, onSkip }: UpgradeP
             })}
           </div>
 
-          <PegBtn
-            variant="ghost"
-            size="sm"
-            warn
-            style={{ alignSelf: "center", marginTop: 4 }}
-            onPointerEnter={playUpgradeHover}
+          <SkipButtonCanvas
+            onHover={playUpgradeHover}
             onClick={() => { playUpgradeSkip(); onSkip(); }}
-          >
-            SKIP
-          </PegBtn>
+          />
         </div>
       </div>
     </div>

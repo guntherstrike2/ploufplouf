@@ -871,8 +871,11 @@ function drawScoreGlass(
 
   // Le NOMBRE — c'est lui qui « sent les points ». Juice actif pendant le versement.
   const juicing = _payoutActive || _revivePop > 0;
-  // Flash de COULEUR : vire vers l'OR pendant le remplissage, revient au blanc à la fin.
-  const numInk = juicing && _payoutActive ? DMD_GOLD : DMD_AMBER;
+  // Flash de COULEUR : le TOTAL reste BLANC en permanence, SAUF le bref instant où il
+  // s'incrémente réellement (le transfert : _payoutTick tourne) → là il vire à l'OR. Pendant
+  // le HOLD (où le calcul du haut s'affiche mais le bas est gelé) il reste donc blanc.
+  const counting = _payoutActive && _payoutTick > 0;
+  const numInk = counting ? DMD_GOLD : DMD_AMBER;
   const numBand = beginBand("score:num", lay.geom, lay.cols, lay.rows);
   bandText(numBand, scoreStr, valCol, BOT_ROW, 1);
 

@@ -4,7 +4,6 @@ import "../peagle.css";
 import "../palette-style";
 import type { LeaderboardEntry } from "../engine/types";
 import { PG, GRADIENT } from "../styles";
-import { PixelSprite } from "./PixelSprite";
 import { PegBtn } from "./PegBtn";
 
 interface LeaderboardProps {
@@ -25,217 +24,263 @@ function RankBadge({ rank }: { rank: number }) {
   return <span className={cls}>{rank}</span>;
 }
 
+/**
+ * Classement plein écran — même DA que les menus actuels (Instructions,
+ * Changelog, Options) : carte forêt diégétique `pg-settings-card`, header
+ * titre + badge à la `PegDialog`, séparateurs pixel, corps scrollable, footer
+ * fixe avec `PegBtn`. Les rangs reprennent le langage du mini-classement de
+ * game over (`pg-go-rank-*`, badges or/argent/bronze).
+ */
 export function Leaderboard({ entries, loading, currentUserId, onRefresh, showLoginHint, onBack }: LeaderboardProps) {
   return (
     <div
-      className="peagle-root"
+      className="peagle-root pg-screen"
       style={{
         flex: 1,
         display: "flex",
-        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
         overflow: "hidden",
         background: GRADIENT.backdrop3,
         fontFamily: "var(--pg-font)",
         position: "relative",
+        padding: 16,
       }}
     >
-      {/* ── Toolbar ──────────────────────────────────────────────────────── */}
+      {/* Carte forêt diégétique — identique aux dialogs (pas de titlebar OS). */}
       <div
+        className="pg-settings-card"
         style={{
+          width: "min(420px, 100%)",
+          maxHeight: "100%",
           display: "flex",
-          alignItems: "center",
-          gap: 10,
-          padding: "11px 14px",
-          borderBottom: `2px solid ${PG.ink}`,
-          background: GRADIENT.header,
-          boxShadow: `inset 0 1px 0 0 ${PG.bevelHi}, inset 0 -2px 0 0 ${PG.goldDark}`,
-          flexShrink: 0,
-          zIndex: 1,
+          flexDirection: "column",
+          minHeight: 0,
         }}
       >
-        <PegBtn onClick={onBack} variant="primary" size="sm">
-          MENU
-        </PegBtn>
-
-        <span
+        {/* En-tête : titre + badge dans la matière de la carte. */}
+        <div
           style={{
-            fontSize: 8,
-            fontWeight: "bold",
-            color: PG.gold,
-            flex: 1,
-            letterSpacing: "0.1em",
+            flexShrink: 0,
             display: "flex",
             alignItems: "center",
             gap: 8,
-            textShadow: "0 0 10px rgba(220,180,50,0.45), 0 1px 0 rgba(0,0,0,0.95)",
+            padding: "14px 16px 10px",
           }}
         >
-          <PixelSprite name="eagle" scale={2} />
-          GREAT HUNTERS — TOP 10
-        </span>
+          <span style={{ fontSize: 14, lineHeight: 1, flexShrink: 0 }}>🦅</span>
+          <span style={{
+            fontFamily: "var(--pg-font)",
+            fontSize: 9,
+            letterSpacing: "0.1em",
+            color: PG.text,
+            flex: 1,
+          }}>
+            GREAT HUNTERS
+          </span>
+          <span style={{
+            fontFamily: "var(--pg-font)",
+            fontSize: 8,
+            letterSpacing: "0.06em",
+            color: PG.gold,
+            flexShrink: 0,
+          }}>
+            TOP 10
+          </span>
+        </div>
 
-        <PegBtn
-          onClick={onRefresh}
-          disabled={loading}
-          variant="ghost"
-          size="sm"
-        >
-          {loading ? "..." : "REFRESH"}
-        </PegBtn>
-      </div>
+        <div className="pg-settings-divider" aria-hidden style={{ margin: "0 16px", flexShrink: 0 }} />
 
-      {/* ── Table container ──────────────────────────────────────────────── */}
-      <div
-        className="pg-lux-panel"
-        style={{
-          flex: 1,
-          overflow: "auto",
-          margin: "14px 14px",
-          animation: "none",
-        }}
-      >
-        {/* Header */}
+        {/* Corps scrollable. */}
         <div
+          className="pg-no-scrollbar"
           style={{
-            display: "grid",
-            gridTemplateColumns: "52px 1fr 38px 100px",
+            flex: 1,
+            minHeight: 0,
+            overflowY: "auto",
+            padding: "12px 16px",
+            display: "flex",
+            flexDirection: "column",
             gap: 8,
-            padding: "10px 16px",
-            borderBottom: `2px solid ${PG.ink}`,
-            background: GRADIENT.header,
-            boxShadow: `inset 0 1px 0 0 ${PG.bevelHi}, inset 0 -2px 0 0 ${PG.goldDark}`,
-            position: "sticky",
-            top: 0,
-            zIndex: 1,
           }}
         >
-          {(["#", "HUNTER", "FLIGHT", "SCORE"] as const).map((h, i) => (
-            <span
-              key={h}
-              style={{
-                fontSize: 7,
-                color: PG.textMuted,
-                letterSpacing: "0.1em",
-                textAlign: i === 3 ? "right" : i === 2 ? "center" : "left",
-              }}
-            >
-              {h}
-            </span>
-          ))}
-        </div>
-
-        {/* Loading */}
-        {loading && (
+          {/* Tableau — section encadrée à la Instructions. */}
           <div
             style={{
-              padding: 40,
-              textAlign: "center",
-              color: PG.textMuted,
-              fontSize: 8,
-              letterSpacing: "0.08em",
+              flexShrink: 0,
+              border: `2px solid ${PG.border}`,
+              borderRadius: 6,
+              background: PG.bg,
+              overflow: "hidden",
             }}
           >
-            Loading...
-          </div>
-        )}
-
-        {/* Empty */}
-        {!loading && entries.length === 0 && (
-          <div
-            style={{
-              padding: 40,
-              textAlign: "center",
-              color: PG.textMuted,
-              fontSize: 14,
-              lineHeight: 1.6,
-              fontFamily: "var(--pg-font-ui)",
-            }}
-          >
-            No eagle on record.<br />The sky is empty.<br />Be the first predator.
-          </div>
-        )}
-
-        {/* Rows */}
-        {!loading && entries.map((entry, i) => {
-          const name = entry.displayUsername || entry.username || entry.name;
-          const isMe = !!(currentUserId && entry.userId === currentUserId);
-          const rank = i + 1;
-          return (
+            {/* En-tête de colonnes. */}
             <div
-              key={entry.userId}
-              className="pg-lb-row"
               style={{
-                background: isMe
-                  ? "rgba(126,209,58,0.12)"
-                  : i % 2 === 0
-                    ? "transparent"
-                    : "rgba(0,0,0,0.16)",
-                animation: "pg-row-slide 0.34s cubic-bezier(0.34, 1.56, 0.64, 1) both",
-                animationDelay: `${i * 0.05}s`,
+                display: "grid",
+                gridTemplateColumns: "30px 1fr 24px auto",
+                gap: 8,
+                alignItems: "center",
+                padding: "6px 12px",
+                borderBottom: `1px solid ${PG.border}`,
+                background: "linear-gradient(to bottom, #1c3812 0%, #0c1c08 100%)",
+                boxShadow: `inset 0 1px 0 0 ${PG.bevelHi}, inset 0 -2px 0 0 ${PG.gold}33`,
               }}
             >
-              {/* Rang */}
-              <div style={{ display: "flex", justifyContent: "center" }}>
-                <RankBadge rank={rank} />
-              </div>
-
-              {/* Nom */}
-              <span
-                style={{
-                  fontSize: 8,
-                  color: isMe ? PG.leaf : PG.text,
-                  fontWeight: isMe ? "bold" : "normal",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                  textShadow: isMe ? `0 0 8px ${PG.leaf}55` : "none",
-                }}
-              >
-                {name}
-                {isMe && (
-                  <span style={{ color: PG.leafDim, fontWeight: "normal" }}> (your nest)</span>
-                )}
-              </span>
-
-              {/* Icône vol */}
-              <span style={{ display: "flex", justifyContent: "center" }}>
-                <PixelSprite name={entry.won ? "eagle" : "grave"} scale={2} />
-              </span>
-
-              {/* Score */}
-              <span
-                style={{
-                  fontSize: 9,
-                  fontWeight: "bold",
-                  color: rank <= 3 ? PG.cream : PG.text,
-                  textAlign: "right",
-                  textShadow: rank <= 3 ? `0 0 8px rgba(242,230,194,0.25)` : "none",
-                }}
-              >
-                {entry.score.toLocaleString()}
-              </span>
+              {(["#", "HUNTER", "", "SCORE"] as const).map((h, i) => (
+                <span
+                  key={i}
+                  style={{
+                    fontFamily: "var(--pg-font)",
+                    fontSize: 7,
+                    color: PG.textMuted,
+                    letterSpacing: "0.12em",
+                    textAlign: i === 3 ? "right" : "left",
+                  }}
+                >
+                  {h}
+                </span>
+              ))}
             </div>
-          );
-        })}
-      </div>
 
-      {/* ── Login hint ───────────────────────────────────────────────────── */}
-      {showLoginHint && (
+            {/* Loading */}
+            {loading && (
+              <div
+                style={{
+                  padding: "28px 12px",
+                  textAlign: "center",
+                  color: PG.textMuted,
+                  fontFamily: "var(--pg-font-ui)",
+                  fontSize: 14,
+                  letterSpacing: "0.02em",
+                }}
+              >
+                Reading the hunters&apos; registry...
+              </div>
+            )}
+
+            {/* Vide */}
+            {!loading && entries.length === 0 && (
+              <div
+                style={{
+                  padding: "28px 12px",
+                  textAlign: "center",
+                  color: PG.textMuted,
+                  fontSize: 14,
+                  lineHeight: 1.6,
+                  fontFamily: "var(--pg-font-ui)",
+                }}
+              >
+                No eagle on record.<br />The sky is empty.<br />Be the first predator.
+              </div>
+            )}
+
+            {/* Lignes */}
+            {!loading && entries.map((entry, i) => {
+              const name = entry.displayUsername || entry.username || entry.name;
+              const isMe = !!(currentUserId && entry.userId === currentUserId);
+              const rank = i + 1;
+              return (
+                <div
+                  key={entry.userId}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "30px 1fr 24px auto",
+                    gap: 8,
+                    alignItems: "center",
+                    padding: "7px 12px",
+                    borderTop: i === 0 ? "none" : `1px solid ${PG.border}`,
+                    background: isMe ? "rgba(126,209,58,0.14)" : "transparent",
+                    boxShadow: isMe ? "inset 0 0 0 1px rgba(126,209,58,0.28)" : "none",
+                    animation: "pg-row-slide 0.34s cubic-bezier(0.34, 1.56, 0.64, 1) both",
+                    animationDelay: `${i * 0.04}s`,
+                  }}
+                >
+                  {/* Rang */}
+                  <div style={{ display: "flex", justifyContent: "center" }}>
+                    <RankBadge rank={rank} />
+                  </div>
+
+                  {/* Nom */}
+                  <span
+                    style={{
+                      fontFamily: "var(--pg-font-ui)",
+                      fontSize: 15,
+                      color: isMe ? PG.greenHi : PG.text,
+                      letterSpacing: "0.01em",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {name}
+                    {isMe && (
+                      <span style={{ color: PG.green }}> · you</span>
+                    )}
+                  </span>
+
+                  {/* Picto vol / chute */}
+                  <span style={{ fontSize: 13, textAlign: "center", lineHeight: 1 }}>
+                    {entry.won ? "🦅" : "🪦"}
+                  </span>
+
+                  {/* Score */}
+                  <span
+                    style={{
+                      fontFamily: "var(--pg-font)",
+                      fontSize: 8,
+                      fontWeight: "bold",
+                      color: rank <= 3 ? PG.cream : PG.text,
+                      textAlign: "right",
+                      textShadow: "0 1px 0 rgba(0,0,0,0.9)",
+                    }}
+                  >
+                    {entry.score.toLocaleString()}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Indice connexion — dans le corps, ton discret. */}
+          {showLoginHint && (
+            <div
+              style={{
+                flexShrink: 0,
+                fontFamily: "var(--pg-font-ui)",
+                fontSize: 14,
+                color: PG.textMuted,
+                textAlign: "center",
+                lineHeight: 1.5,
+                padding: "2px 4px",
+              }}
+            >
+              Log in to stake your nest in the rankings.
+            </div>
+          )}
+        </div>
+
+        <div className="pg-settings-divider" aria-hidden style={{ margin: "0 16px", flexShrink: 0 }} />
+
+        {/* Footer fixe : retour + refresh. */}
         <div
-          className="pg-hero-score"
           style={{
-            margin: "0 14px 14px",
-            padding: "10px 18px",
-            fontSize: 13,
-            color: PG.textMuted,
-            textAlign: "center",
-            lineHeight: 1.5,
-            fontFamily: "var(--pg-font-ui)",
+            flexShrink: 0,
+            padding: "10px 16px 14px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 8,
           }}
         >
-          Log in to stake your territory in the nest rankings
+          <PegBtn onClick={onBack} variant="primary" size="sm">
+            MENU
+          </PegBtn>
+          <PegBtn onClick={onRefresh} disabled={loading} variant="ghost" size="sm">
+            {loading ? "..." : "REFRESH"}
+          </PegBtn>
         </div>
-      )}
+      </div>
     </div>
   );
 }

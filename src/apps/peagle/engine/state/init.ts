@@ -97,7 +97,6 @@ export function makeInitialState(
     payoutAt: 0,
     pendingJackpot: 0,
     pendingJackpotBalls: 0,
-    pendingStreakBonus: 0,
 
     startBalls: baseBalls,
     duskProgress: 0,

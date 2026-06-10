@@ -191,7 +191,6 @@ export interface GameState {
   // et `scoreBefore + payout.total === score` reste vrai. Remis à 0 après versement.
   pendingJackpot: number;       // bonus jackpot du tir (0 = aucun)
   pendingJackpotBalls: number;  // œufs offerts par le jackpot, à créditer à endOfTurn
-  pendingStreakBonus: number;   // bonus de série de paniers accumulé ce tir (0 = aucun)
 
   // Nombre d'œufs au départ du niveau (pour la progression pré-fever)
   startBalls: number;

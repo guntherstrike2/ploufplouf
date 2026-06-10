@@ -26,6 +26,37 @@ export function measureTextCached(ctx: CanvasRenderingContext2D, text: string): 
   return w;
 }
 
+// ── Word-wrap greedy, agnostique à la police ──────────────────────────────────────
+// Découpe `text` en lignes ne dépassant pas `maxWidth` px. La mesure est INJECTÉE
+// (`measure(mot)` + `spaceWidth`) → marche pour la fonte pixel (pegTextWidth) comme
+// pour une fonte TTF (measureTextCached). Coupe sur les espaces ; un mot plus large
+// que `maxWidth` reste seul sur sa ligne (pas de coupe intra-mot — silhouette pixel).
+// Renvoie au moins une ligne (vide si `text` est vide).
+export function wrapText(
+  text: string, maxWidth: number,
+  measure: (word: string) => number, spaceWidth: number,
+): string[] {
+  const words = text.split(/\s+/).filter((w) => w.length > 0);
+  if (words.length === 0) return [""];
+  const lines: string[] = [];
+  let line = words[0]!;
+  let lineW = measure(line);
+  for (let i = 1; i < words.length; i++) {
+    const w = words[i]!;
+    const ww = measure(w);
+    if (lineW + spaceWidth + ww <= maxWidth) {
+      line += " " + w;
+      lineW += spaceWidth + ww;
+    } else {
+      lines.push(line);
+      line = w;
+      lineW = ww;
+    }
+  }
+  lines.push(line);
+  return lines;
+}
+
 // Halo/glow rectangulaire aux coins ébréchés 1px — même langage pixel-art que les pegs,
 // œufs, boutons et astres. À utiliser à la place d'un fillRect pour tout glow, afin que
 // les angles vifs du halo ne réintroduisent pas une silhouette carrée autour d'un élément

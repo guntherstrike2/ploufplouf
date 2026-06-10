@@ -901,8 +901,9 @@
     inset 2px 2px 0 0 var(--pg-bevel-hi),
     inset -2px -2px 0 0 var(--pg-bevel-lo),
     4px 5px 0 0 rgba(3, 8, 2, 0.7);
+  transform-origin: center center;
   transition:
-    transform 0.1s var(--pm-spring, cubic-bezier(0.34, 2.6, 0.5, 1)),
+    transform 0.13s var(--pm-spring, cubic-bezier(0.34, 2.6, 0.5, 1)),
     box-shadow 0.1s, filter 0.1s;
   image-rendering: pixelated;
   overflow: hidden;
@@ -910,17 +911,19 @@
   animation: pg-card-fly 0.44s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
 }
 
+/* Hover : bond VERTICAL franc + gonflement, rebond vif (même feeling que les peg-boutons). */
 .pg-upg-cardbtn:hover {
-  transform: translate(-3px, -5px) scale(1.04);
+  transform: translateY(-6px) scale(1.05);
   box-shadow:
     inset 2px 2px 0 0 var(--pg-bevel-hi),
     inset -2px -2px 0 0 var(--pg-bevel-lo),
-    8px 11px 0 0 rgba(3, 8, 2, 0.7);
+    6px 12px 0 0 rgba(3, 8, 2, 0.7);
   filter: brightness(1.15);
 }
 
+/* Press : squash net (large + plat), enfoncé, bevel inversé, ombre résorbée. */
 .pg-upg-cardbtn:active {
-  transform: translate(2px, 2px) scale(0.97);
+  transform: translateY(3px) scale(1.1, 0.84);
   box-shadow:
     inset 2px 2px 0 0 var(--pg-bevel-lo),
     inset -2px -2px 0 0 var(--pg-bevel-hi),
@@ -1072,173 +1075,6 @@
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.95);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════════
-   LUXURY PIXEL ART — overlays pause / game-over / upgrade-picker / leaderboard
-   ═══════════════════════════════════════════════════════════════════════════════ */
-
-/* ─── Overlay riche — scanlines + fond teinté ───────────────────────────────── */
-.pg-overlay-lux {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  /* Fond quasi-opaque (scanlines gérées globalement par `CrtOverlay`). */
-  background: rgba(3,6,2,0.93);
-  z-index: 6;
-  animation: pg-backdrop-in 0.2s ease-out both;
-}
-
-.pg-overlay-lux-red {
-  background: rgba(6,2,2,0.93);
-}
-
-/* ─── Panneau luxueux ────────────────────────────────────────────────────────── */
-/* Double arête : bevel vert + halo or très tamisé interne */
-.pg-lux-panel {
-  position: relative;
-  background: var(--pg-surface);
-  border: 3px solid var(--pg-ink);
-  border-radius: calc(var(--pm-radius, 8px) + 2px);
-  box-shadow:
-    inset 2px 2px 0 0 var(--pg-bevel-hi),
-    inset -2px -2px 0 0 var(--pg-bevel-lo),
-    inset 4px 4px 0 0 rgba(180, 140, 20, 0.05),
-    inset -4px -4px 0 0 rgba(0, 0, 0, 0.18),
-    7px 8px 0 0 rgba(0, 0, 0, 0.7);
-  overflow: hidden;
-  image-rendering: pixelated;
-  animation: pg-pm-panel-pop 0.42s var(--pm-spring, cubic-bezier(0.34, 2.6, 0.5, 1)) both;
-}
-
-@keyframes pg-lux-enter {
-  0%  { transform: translateY(22px) scale(0.88); opacity: 0; }
-  40% { transform: translateY(4px)  scale(0.97); opacity: 0.7; }
-  100%{ transform: translateY(0)    scale(1);    opacity: 1; }
-}
-
-/* ─── Header luxueux — gradient sombre + liseré or en bas ───────────────────── */
-.pg-lux-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
-  background: var(--pg-grad-header);
-  border-bottom: 2px solid var(--pg-ink);
-  /* Arête verte en haut, liseré or en bas */
-  box-shadow:
-    inset 0 1px 0 0 var(--pg-bevel-hi),
-    inset 0 -2px 0 0 #604010;
-  letter-spacing: 0.12em;
-}
-
-.pg-lux-title {
-  font-family: var(--pg-font);
-  font-size: 9px;
-  color: #dfc050;
-  letter-spacing: 0.16em;
-  text-shadow: 0 0 10px rgba(220, 180, 50, 0.5), 0 1px 0 rgba(0,0,0,0.95);
-  flex: 1;
-}
-
-/* ─── Losange ornemental (or) ────────────────────────────────────────────────── */
-.pg-lux-gem {
-  width: 8px;
-  height: 8px;
-  background: linear-gradient(135deg, #ffe870 0%, #ffd24a 50%, #b88010 100%);
-  border: 1px solid #7a5008;
-  transform: rotate(45deg);
-  flex-shrink: 0;
-  image-rendering: pixelated;
-  box-shadow:
-    inset 1px 1px 0 0 rgba(255,240,150,0.7),
-    0 0 6px rgba(255,210,74,0.45);
-}
-
-/* ─── Séparateur orné — trait bevel + losange central ───────────────────────── */
-.pg-sep-lux {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 2px 0;
-}
-
-.pg-sep-lux::before,
-.pg-sep-lux::after {
-  content: "";
-  flex: 1;
-  border-top: 1px solid var(--pg-bevel-lo);
-  border-bottom: 1px solid var(--pg-bevel-hi);
-}
-
-/* ─── Toggle musique ─────────────────────────────────────────────────────────── */
-.pg-toggle-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
-  font-family: var(--pg-font);
-  font-size: 8px;
-  letter-spacing: 0.08em;
-  color: var(--pg-text-muted);
-  background: rgba(0,0,0,0.22);
-  border: 2px solid #1e3812;
-  border-radius: var(--pm-radius, 8px);
-  cursor: pointer;
-  transition: background 0.1s, color 0.1s;
-  image-rendering: pixelated;
-}
-
-.pg-toggle-row:hover {
-  background: rgba(20,42,12,0.7);
-  color: var(--pg-text);
-}
-
-.pg-toggle-pill {
-  font-family: var(--pg-font);
-  font-size: 7px;
-  padding: 4px 9px;
-  border: 2px solid;
-  box-shadow:
-    inset 1px 1px 0 0 rgba(255,255,255,0.15),
-    inset -1px -1px 0 0 rgba(0,0,0,0.35);
-  image-rendering: pixelated;
-  letter-spacing: 0.06em;
-  flex-shrink: 0;
-}
-
-/* ─── Affichage score héro ───────────────────────────────────────────────────── */
-.pg-hero-score {
-  background: var(--pg-bg-deep);
-  border: 2px solid var(--pg-ink);
-  box-shadow:
-    inset 1px 1px 0 0 var(--pg-bevel-lo),
-    inset -1px -1px 0 0 var(--pg-bevel-hi),
-    inset 0 0 16px rgba(0,0,0,0.5);
-  padding: 14px 28px;
-  text-align: center;
-}
-
-.pg-hero-score-label {
-  font-family: var(--pg-font);
-  font-size: 7px;
-  color: var(--pg-text-muted);
-  letter-spacing: 0.16em;
-  margin-bottom: 8px;
-}
-
-.pg-hero-score-val {
-  font-family: var(--pg-font);
-  font-size: 26px;
-  font-weight: bold;
-  color: var(--pg-cream);
-  line-height: 1;
-  text-shadow:
-    0 0 14px rgba(242,230,194,0.3),
-    0 2px 0 #080f04,
-    0 4px 0 rgba(0,0,0,0.45);
-}
-
 /* ─── Titres victoire / défaite ──────────────────────────────────────────────── */
 /* Pulse NET (pas de blur) : ombre pixel dure constante + variation de luminosité
    et léger scale → emphase vivante sans halo flou, cohérent avec la DA peg. */
@@ -1350,8 +1186,9 @@
     inset 2px 2px 0 0 var(--pg-bevel-hi),
     inset -2px -2px 0 0 var(--pg-bevel-lo),
     4px 5px 0 0 rgba(0, 0, 0, 0.7);
+  transform-origin: center center;
   transition:
-    transform 0.1s var(--pm-spring, cubic-bezier(0.34, 2.6, 0.5, 1)),
+    transform 0.13s var(--pm-spring, cubic-bezier(0.34, 2.6, 0.5, 1)),
     box-shadow 0.1s, filter 0.1s;
   image-rendering: pixelated;
   overflow: hidden;
@@ -1362,17 +1199,19 @@
   animation: pg-card-fly 0.44s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
 }
 
+/* Hover : bond VERTICAL franc + gonflement, rebond vif (même feeling que les peg-boutons). */
 .pg-card-lux:hover {
-  transform: translate(-3px, -5px) scale(1.04);
+  transform: translateY(-6px) scale(1.05);
   box-shadow:
     inset 2px 2px 0 0 var(--pg-bevel-hi),
     inset -2px -2px 0 0 var(--pg-bevel-lo),
-    8px 11px 0 0 rgba(0, 0, 0, 0.7);
+    6px 12px 0 0 rgba(0, 0, 0, 0.7);
   filter: brightness(1.2);
 }
 
+/* Press : squash net (large + plat), enfoncé, bevel inversé, ombre résorbée. */
 .pg-card-lux:active {
-  transform: translate(2px, 2px) scale(0.97);
+  transform: translateY(3px) scale(1.1, 0.84);
   box-shadow:
     inset 2px 2px 0 0 var(--pg-bevel-lo),
     inset -2px -2px 0 0 var(--pg-bevel-hi),
@@ -1420,21 +1259,8 @@
 }
 
 /* ─── Leaderboard luxueux ────────────────────────────────────────────────────── */
-.pg-lb-row {
-  display: grid;
-  grid-template-columns: 52px 1fr 38px 100px;
-  gap: 8px;
-  align-items: center;
-  padding: 11px 16px;
-  border-bottom: 1px solid rgba(46,82,32,0.25);
-  transition: background 0.1s;
-}
-
-.pg-lb-row:hover {
-  background: rgba(126,209,58,0.06) !important;
-}
-
-/* Badge rang (or/argent/bronze) */
+/* Badge rang (or/argent/bronze) — partagé par le classement plein écran et le
+   mini-classement de game over (cf. GameCanvas.tsx). */
 .pg-lb-badge {
   display: inline-flex;
   align-items: center;
@@ -1804,8 +1630,9 @@
 
 .peagle-root {
   /* Courbe de rebond unique réutilisée partout dans le menu peg.
-     Overshoot prononcé (juicy) — le 2.6 fait franchement dépasser puis revenir. */
-  --pm-spring: cubic-bezier(0.34, 2.6, 0.5, 1);
+     Overshoot TRÈS prononcé (juicy/vif) — calé sur le feeling des boutons canvas du
+     menu : ça claque, dépasse franchement, puis revient. */
+  --pm-spring: cubic-bezier(0.3, 3.2, 0.45, 1);
   /* Rayon « blob » doux des pegs-boutons (assez pour adoucir, pas assez pour faire web). */
   --pm-radius: 8px;
 
@@ -1852,10 +1679,13 @@
   inherits: false;
   initial-value: 1;
 }
-/* Variables hover/press — déclarées en @property pour transitionner en douceur. */
-@property --pm-hx { syntax: "<length>"; inherits: false; initial-value: 0px; }
+/* Variables hover/press — déclarées en @property pour transitionner en douceur.
+   --pm-hy : décalage VERTICAL (le peg bondit/s'enfonce tout droit, jamais en biais).
+   --pm-sx / --pm-sy : squash & stretch INDÉPENDANT par axe (comme les boutons canvas) —
+   au clic le peg s'écrase (sx>1, sy<1), au survol il gonfle légèrement. */
 @property --pm-hy { syntax: "<length>"; inherits: false; initial-value: 0px; }
-@property --pm-hs { syntax: "<number>"; inherits: false; initial-value: 1; }
+@property --pm-sx { syntax: "<number>"; inherits: false; initial-value: 1; }
+@property --pm-sy { syntax: "<number>"; inherits: false; initial-value: 1; }
 
 /* Idle « respiration » du peg JOUER — pilote les MÊMES variables que le pop
    (jamais transform directement) pour rester compatible avec le transform unifié. */
@@ -1921,23 +1751,24 @@
   /* ── Transform UNIFIÉ ──────────────────────────────────────────────────────
      UNE seule déclaration transform combine deux sources qui ne se battent plus :
      • pop d'entrée  → variables --pm-pop-y / --pm-pop-s (animées par @keyframes)
-     • hover/press   → variables --pm-hx / --pm-hy / --pm-hs (changées par état)
-     Comme c'est toujours la même propriété pilotée par des variables, il n'y a
-     plus de conflit « animation forwards vs :hover » → plus de clignotement. */
+     • hover/press   → --pm-hy (décalage VERTICAL) + --pm-sx/--pm-sy (squash par axe)
+     Mouvement purement vertical (symétrique gauche-droite) ; le squash & stretch
+     indépendant par axe reproduit le feeling JUTEUX des boutons canvas du menu. */
   --pm-pop-y: 0px;
   --pm-pop-s: 1;
-  --pm-hx: 0px;
   --pm-hy: 0px;
-  --pm-hs: 1;
+  --pm-sx: 1;
+  --pm-sy: 1;
+  transform-origin: center center;
   transform:
-    translate(var(--pm-hx), calc(var(--pm-pop-y) + var(--pm-hy)))
-    scale(calc(var(--pm-pop-s) * var(--pm-hs)));
-  /* Seules les variables hover/press transitionnent (snap). Le pop est piloté
-     par l'animation, pas par la transition. */
+    translate(0, calc(var(--pm-pop-y) + var(--pm-hy)))
+    scale(calc(var(--pm-pop-s) * var(--pm-sx)), calc(var(--pm-pop-s) * var(--pm-sy)));
+  /* La transition spring (overshoot) sur les variables hover/press donne le rebond
+     vif. Le pop d'entrée est piloté par l'animation, pas par la transition. */
   transition:
-    --pm-hx 0.1s var(--pm-spring),
-    --pm-hy 0.1s var(--pm-spring),
-    --pm-hs 0.1s var(--pm-spring),
+    --pm-hy 0.13s var(--pm-spring),
+    --pm-sx 0.13s var(--pm-spring),
+    --pm-sy 0.13s var(--pm-spring),
     box-shadow 0.1s, filter 0.1s;
   animation: pg-pm-pop 0.5s var(--pm-spring) both;
 }
@@ -1960,39 +1791,40 @@
   pointer-events: none;
 }
 
-/* Hover : le peg bondit franchement vers le haut-gauche (variables hover, pas de
-   conflit avec le pop). La transition spring sur les variables donne le rebond. */
+/* Hover : le peg BONDIT tout droit vers le haut (vertical pur) + gonfle légèrement,
+   s'allume. La transition spring (gros overshoot) donne le rebond vif. */
 .pg-pm-btn:hover {
-  --pm-hx: -3px;
-  --pm-hy: -5px;
-  --pm-hs: 1.06;
+  --pm-hy: -6px;
+  --pm-sx: 1.07;
+  --pm-sy: 1.07;
   box-shadow:
     inset 0 0 0 2px var(--pg-ink),
     inset 4px 4px 0 0 var(--pg-green-hi),
     inset -4px -4px 0 0 var(--pg-green-deep);
-  /* Ombre INCHANGÉE (décalage fixe, comme le HUD) — seul le peg bondit + s'éclaircit. */
-  filter: drop-shadow(3px 3px 0 rgba(3, 8, 2, 0.78)) brightness(1.1);
+  /* Ombre qui s'écarte (le peg décolle) + éclat franc. */
+  filter: drop-shadow(4px 6px 0 rgba(3, 8, 2, 0.78)) brightness(1.18);
 }
 
-/* Press : il s'enfonce d'un coup dans son ombre (bevel inversé, ombre dure résorbée). */
+/* Press : il s'ÉCRASE d'un coup (squash : large + plat) et s'enfonce dans son ombre,
+   bevel inversé, ombre dure résorbée. */
 .pg-pm-btn:active {
-  --pm-hx: 3px;
   --pm-hy: 3px;
-  --pm-hs: 0.94;
+  --pm-sx: 1.14;
+  --pm-sy: 0.82;
   box-shadow:
     inset 0 0 0 2px var(--pg-ink),
     inset 4px 4px 0 0 var(--pg-green-deep),
     inset -4px -4px 0 0 var(--pg-green-hi);
   /* Enfoncé : l'ombre se résorbe (le peg rejoint sa surface). */
-  filter: drop-shadow(0 0 0 rgba(3, 8, 2, 0.78)) brightness(0.92);
+  filter: drop-shadow(0 0 0 rgba(3, 8, 2, 0.78)) brightness(0.9);
 }
 
 /* Désactivé : plus de hover/press, curseur neutre, peg « éteint ». */
 .pg-pm-btn:disabled {
   cursor: default;
-  --pm-hx: 0px;
   --pm-hy: 0px;
-  --pm-hs: 1;
+  --pm-sx: 1;
+  --pm-sy: 1;
   filter: drop-shadow(3px 3px 0 rgba(3, 8, 2, 0.78)) grayscale(0.4) brightness(0.85);
   opacity: 0.5;
 }
@@ -2016,24 +1848,24 @@
     pg-pm-breathe 2.2s ease-in-out 0.5s infinite;
 }
 .pg-pm-btn-play:hover {
-  --pm-hx: -3px;
-  --pm-hy: -5px;
-  --pm-hs: 1.06;
+  --pm-hy: -7px;
+  --pm-sx: 1.08;
+  --pm-sy: 1.08;
   box-shadow:
     inset 0 0 0 2px var(--pg-ink),
     inset 4px 4px 0 0 var(--pg-orange-glow),
     inset -4px -4px 0 0 var(--pg-orange-deep);
-  filter: drop-shadow(3px 3px 0 rgba(3, 8, 2, 0.78)) brightness(1.1);
+  filter: drop-shadow(5px 7px 0 rgba(3, 8, 2, 0.78)) brightness(1.18);
 }
 .pg-pm-btn-play:active {
-  --pm-hx: 3px;
   --pm-hy: 3px;
-  --pm-hs: 0.94;
+  --pm-sx: 1.16;
+  --pm-sy: 0.8;
   box-shadow:
     inset 0 0 0 2px var(--pg-ink),
     inset 4px 4px 0 0 var(--pg-orange-deep),
     inset -4px -4px 0 0 var(--pg-orange-glow);
-  filter: drop-shadow(0 0 0 rgba(3, 8, 2, 0.78)) brightness(0.92);
+  filter: drop-shadow(0 0 0 rgba(3, 8, 2, 0.78)) brightness(0.9);
 }
 
 /* ─── Modificateurs <PegBtn> ─────────────────────────────────────────────────────
@@ -2068,17 +1900,17 @@
 }
 .pg-pm-btn-ghost::after { display: none; }
 .pg-pm-btn-ghost:hover {
-  --pm-hx: -2px;
-  --pm-hy: -3px;
-  --pm-hs: 1.04;
+  --pm-hy: -4px;
+  --pm-sx: 1.05;
+  --pm-sy: 1.05;
   color: var(--pg-leaf);
   box-shadow: inset 0 0 0 2px var(--pg-leaf);
   filter: none;
 }
 .pg-pm-btn-ghost:active {
-  --pm-hx: 1px;
-  --pm-hy: 1px;
-  --pm-hs: 0.98;
+  --pm-hy: 2px;
+  --pm-sx: 1.08;
+  --pm-sy: 0.9;
   box-shadow: inset 0 0 0 2px var(--pg-ink);
 }
 .pg-pm-btn-ghost.pg-pm-btn-warn:hover {
@@ -2107,19 +1939,22 @@
   filter: drop-shadow(3px 3px 0 rgba(3, 8, 2, 0.78));
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
   image-rendering: pixelated;
-  transition: transform 0.08s var(--pm-spring), box-shadow 0.08s, filter 0.08s;
+  transform-origin: center center;
+  transition: transform 0.13s var(--pm-spring), box-shadow 0.1s, filter 0.1s;
   -webkit-tap-highlight-color: transparent;
 }
+/* Hover : bond vertical + gonflement, rebond vif (même feeling que les peg-boutons). */
 .pg-pm-version:hover {
-  transform: translate(-2px, -3px) scale(1.04);
+  transform: translateY(-5px) scale(1.06);
   box-shadow:
     inset 0 0 0 2px var(--pg-ink),
     inset 4px 4px 0 0 #ffe870,
     inset -4px -4px 0 0 #b08010;
-  filter: drop-shadow(3px 3px 0 rgba(3, 8, 2, 0.78)) brightness(1.08);
+  filter: drop-shadow(4px 6px 0 rgba(3, 8, 2, 0.78)) brightness(1.15);
 }
+/* Press : squash (large + plat), enfoncé, bevel inversé. */
 .pg-pm-version:active {
-  transform: translate(2px, 2px) scale(0.99);
+  transform: translateY(2px) scale(1.12, 0.84);
   box-shadow:
     inset 0 0 0 2px var(--pg-ink),
     inset 4px 4px 0 0 #b08010,

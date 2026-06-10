@@ -294,43 +294,25 @@ export function processBallPhysics(
       s.floatingTexts.push({ x: W / 2, y: H / 2 - 24, text: `+${bonus.toLocaleString()}  ·  +${BALANCE.score.jackpotBalls} EGGS`, life: 1, maxLife: 3, color: TEXT_FX.goldHi, combo: true, fontSize: 16 });
       events.push({ kind: "sound", id: "jackpot" });
     } else {
+      // Rattrapage au panier : l'œuf est SAUVÉ (il ne sort pas → pas de balls--), et les
+      // acquis du tour sont conservés pour le tour suivant — points VERTS/bleus (turnBluePts)
+      // ET multiplicateur ORANGE (turnOrangeCount, géré plus haut). AUCUN point ni œuf bonus
+      // n'est gagné par le rattrapage lui-même : il ne fait que préserver ce qui est déjà acquis.
       s.balls += 1;
       s.trauma = Math.min(1, s.trauma + BALANCE.trauma.bucketCatch);
 
-      // `s.combo > 0` ⟺ l'œuf a touché au moins un peg ce tour-ci (le combo n'est
-      // remis à 0 qu'en fin de tour). C'est la condition d'un rattrapage « qualifiant ».
+      // `s.combo > 0` ⟺ l'œuf a touché au moins un peg ce tour-ci (le combo n'est remis à 0
+      // qu'en fin de tour). On suit toujours la SÉRIE de rattrapages — elle ne donne plus de
+      // points, mais pilote encore l'anim/son DMD « STREAK » (renderer/hud.ts).
       if (s.combo > 0) {
         s.bucketStreak += 1;
-
-        if (s.bucketStreak >= 2) {
-          // Bonus de SÉRIE : grimpe à chaque rattrapage qualifiant consécutif. Mis en
-          // attente (pendingStreakBonus) → versé via une PayoutLine à endOfTurn, comme
-          // le jackpot, pour que le DMD payout le rejoue et que le total reste cohérent.
-          const streakBonus = BALANCE.bucketStreak.base * (s.bucketStreak - 1) * s.level;
-          s.pendingStreakBonus += streakBonus;
-          s.flashWhite = Math.max(s.flashWhite, 0.4);
-          s.trauma = Math.min(1, s.trauma + 0.1);
-          spawnParticles(s, b.x, bucketTop, true, 10 + s.bucketStreak * 2);
-          spawnImpactRing(s, b.x, bucketTop, TEXT_FX.gold, Math.min(1, 0.4 + s.bucketStreak * 0.1));
-          s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 32, text: `STREAK ×${s.bucketStreak}`, life: 1, maxLife: 2, color: TEXT_FX.gold, combo: true, exclaim: true, fontSize: Math.min(26, 16 + s.bucketStreak), spin: (s.rng() - 0.5) * 1.2 });
-          s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 14, text: `+${streakBonus.toLocaleString()}`, life: 1, maxLife: 1.8, color: TEXT_FX.goldHi, combo: true, fontSize: 14 });
-        } else {
-          s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 14, text: "EGG SAVED!", life: 1, maxLife: 1.8, color: TEXT_FX.boon, combo: true, exclaim: true, fontSize: 16, spin: (s.rng() - 0.5) * 1.5 });
-        }
-
-        // +1 œuf bonus tous les N rattrapages d'affilée.
-        if (s.bucketStreak % BALANCE.bucketStreak.eggEvery === 0) {
-          s.balls += 1;
-          s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 50, text: "+1 EGG!", life: 1, maxLife: 2, color: TEXT_FX.boon, combo: true, fontSize: 15 });
-        }
-
-        events.push({ kind: "sound", id: s.bucketStreak >= 2 ? "jackpot" : "victory" });
       } else {
-        // Rattrapage direct, sans avoir touché de peg : ne compte pas, casse la série.
+        // Rattrapage direct, sans avoir touché de peg : casse la série.
         s.bucketStreak = 0;
-        s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 14, text: "EGG SAVED!", life: 1, maxLife: 1.8, color: TEXT_FX.boon, combo: true, exclaim: true, fontSize: 16, spin: (s.rng() - 0.5) * 1.5 });
-        events.push({ kind: "sound", id: "victory" });
       }
+
+      s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 14, text: "EGG SAVED!", life: 1, maxLife: 1.8, color: TEXT_FX.boon, combo: true, exclaim: true, fontSize: 16, spin: (s.rng() - 0.5) * 1.5 });
+      events.push({ kind: "sound", id: "victory" });
     }
   }
 

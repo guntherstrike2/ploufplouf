@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useImperativeHandle, useLayoutEffect, useRef, forwardRef } from "react";
-import { drawPegButton, hitPeg, type PegRect, type PegVariant } from "../renderer/ui/peg-button";
+import { drawPegButton, hitPeg, type PegAnim, type PegRect, type PegVariant } from "../renderer/ui/peg-button";
 
 // ─── Boutons du menu principal — RENDUS EN CANVAS ────────────────────────────────
 //
@@ -44,6 +44,24 @@ const BOTTOM_MARGIN = 118;             // marge basse (= le marginBottom CSS du 
 // Ressort de pop (overshoot juteux, = la courbe --pm-spring du CSS).
 const POP_STAGGER = 0.06;              // décalage d'entrée entre boutons (s)
 
+// ── Ressort amorti 1D (interaction juteuse) ──────────────────────────────────────
+// `v` = valeur courante, `vel` = vitesse. On intègre vers `target` avec une raideur
+// `k` et un amortissement `d`. Un `d` < amortissement critique laisse un overshoot
+// (le rebond) ; plus `k` est grand, plus c'est nerveux. Utilisé pour hover/press
+// (cible 0/1) et pour l'impulsion `bounce` (cible 0, mais lancée avec une vitesse).
+interface Spring { v: number; vel: number }
+const newSpring = (v = 0): Spring => ({ v, vel: 0 });
+function stepSpring(s: Spring, target: number, k: number, d: number, dt: number): void {
+  // Intégration semi-implicite (stable) — sous-pas pour ne pas exploser à bas FPS.
+  const steps = Math.max(1, Math.ceil(dt / 0.008));
+  const h = dt / steps;
+  for (let i = 0; i < steps; i++) {
+    const a = (target - s.v) * k - s.vel * d;
+    s.vel += a * h;
+    s.v += s.vel * h;
+  }
+}
+
 export const MenuButtonsCanvas = forwardRef<MenuButtonsHandle, MenuButtonsCanvasProps>(
   function MenuButtonsCanvas({ buttons, visible, onHover, onClick }, ref) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -65,6 +83,12 @@ export const MenuButtonsCanvas = forwardRef<MenuButtonsHandle, MenuButtonsCanvas
     // Pop d'entrée par bouton : progression 0→1 (animée en idle), démarrée au reveal.
     const popT = useRef<number[]>([]);
     const revealedAt = useRef(-1);
+    // Ressorts d'interaction par bouton (juteux) : le hover/press ne « snap » plus, il
+    // converge via ressort amorti, et un coup de fouet `bounce` part au relâchement du
+    // clic → squash & stretch rebondissant. Chaque entrée porte sa valeur + sa vitesse.
+    const liftS = useRef<Spring[]>([]);    // décollage au survol (cible 0/1)
+    const pressS = useRef<Spring[]>([]);   // enfoncement au clic (cible 0/1)
+    const bounce = useRef<Spring[]>([]);   // impulsion de rebond au clic (revient à 0)
     // Onde de secousse (impact d'œuf) : amplitude décroissante + vitesse de ressort.
     const knockAmp = useRef(0);
     // Rects courants (espace CSS), recalculés chaque frame → lus par le hit-test.
@@ -136,6 +160,13 @@ export const MenuButtonsCanvas = forwardRef<MenuButtonsHandle, MenuButtonsCanvas
         const vis = visibleRef.current;
         rects.current = layout();
 
+        // (Re)dimensionne les ressorts d'interaction à la volée selon le nb de boutons.
+        if (liftS.current.length !== btns.length) {
+          liftS.current = btns.map(() => newSpring());
+          pressS.current = btns.map(() => newSpring());
+          bounce.current = btns.map(() => newSpring());
+        }
+
         // Démarrage du pop au passage visible.
         if (vis && revealedAt.current < 0) {
           revealedAt.current = now;
@@ -162,6 +193,28 @@ export const MenuButtonsCanvas = forwardRef<MenuButtonsHandle, MenuButtonsCanvas
           const knockPhase = Math.max(0, knockAmp.current - i * 0.06);
           const shakeY = Math.sin(now / 1000 * 38 + i) * knockPhase * 4;
 
+          // ── Ressorts d'interaction → squash & stretch JUTEUX ──────────────────
+          // hover/press visent 0/1. Réglages nerveux : le hover claque ET dépasse
+          // (raideur haute, amortissement bas → overshoot visible), le press s'enfonce
+          // d'un coup sec mais ferme, le `bounce` part en fouet vif et oscille un peu.
+          const ls = liftS.current[i]!, ps = pressS.current[i]!, bs = bounce.current[i]!;
+          const isHover = hoverIdx.current === i && pressIdx.current === -1;
+          const isPress = pressIdx.current === i;
+          stepSpring(ls, isHover ? 1 : 0, 560, 20, dt);   // hover : claque + dépasse
+          stepSpring(ps, isPress ? 1 : 0, 1400, 52, dt);  // press : enfoncement sec
+          stepSpring(bs, 0, 320, 12, dt);                 // rebond : fouet vif qui oscille
+          const liftV = Math.max(0, ls.v);
+          const pressV = Math.max(0, Math.min(1, ps.v));
+
+          // Squash & stretch — amplitudes GÉNÉREUSES pour un feeling vif :
+          //  • press → bien écrasé (large + plat)
+          //  • bounce → gros étirement vertical au relâchement, puis oscillation
+          //  • hover → gonflement « appétissant » nettement perceptible (~1.07)
+          const squashX = 1 + pressV * 0.16 - bs.v * 0.20 + liftV * 0.04;
+          const squashY = 1 - pressV * 0.20 + bs.v * 0.28 + liftV * 0.07;
+
+          const anim: PegAnim = { lift: liftV, press: pressV, squashX, squashY };
+
           // Le pop scale depuis le bas-centre (translateY + scale, comme le CSS).
           ctx!.save();
           const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
@@ -172,8 +225,7 @@ export const MenuButtonsCanvas = forwardRef<MenuButtonsHandle, MenuButtonsCanvas
 
           drawPegButton(ctx!, r, b.label, {
             variant: b.variant,
-            hover: hoverIdx.current === i && pressIdx.current === -1,
-            pressed: pressIdx.current === i,
+            anim,
             textScale: b.variant === "play" ? 2.6 : 1.7,
             shadowOff: 4,                         // ombre noire portée bien marquée
           });
@@ -212,6 +264,9 @@ export const MenuButtonsCanvas = forwardRef<MenuButtonsHandle, MenuButtonsCanvas
         const hit = hitPeg(rects.current, p.x, p.y);
         // Clic validé seulement si on relâche SUR le bouton pressé (comme le DOM).
         if (hit === wasPressed) {
+          // Coup de fouet : le peg se détend d'un coup → squash & stretch rebondissant.
+          const bs = bounce.current[wasPressed];
+          if (bs) bs.vel += 16;
           onClickRef.current();
           buttonsRef.current[wasPressed]?.onClick();
         }

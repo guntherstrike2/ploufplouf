@@ -131,37 +131,39 @@ function roundSquare(
   ctx.roundRect(cx - half, cy - half, half * 2, half * 2, rad);
 }
 
-// ── Un dot CARRÉ (coins arrondis) ─────────────────────────────────────────────
-// bloom (si allumé+glow) → corps → surbrillance. Éteint = trame discrète. `lvl` 0..1
-// module la brillance (afterglow, pulse, fade). Le corps est un carré à coins doux
-// (look « peg carré » demandé) ; les halos de bloom restent ronds (lumière diffuse).
-function drawDot(
+// ── Corps + surbrillance d'un dot allumé (passe nette, SANS halo) ─────────────
+// `lvl` 0..1 module la brillance (afterglow, pulse, fade). Le corps est un carré à
+// coins doux (look « peg carré » demandé) avec un centre quasi-blanc → brille de
+// l'intérieur. Le halo n'est PAS dessiné ici : il est rendu en amont en UNE passe de
+// silhouette floutée (voir `composite`) qui épouse la forme du texte sans payer un
+// `shadowBlur` par-dot (trop coûteux).
+function drawDotBody(
   ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number,
-  lit: boolean, ink: DmdInk, lvl: number, glow: boolean,
+  ink: DmdInk, lvl: number,
 ): void {
-  if (lit) {
-    if (glow) {
-      // Bloom en DEUX halos ronds (large diffus + serré intense) → la lumière « bave »
-      // autour du peg carré comme sur un vrai panneau plasma.
-      ctx.globalAlpha = 0.32 * lvl;
-      ctx.fillStyle = ink.glow;
-      ctx.beginPath(); ctx.arc(cx, cy, r * 2.4, 0, Math.PI * 2); ctx.fill();
-      ctx.globalAlpha = 0.6 * lvl;
-      ctx.beginPath(); ctx.arc(cx, cy, r * 1.5, 0, Math.PI * 2); ctx.fill();
-    }
-    ctx.globalAlpha = lvl;
-    ctx.fillStyle = ink.on;
-    roundSquare(ctx, cx, cy, r * 1.04); ctx.fill();
-    // Surbrillance plus franche (centre quasi-blanc) → le peg « brille » de l'intérieur.
-    ctx.globalAlpha = 0.95 * lvl;
-    ctx.fillStyle = ink.onHi;
-    roundSquare(ctx, cx - r * 0.24, cy - r * 0.24, r * 0.42); ctx.fill();
-  } else {
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = ink.off;
-    roundSquare(ctx, cx, cy, r * 0.8); ctx.fill();
+  ctx.globalAlpha = lvl;
+  ctx.fillStyle = ink.on;
+  roundSquare(ctx, cx, cy, r * 1.04); ctx.fill();
+  ctx.globalAlpha = 0.95 * lvl;
+  ctx.fillStyle = ink.onHi;
+  roundSquare(ctx, cx - r * 0.24, cy - r * 0.24, r * 0.42); ctx.fill();
+}
+
+// ── Canvas offscreen réutilisable pour la silhouette de halo ──────────────────
+// On peint la silhouette des dots allumés ici (sans ombre), puis on blit ce canvas
+// UNE seule fois avec `shadowBlur` → le flou s'applique au pourtour de la silhouette
+// entière (la forme du texte), pas peg par peg. Un seul buffer recyclé entre frames,
+// redimensionné à la demande (les DMD changent rarement de taille).
+let _haloCv: HTMLCanvasElement | OffscreenCanvas | null = null;
+let _haloCtx: CanvasRenderingContext2D | null = null;
+function haloCanvas(w: number, h: number): [typeof _haloCv, CanvasRenderingContext2D] {
+  if (!_haloCv || _haloCv.width !== w || _haloCv.height !== h) {
+    _haloCv = typeof OffscreenCanvas !== "undefined"
+      ? new OffscreenCanvas(w, h)
+      : Object.assign(document.createElement("canvas"), { width: w, height: h });
+    _haloCtx = _haloCv.getContext("2d") as CanvasRenderingContext2D;
   }
-  ctx.globalAlpha = 1;
+  return [_haloCv, _haloCtx!];
 }
 
 // ── Géométrie de rendu d'un buffer ───────────────────────────────────────────
@@ -183,6 +185,14 @@ export function composite(
   ctx.save();
   const { cols, rows, cur, glow: gl } = buf;
   const { x, y, pitch, dotR } = geom;
+  const cx = (c: number) => x + c * pitch + pitch / 2;
+  const cy = (r: number) => y + r * pitch + pitch / 2;
+
+  // Niveau d'allumage par cellule, calculé une fois (afterglow + intensité + bruit).
+  // Réutilisé par les deux passes. < 0.02 ⇒ dot considéré éteint (sauté). On suit
+  // aussi le plus haut niveau de la frame → opacité globale du blit de halo.
+  const lvls = new Float32Array(cols * rows);
+  let maxLvl = 0;
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const i = r * cols + c;
@@ -192,11 +202,53 @@ export function composite(
         if (decayed > v) v = decayed;   // afterglow : on garde la traîne
       }
       gl[i] = v;
-      if (v <= 0.02) continue;
-      const lvl = Math.min(1, v * intensity * dotNoise(c, r, phase));
-      drawDot(ctx, x + c * pitch + pitch / 2, y + r * pitch + pitch / 2, dotR, true, ink, lvl, glow);
+      const lvl = v <= 0.02 ? 0 : Math.min(1, v * intensity * dotNoise(c, r, phase));
+      lvls[i] = lvl;
+      if (lvl > maxLvl) maxLvl = lvl;
     }
   }
+
+  // (La trame éteinte — grille de fond — est blittée à part par `blitGrid`.)
+
+  // ── PASSE 1 · halo de SILHOUETTE (un seul blit flouté) ──────────────────────
+  // On peint la silhouette des dots allumés sur le canvas offscreen (sans ombre),
+  // puis on blit ce canvas UNE fois avec `shadowBlur`. Le flou ne touche donc que le
+  // POURTOUR de la silhouette entière → un halo qui épouse la forme du texte, pour le
+  // coût d'un seul `fill` flouté/frame (au lieu d'un par dot).
+  if (glow && maxLvl > 0) {
+    const hw = Math.max(1, Math.ceil(cols * pitch));
+    const hh = Math.max(1, Math.ceil(rows * pitch));
+    const [hcv, hctx] = haloCanvas(hw, hh);
+    hctx.clearRect(0, 0, hw, hh);
+    hctx.fillStyle = ink.glow;
+    hctx.globalAlpha = 1;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (lvls[r * cols + c]! <= 0) continue;
+        // coords LOCALES au canvas halo (origine en 0,0, pas x/y).
+        roundSquare(hctx, c * pitch + pitch / 2, r * pitch + pitch / 2, dotR); hctx.fill();
+      }
+    }
+    ctx.save();
+    ctx.shadowColor = ink.glow;
+    ctx.shadowBlur = pitch * 0.9;
+    ctx.globalAlpha = 0.55 * maxLvl;
+    ctx.drawImage(hcv as CanvasImageSource, x, y);
+    ctx.restore();
+  }
+
+  // ── PASSE 2 · corps nets ────────────────────────────────────────────────────
+  // Par-dessus le halo : corps + surbrillance, sans ombre. Les caractères restent
+  // nets et le halo ne « remplit » plus leur intérieur.
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const lvl = lvls[r * cols + c]!;
+      if (lvl <= 0) continue;
+      drawDotBody(ctx, cx(c), cy(r), dotR, ink, lvl);
+    }
+  }
+
+  ctx.globalAlpha = 1;
   ctx.restore();
 }
 
@@ -223,9 +275,12 @@ function gridSprite(
     : Object.assign(document.createElement("canvas"), { width: w, height: h });
   const c = cv.getContext("2d") as CanvasRenderingContext2D;
   c.imageSmoothingEnabled = false;
+  c.fillStyle = ink.off;
   for (let r = 0; r < rows; r++)
-    for (let col = 0; col < cols; col++)
-      drawDot(c, col * pitch + pitch / 2, r * pitch + pitch / 2, dotR, false, ink, 1, false);
+    for (let col = 0; col < cols; col++) {
+      roundSquare(c, col * pitch + pitch / 2, r * pitch + pitch / 2, dotR * 0.8);
+      c.fill();
+    }
   _gridSprites.set(key, cv);
   return cv;
 }

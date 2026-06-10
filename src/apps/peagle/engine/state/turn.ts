@@ -48,12 +48,6 @@ export function endOfTurn(s: GameState, events: GameEvent[]): void {
     1 + s.turnOrangeCount * BALANCE.score.orangeMultStep,
   );
 
-  // Série de paniers : bonus encaissé en live, ajouté au bleu (donc multiplié aussi).
-  if (s.pendingStreakBonus > 0) {
-    bonusBlue += s.pendingStreakBonus;
-    lines.push({ kind: "bonus", label: "STREAK", amount: s.pendingStreakBonus });
-    s.pendingStreakBonus = 0;
-  }
   if (s.pendingJackpotBalls > 0) {
     s.balls += s.pendingJackpotBalls;
     s.pendingJackpotBalls = 0;

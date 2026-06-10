@@ -17,8 +17,9 @@
 import { ROLE } from "../../engine/palette";
 import { alpha, roundGlowRect } from "../helpers";
 import { pxGlyph, pxTextCols, PX_GLYPH_ROWS, PX_GLYPH_W, PX_GLYPH_GAP } from "../dmd/font-pixel";
+import { pxGlyphExt, pxTextColsExt } from "../dmd/font-pixel-ext";
 
-// ── Fonte bitmap (Press Start 2P 5×5) partagée HUD + boutons ─────────────────────
+// ── Fonte bitmap (Press Start 2P 7×8) partagée HUD + boutons ─────────────────────
 export type BitmapFont = {
   rows: number; w: number; gap: number;
   glyph: (ch: string) => readonly string[];
@@ -28,6 +29,11 @@ export const FONT_BIG: BitmapFont = {
   rows: PX_GLYPH_ROWS, w: PX_GLYPH_W, gap: PX_GLYPH_GAP, glyph: pxGlyph, cols: pxTextCols,
 };
 export const FONT_SMALL: BitmapFont = FONT_BIG;
+// Fonte ÉTENDUE : mêmes métriques, mais couvre · … ⋮ et les accents latins courants
+// (font-pixel-ext.ts). À utiliser pour le texte libre — pseudos serveur du classement.
+export const FONT_EXT: BitmapFont = {
+  rows: PX_GLYPH_ROWS, w: PX_GLYPH_W, gap: PX_GLYPH_GAP, glyph: pxGlyphExt, cols: pxTextColsExt,
+};
 
 // Encre sombre posée sur le peg vif (= `color: #0a1a06` du `.pg-pm-btn`).
 export const PEG_INK = ROLE.ink;
@@ -148,10 +154,27 @@ function lighten(hex: string, amt: number): string {
 
 export interface PegRect { x: number; y: number; w: number; h: number }
 
+// État d'animation CONTINU d'un bouton — piloté par des ressorts côté appelant
+// (MenuButtonsCanvas) pour un feedback juteux. Là où `hover`/`pressed` étaient des
+// booléens (snap instantané, ok pour les inserts HUD figés), `anim` interpole tout :
+//  • `lift`  0→1 : décollage haut-gauche au survol (spring overshoot possible >1)
+//  • `press` 0→1 : enfoncement (bevel s'inverse progressivement à mi-course)
+//  • `squashX/Y`  : facteurs d'échelle (squash & stretch — <1 écrase, >1 étire)
+// `drawPegButton` traduit ça en pixels. Si `anim` est absent, on retombe sur les
+// booléens `hover`/`pressed` (compat HUD).
+export interface PegAnim {
+  lift: number;
+  press: number;
+  squashX: number;
+  squashY: number;
+}
+
 export interface DrawPegButtonOpts {
   variant?: PegVariant;
   hover?: boolean;
   pressed?: boolean;
+  /** État d'animation continu (spring). Prioritaire sur `hover`/`pressed` si fourni. */
+  anim?: PegAnim;
   /** Échelle d'un dot du label (px). Défaut 2. */
   textScale?: number;
   /** Décalage de l'ombre dure portée (px). Défaut 3 (= inserts HUD). */
@@ -166,50 +189,73 @@ export interface DrawPegButtonOpts {
 // donc un noir pur, plus sombre que le fond, pour qu'elle ressorte malgré tout.
 const SHADOW = "rgba(0,0,0,0.85)";
 
+// Convertit les booléens hover/pressed en `PegAnim` figé (états « secs » du HUD).
+function boolAnim(hover: boolean, pressed: boolean): PegAnim {
+  if (pressed) return { lift: 0, press: 1, squashX: 1, squashY: 1 };
+  if (hover) return { lift: 1, press: 0, squashX: 1, squashY: 1 };
+  return { lift: 0, press: 0, squashX: 1, squashY: 1 };
+}
+
 // ── drawPegButton — dessine un bouton peg complet (ombre + plaque + label) ───────
-// Reproduit les états du CSS :
-//  • hover   → peg éclairci (brightness 1.1) + léger décollage haut-gauche
-//  • pressed → bevel INVERSÉ (sombre en haut-gauche) + enfoncé + ombre résorbée
-// Retourne le `PegRect` de hit-test (= la boîte passée, inchangée — le décalage
-// hover/press n'affecte QUE le dessin, pas la zone cliquable, pour éviter le flicker).
+// Pilotage CONTINU via `anim` (ou booléens hover/pressed → snap, compat HUD) :
+//  • lift   → décollage progressif haut-gauche + ombre qui s'écarte + éclaircissement
+//  • press  → enfoncement, bevel qui s'inverse à mi-course, ombre qui se résorbe
+//  • squash → squash & stretch (le peg s'écrase au clic puis rebondit, ancré au centre-bas)
+// Retourne le `PegRect` de hit-test (= la boîte passée, inchangée — le mouvement
+// visuel n'affecte PAS la zone cliquable, pour éviter le flicker au survol/clic).
 export function drawPegButton(
   ctx: CanvasRenderingContext2D, rect: PegRect, label: string,
   opts: DrawPegButtonOpts = {},
 ): PegRect {
   const { variant = "primary", hover = false, pressed = false, textScale = 2, shadowOff = 3, lift = false } = opts;
   const skin = SKINS[variant];
+  const a = opts.anim ?? boolAnim(hover, pressed);
 
-  // Décalage hover/press (le « bond » du peg CSS) — purement visuel.
-  const dx = pressed ? 2 : hover ? -2 : 0;
-  const dy = pressed ? 2 : hover ? -3 : 0;
   const { x: bx, y: by, w, h } = rect;
-  const x = bx + dx, y = by + dy;
+
+  // Décalage VERTICAL pur : le lift fait BIEN monter le peg tout droit, le press
+  // l'enfonce tout droit — aucune dérive horizontale (symétrique gauche-droite).
+  const dx = 0;
+  const dy = a.press * 3 - a.lift * 6;
+
+  // Squash & stretch : on déforme la plaque autour de son CENTRE — l'écrasement/étirement
+  // reste symétrique (autant de chaque côté), pas ancré au bas. On garde des entiers
+  // (silhouette pixel) ; le décalage hover/press s'applique au centre, pas à un coin.
+  const sw = Math.max(8, Math.round(w * a.squashX));
+  const sh = Math.max(8, Math.round(h * a.squashY));
+  const x = bx + dx + Math.round((w - sw) / 2);   // recentré horizontalement
+  const y = by + dy + Math.round((h - sh) / 2);   // recentré verticalement (symétrique)
 
   // Halo de séparation : un liseré clair (vert vif) débordant de 1px tout autour de la
   // plaque, dessiné AVANT l'ombre. Sur le décor quasi-noir du menu, c'est lui qui
   // « décolle » réellement le bouton du fond (l'ombre noire seule s'y fondrait).
   if (lift && variant !== "ghost") {
     ctx.fillStyle = alpha(skin.hi, 0.5);
-    roundGlowRect(ctx, x - 1, y - 1, w + 2, h + 2);
+    roundGlowRect(ctx, x - 1, y - 1, sw + 2, sh + 2);
   }
 
-  // Couleurs effectives : hover éclaircit le corps, press l'assombrit légèrement.
-  let fill = skin.fill, hi = skin.hi, deep = skin.deep;
-  if (hover) { fill = lighten(fill, 0.12); }
-  else if (pressed) { fill = lighten(fill, -0.08); }
-  // Press : bevel inversé (clair↔sombre permutés) → le peg paraît enfoncé.
-  if (pressed) { const t = hi; hi = deep; deep = t; }
+  // Couleurs effectives : le lift éclaircit FRANCHEMENT le corps (peg « allumé » au
+  // survol), le press l'assombrit. Le tint suit le ressort → l'éclat dépasse aussi.
+  const tint = a.lift * 0.2 - a.press * 0.1;
+  const fill = lighten(skin.fill, tint);
+  let hi = skin.hi, deep = skin.deep;
+  // Press : bevel inversé (clair↔sombre permutés) à partir de mi-course → enfoncement.
+  if (a.press >= 0.5) { const t = hi; hi = deep; deep = t; }
 
-  // Ombre dure portée — fixe (comme les inserts HUD) ; résorbée au press.
-  if (variant !== "ghost" && !pressed) {
-    ctx.fillStyle = SHADOW;
-    roundGlowRect(ctx, x + shadowOff, y + shadowOff, w, h);
+  // Ombre dure portée — droit en DESSOUS (pas de décalage horizontal → symétrique
+  // gauche-droite). S'ÉCARTE avec le lift (le peg décolle), se RÉSORBE avec le press.
+  if (variant !== "ghost") {
+    const off = shadowOff * (1 + a.lift * 1.1) * (1 - a.press);
+    if (off > 0.3) {
+      ctx.fillStyle = SHADOW;
+      roundGlowRect(ctx, x, y + off, sw, sh);
+    }
   }
 
-  pegPlate(ctx, x, y, w, h, fill, hi, deep);
+  pegPlate(ctx, x, y, sw, sh, fill, hi, deep);
 
-  // Label gravé, centré. Variant ghost : pas de reflet (label muted simple).
-  pegText(ctx, label, x + w / 2, y + h / 2, textScale, "center", FONT_BIG, skin.ink);
+  // Label gravé, centré sur la plaque déformée. Variant ghost : pas de reflet.
+  pegText(ctx, label, x + sw / 2, y + sh / 2, textScale, "center", FONT_BIG, skin.ink);
 
   return rect;
 }
