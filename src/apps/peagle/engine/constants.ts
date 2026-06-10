@@ -23,8 +23,8 @@ export const CLUTCH_THRESHOLD = 3;
 export const AIM_LINE_STEPS = 180;
 export const SLOW_MO_DURATION = 50;   // burst court à la cassure ; le gros du ralenti se joue près du panier
 export const LAUNCHER_X = W / 2;
-export const LAUNCHER_Y = 74;            // descendu pour laisser la place au HUD haut
-export const HUD_H = 44;                  // hauteur de la barre HUD in-canvas (en haut)
+export const LAUNCHER_Y = 92;            // descendu pour laisser la place au grand HUD pinball
+export const HUD_H = 72;                  // hauteur de la barre HUD in-canvas (en haut) — backglass pinball (DMD héros + chrome + lanes), place pour les scènes/inserts
 export const LAUNCHER_MARGIN = 28;       // marge bord ↔ centre de l'aigle (drag horizontal)
 export const LAUNCHER_GRAB_R = 34;       // rayon de saisie de l'aigle (espace canvas)
 

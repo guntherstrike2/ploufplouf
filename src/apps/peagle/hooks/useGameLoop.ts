@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useCallback } from "react";
 import type { RefObject } from "react";
 import { usePeagleSounds } from "./usePeagleSounds";
 import { drawFrame } from "../renderer";
-import { PAUSE_HIT } from "../renderer/hud";
+import { PAUSE_HIT, drainCountupCues } from "../renderer/hud";
 import { resolveTheme, invalidateTheme } from "../engine/game-theme";
 import { tick } from "../engine/state/tick";
 import { isClutchActive } from "../engine/clutch";
@@ -99,11 +99,20 @@ export function useGameLoop({
     playWallBounce, playBucketCatch, playJackpot, playClearBoard,
     playLevelClear, playPegClear, playGameOver,
     playGrab, playFirework, playEagleCryLong,
+    playCountTick, playCountFinish,
   } = usePeagleSounds();
 
   // Ref stable pour playFirework (utilisé dans la boucle rAF sans le mettre en dep)
   const playFireworkRef = useRef(playFirework);
-  useLayoutEffect(() => { playFireworkRef.current = playFirework; });
+  useLayoutEffect(() => { playFireworkRef.current = playFirework; }, [playFirework]);
+
+  // Refs stables pour les sons du count-up (drainés dans la boucle rAF, hors deps).
+  const playCountTickRef = useRef(playCountTick);
+  const playCountFinishRef = useRef(playCountFinish);
+  useLayoutEffect(() => {
+    playCountTickRef.current = playCountTick;
+    playCountFinishRef.current = playCountFinish;
+  }, [playCountTick, playCountFinish]);
 
   // Trigger times des feux d'artifice (correspondant aux BURSTS dans celebration.ts)
   const FW_TRIGS = [0.55, 1.15, 1.80, 2.50, 3.20, 4.00, 4.80] as const;
@@ -156,7 +165,7 @@ export function useGameLoop({
     playPegHit, playPegReveal, playOrangePegHit, playBumperHit, playComboTier,
     playWallBounce, playBucketCatch, playJackpot, playClearBoard,
     playLevelClear, playPegClear, playGameOver,
-    playEagleCryLong, onBestScore,
+    playEagleCryLong, onBestScore, bestScoreRef,
   ]);
 
   const syncUI = useCallback((orangeLeft?: number) => {
@@ -234,6 +243,11 @@ export function useGameLoop({
     s.ball = { x: s.launcherX, y: LAUNCHER_Y, vx: Math.cos(angle) * LAUNCH_SPEED, vy: Math.sin(angle) * LAUNCH_SPEED, active: true, trail: [], trailHead: 0, squash: 0 };
     s.balls -= 1;
     s.turnScoreStart = s.score;
+    s.turnBluePts = 0;                // points bleus : repartent à 0 à chaque tir (versés chaque tour)
+    // turnOrangeCount (le multiplicateur orange) N'EST PAS reset ici : il s'accumule de
+    // tour en tour tant qu'on rattrape l'œuf au panier (streak). Un œuf perdu (hors
+    // écran) le remet à 0 dans processBallPhysics. → multiplicateur risk/reward.
+    s.bumperChainShot = 0;            // chaîne de bumpers du tir en cours
     s.fireStartClock = s.animClock;   // base du timer « vol dans le vide » (face.ts)
     s.phase = "firing";
     syncUI();
@@ -364,7 +378,9 @@ export function useGameLoop({
           showHitboxes: devConfigRef.current?.showHitboxes ?? false,
           orangeTotal: orangeTotalRef.current,
           isNewRecord: devNewRecordRef.current || confirmedNewRecordRef.current,
+          bestScore: bestScoreRef.current,
         });
+        drainCountupCues();   // vide sans jouer : pas de rafale de ticks au sortir de pause
         animRef.current = requestAnimationFrame(frame);
         return;
       }
@@ -399,7 +415,14 @@ export function useGameLoop({
         showHitboxes: devConfigRef.current?.showHitboxes ?? false,
         orangeTotal: orangeTotalRef.current,
         isNewRecord: devNewRecordRef.current || (s.phase === "won" && s.score > 0 && s.score >= bestScoreRef.current),
+        bestScore: bestScoreRef.current,
       });
+
+      // Sons du count-up (versement de fin de tour) : le renderer pousse des cues, on les joue.
+      for (const cue of drainCountupCues()) {
+        if (cue === "finish") playCountFinishRef.current();
+        else if (cue.startsWith("tick:")) playCountTickRef.current(parseFloat(cue.slice(5)));
+      }
 
       // Curseur dynamique : main ouverte au survol de l'aigle, main fermée pendant
       // le drag → on comprend qu'on peut l'attraper et le déplacer.

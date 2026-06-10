@@ -151,15 +151,22 @@ export const TEXT_FX = {
   // Tableau vidé — éclat blanc cassé chaud (cream) au lieu du blanc pur.
   clear:    RAMP.cream,
 
-  // Escalade hype (tier 0..5), du feuillage à l'or à l'orange, sommet violet.
+  // Escalade hype (tier 0..5) en couleurs CROISSANTES : vert foncé → vert clair →
+  // orange (de plus en plus chaud). Le sommet « FOU » (tier 5) clignote entre vert
+  // et orange — ce clignotement est calculé dans le renderer (drawHypeTexts), la
+  // couleur posée ici n'est qu'un repli statique.
   hype: [
-    RAMP.green[300],  // tier 0 — feuille (début de chaîne)
-    RAMP.green[200],  // tier 1 — vert clair
-    RAMP.gold[100],   // tier 2 — l'or s'allume
-    RAMP.gold[300],   // tier 3 — or principal
-    RAMP.orange[400], // tier 4 — ça chauffe
-    RAMP.purple[400], // tier 5 — LÉGENDE, rareté épique
+    RAMP.green[600],  // tier 0 — vert foncé (début de chaîne)
+    RAMP.green[300],  // tier 1 — vert clair
+    RAMP.orange[300], // tier 2 — orange
+    RAMP.orange[400], // tier 3 — orange vif
+    RAMP.orange[600], // tier 4 — orange chaud profond
+    RAMP.green[300],  // tier 5 — FOU : clignote vert↔orange (cf. renderer)
   ] as readonly string[],
+
+  // Couleurs du clignotement « FOU » (tier 5) : on alterne entre ces deux teintes.
+  hypeCrazyA: RAMP.green[300],   // vert clignotant
+  hypeCrazyB: RAMP.orange[400],  // orange clignotant
 
   // Dégradé doré appliqué au CORPS des mots hype (clair → or → chaud profond).
   // Look « métal précieux » au lieu d'un aplat. Utilisé par le renderer.

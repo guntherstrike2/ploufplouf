@@ -87,78 +87,178 @@ function drawConfetti(ctx: CanvasRenderingContext2D, wonAge: number, seed: numbe
   }
 }
 
-// ─── Feux d'artifice ──────────────────────────────────────────────────────────
+// ─── Pluie de plumes d'aigle ──────────────────────────────────────────────────
+//
+// Remplace les feux d'artifice : des plumes qui tournoient en tombant, en
+// tonalités aigle (doré / crème / brun). Deux couches :
+//   • un voile de plumes ambiant qui descend en continu (comme le confetti) ;
+//   • des « bouffées » synchronisées sur les mêmes trig times que les sons
+//     (CELEBRATION_BURST_TRIGS) : à chaque salve, un paquet de plumes est
+//     relâché depuis le haut, calé sur le « pop » audio joué par useGameLoop.
 
-// Les trigger times correspondent aux sons joués depuis useGameLoop
+// Les trigger times correspondent aux sons joués depuis useGameLoop.
 export const CELEBRATION_BURST_TRIGS = [0.55, 1.15, 1.80, 2.50, 3.20, 4.00, 4.80] as const;
 
-const BURSTS = [
-  { trig: 0.00, cx: 120, cy: 85,  r: 52, n: 20, hue: 50  },
-  { trig: 0.55, cx: 355, cy: 68,  r: 58, n: 22, hue: 210 },
-  { trig: 1.15, cx: 80,  cy: 108, r: 46, n: 18, hue: 330 },
-  { trig: 1.80, cx: 390, cy: 92,  r: 54, n: 20, hue: 120 },
-  { trig: 2.50, cx: 240, cy: 72,  r: 64, n: 24, hue: 35  },
-  { trig: 3.20, cx: 145, cy: 88,  r: 50, n: 18, hue: 275 },
-  { trig: 4.00, cx: 330, cy: 95,  r: 58, n: 22, hue: 185 },
-  { trig: 4.80, cx: 240, cy: 78,  r: 70, n: 28, hue: 50  },
+// Teintes plume : doré chaud, crème/blanc, brun aigle.
+const FEATHER_COLORS = [
+  "#ffd24a", // or principal
+  "#ffe870", // or clair
+  "#f2e6c2", // crème
+  "#ffffff", // blanc reflet
+  "#c79a52", // brun doré
+  "#8a5a2b", // brun aigle
 ] as const;
 
-const BURST_DUR = 1.9;
+// Dessine une plume pixel-art à (x,y), inclinée de `rot` rad, échelle `sz`.
+// Silhouette lisible : large près de la base, effilée vers une POINTE asymétrique,
+// légèrement COURBÉE (banane), avec un rachis clair fendant les deux nappes de
+// barbes — c'est cette asymétrie + la courbe + la fente qui font lire « plume »
+// plutôt qu'un grain ovale.
+function drawFeather(
+  ctx: CanvasRenderingContext2D,
+  x: number, y: number, rot: number, sz: number,
+  color: string, alpha: number,
+): void {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(x, y);
+  ctx.rotate(rot);
+  ctx.imageSmoothingEnabled = false;
 
-function drawFireworks(ctx: CanvasRenderingContext2D, wonAge: number, animClock: number): void {
-  for (const fw of BURSTS) {
-    const fwAge = wonAge - fw.trig;
-    if (fwAge <= 0 || fwAge > BURST_DUR) continue;
+  const len   = Math.max(8, Math.round(13 * sz)); // plus longue → silhouette claire
+  const maxW  = Math.max(2, Math.round(3.2 * sz)); // largeur max (vers le 1/3 bas)
+  const curve = 1.6 * sz;                          // amplitude de la courbure
+  const half  = len / 2;
 
-    const t    = fwAge / BURST_DUR;
-    // Alpha: fade in fast, stay, fade out
-    const alpha = t < 0.18 ? t / 0.18 : t > 0.65 ? (1 - t) / 0.35 : 1;
+  // Profil de largeur asymétrique : le ventre est dans le tiers inférieur (t≈0.3)
+  // puis décroît jusqu'à 0 à la pointe (t=1) → vraie pointe, pas un ovale.
+  for (let i = 0; i < len; i++) {
+    const t = i / (len - 1);                    // 0 (base) → 1 (pointe)
+    // enfle vite puis s'affine : pow asymétrique
+    const shape = Math.pow(t, 0.55) * Math.pow(1 - t, 0.85) * 2.1;
+    const w = Math.round(maxW * shape);
+    if (w <= 0) continue;
+
+    // Courbure : le rachis dérive latéralement le long de la longueur (banane).
+    const spine = Math.round(Math.sin(t * Math.PI) * curve);
+    const yy = i - half;
+
+    // Nappe de barbes (la moitié "soleil" un peu plus claire pour le volume).
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = color;
+    ctx.fillRect(spine - w, yy, w * 2 + 1, 1);
+
+    // Fente centrale : 1px transparent simulé par le rachis clair posé par-dessus.
+  }
+
+  // Rachis clair (tige) qui fend la plume — suit la même courbe.
+  for (let i = 1; i < len - 1; i++) {
+    const t = i / (len - 1);
+    const spine = Math.round(Math.sin(t * Math.PI) * curve);
+    ctx.globalAlpha = alpha * 0.9;
+    ctx.fillStyle = "rgba(255,255,255,0.55)";
+    ctx.fillRect(spine, i - half, 1, 1);
+  }
+
+  ctx.restore();
+}
+
+interface Feather {
+  x0:        number;
+  fallSpeed: number;
+  driftAmp:  number;
+  driftFreq: number;
+  phase:     number;
+  spinSpeed: number;
+  colorIdx:  number;
+  sz:        number;
+  delay:     number;
+  burst:     number; // -1 = voile ambiant ; sinon index de la salve
+}
+
+let _featherCached: Feather[] | null = null;
+let _featherSeed = -1;
+
+function getFeathers(seed: number): Feather[] {
+  if (_featherSeed === seed && _featherCached) return _featherCached;
+  const rnd = prng(seed);
+
+  const feathers: Feather[] = [];
+
+  // Voile ambiant : plumes réparties, qui tombent doucement en boucle.
+  for (let i = 0; i < 46; i++) {
+    feathers.push({
+      x0:        Math.round(rnd() * (W + 80)) - 40,
+      fallSpeed: 16 + rnd() * 30,
+      driftAmp:  10 + rnd() * 30,
+      driftFreq: 0.5 + rnd() * 1.8,
+      phase:     rnd() * Math.PI * 2,
+      spinSpeed: (rnd() - 0.5) * 3.2,
+      colorIdx:  Math.floor(rnd() * FEATHER_COLORS.length),
+      sz:        0.6 + rnd() * 0.7,
+      delay:     rnd() * 2.4,
+      burst:     -1,
+    });
+  }
+
+  // Bouffées synchronisées : un paquet de plumes lâché à chaque trig audio,
+  // depuis une zone large en haut, pour « pleuvoir » sur le pop sonore.
+  CELEBRATION_BURST_TRIGS.forEach((trig, b) => {
+    const count = 10 + Math.floor(rnd() * 6);
+    for (let i = 0; i < count; i++) {
+      feathers.push({
+        x0:        Math.round(rnd() * (W + 60)) - 30,
+        fallSpeed: 34 + rnd() * 46,
+        driftAmp:  14 + rnd() * 34,
+        driftFreq: 0.7 + rnd() * 2.2,
+        phase:     rnd() * Math.PI * 2,
+        spinSpeed: (rnd() - 0.5) * 4.5,
+        colorIdx:  Math.floor(rnd() * FEATHER_COLORS.length),
+        sz:        0.7 + rnd() * 0.8,
+        delay:     trig + rnd() * 0.18,
+        burst:     b,
+      });
+    }
+  });
+
+  _featherCached = feathers;
+  _featherSeed = seed;
+  return _featherCached;
+}
+
+function drawFeatherRain(ctx: CanvasRenderingContext2D, wonAge: number, seed: number): void {
+  const feathers = getFeathers(seed);
+
+  for (const f of feathers) {
+    const age = wonAge - f.delay;
+    if (age <= 0) continue;
+
+    // Chute : voile en boucle (wrap), bouffées en passage unique.
+    let y: number;
+    let alpha: number;
+    if (f.burst < 0) {
+      const span = H + 80;
+      const rawY = (f.phase / (Math.PI * 2)) * span + age * f.fallSpeed;
+      y = (rawY % span) - 40;
+      alpha = 0.55;
+    } else {
+      y = -30 + age * f.fallSpeed;
+      if (y > H + 20) continue;
+      // fade-in rapide à l'apparition, fade-out près du bas
+      const fin = Math.min(1, age / 0.25);
+      const fout = y > H * 0.7 ? Math.max(0, (H + 20 - y) / (H * 0.3 + 20)) : 1;
+      alpha = 0.85 * fin * fout;
+    }
     if (alpha <= 0.02) continue;
 
-    // Flash central au moment de l'explosion
-    if (t < 0.22) {
-      const flashA = (1 - t / 0.22) * 0.55;
-      ctx.globalAlpha = flashA;
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(fw.cx - 4, fw.cy - 4, 9, 9);
-    }
+    const x = f.x0 + Math.sin(age * f.driftFreq + f.phase) * f.driftAmp;
+    if (x < -20 || x > W + 20) continue;
 
-    for (let i = 0; i < fw.n; i++) {
-      const angle  = (i / fw.n) * Math.PI * 2;
-      // Expansion easeOut : démarre vite, ralentit
-      const distT  = Math.min(1, fwAge / 1.0);
-      const dist   = fw.r * (1 - (1 - distT) * (1 - distT));
-      const grav   = 14 * fwAge * fwAge;
+    // Rotation = tournoiement (spin) + balancement suivant la dérive latérale.
+    const sway = Math.cos(age * f.driftFreq + f.phase) * 0.5;
+    const rot  = age * f.spinSpeed + sway;
 
-      const px = Math.round(fw.cx + Math.cos(angle) * dist);
-      const py = Math.round(fw.cy + Math.sin(angle) * dist + grav);
-
-      const twink = 0.5 + 0.5 * Math.abs(Math.sin(animClock * 7 + i * 1.1));
-      const hue   = (fw.hue + i * (360 / fw.n) * 0.32) % 360;
-      ctx.globalAlpha = alpha * twink;
-      ctx.fillStyle = hsl(hue, 1, 0.62);
-      ctx.fillRect(px - 1, py - 1, 3, 3);
-
-      // Traîne si particule encore jeune
-      if (fwAge < 0.65) {
-        const td      = dist * 0.60;
-        const tx      = Math.round(fw.cx + Math.cos(angle) * td);
-        const ty      = Math.round(fw.cy + Math.sin(angle) * td + grav * 0.45);
-        ctx.globalAlpha = alpha * 0.28;
-        ctx.fillRect(tx, ty, 2, 2);
-      }
-
-      // Bras secondaires (étoile à 8 branches pour les gros feux)
-      if (fw.n >= 24 && i % 3 === 0) {
-        const a2 = angle + Math.PI / fw.n;
-        const d2 = dist * 0.72;
-        const sx = Math.round(fw.cx + Math.cos(a2) * d2);
-        const sy = Math.round(fw.cy + Math.sin(a2) * d2 + grav * 0.8);
-        ctx.globalAlpha = alpha * twink * 0.65;
-        ctx.fillStyle = hsl((hue + 30) % 360, 1, 0.72);
-        ctx.fillRect(sx - 1, sy - 1, 2, 2);
-      }
-    }
+    drawFeather(ctx, Math.round(x), Math.round(y), rot, f.sz, FEATHER_COLORS[f.colorIdx]!, alpha);
   }
   ctx.globalAlpha = 1;
 }
@@ -301,8 +401,9 @@ export function drawCelebration(
   const confettiSeed = ((s.forestSeed ^ (s.level * 98765)) >>> 0);
   drawConfetti(ctx, wonAge, confettiSeed);
 
-  // Feux d'artifice
-  drawFireworks(ctx, wonAge, s.animClock);
+  // Pluie de plumes d'aigle (remplace les feux d'artifice)
+  const featherSeed = ((s.forestSeed ^ (s.level * 54321)) >>> 0);
+  drawFeatherRain(ctx, wonAge, featherSeed);
 
   // Étoiles filantes
   drawVictoryStars(ctx, wonAge, s.animClock);

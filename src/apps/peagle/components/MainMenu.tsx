@@ -7,6 +7,7 @@ import { usePeagleSounds } from "../hooks/usePeagleSounds";
 import { DevPanel } from "./DevPanel";
 import type { DevConfig } from "./DevPanel";
 import { TitleCanvas } from "./TitleCanvas";
+import { MenuButtonsCanvas, type MenuButtonsHandle, type MenuButtonDef } from "./MenuButtonsCanvas";
 import type { BeatBands } from "../hooks/useMusic";
 import { PG, GRADIENT } from "../styles";
 import { PatchNotes } from "./PatchNotes";
@@ -45,25 +46,21 @@ export function MainMenu({
   const [showInstructions, setShowInstructions] = useState(false);
   const { playMenuClick, playMenuHover, playMenuReveal, playTitleImpact, playEagleCryShort, playEagleCryLong } = usePeagleSounds();
 
-  // Texte des boutons qui réagit aux impacts d'œufs sur le titre.
-  // Onde de choc lointaine → amplitude volontairement minuscule (~force × 3px),
-  // avec un léger décalage par bouton pour que la secousse « descende » le menu.
-  const btnRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  // Boutons du menu rendus en canvas (cf. MenuButtonsCanvas). L'onde de choc des
+  // impacts d'œufs sur le titre leur est transmise via la ref impérative `knock`.
+  const menuBtnsRef = useRef<MenuButtonsHandle>(null);
   const handleImpact = useCallback((force: number) => {
     playTitleImpact(force);
-    const amp = 1 + force * 2.4; // ~1 à 3.4px max — bien plus faible que le titre
-    btnRefs.current.forEach((el, i) => {
-      if (!el) return;
-      el.animate(
-        [
-          { transform: "translateY(0)" },
-          { transform: `translateY(${amp}px)` },
-          { transform: "translateY(0)" },
-        ],
-        { duration: 200, delay: i * 45, easing: "cubic-bezier(0.34,1.56,0.64,1)" },
-      );
-    });
+    menuBtnsRef.current?.knock(force);
   }, [playTitleImpact]);
+
+  // Définition des 4 boutons principaux — l'ordre = ordre d'empilement (PLAY en tête).
+  const menuButtons: MenuButtonDef[] = [
+    { label: "PLAY",        variant: "play",    onClick: onPlay },
+    { label: "LEADERBOARD", variant: "primary", onClick: onLeaderboard },
+    { label: "HOW TO PLAY", variant: "primary", onClick: () => setShowInstructions(true) },
+    { label: "OPTIONS",     variant: "primary", onClick: () => setShowSettings(true) },
+  ];
 
   return (
     <div
@@ -123,7 +120,7 @@ export function MainMenu({
         <button
           className="pg-dev-link"
           onClick={() => { playMenuClick(); setShowDev(true); }}
-          title="Outils développeur"
+          title="Developer Tools"
         >
           dev
         </button>
@@ -148,66 +145,21 @@ export function MainMenu({
             pointerEvents: "none"
           }}
         >
-          TOUCHEZ POUR PASSER
+          TOUCH TO SKIP
         </div>
       )}
 
-      {/* Menu diégétique — peg-boutons bouncy, intégrés à la scène, tactiles.
-          Chaque bouton « pop » en décalé (animationDelay) au reveal du menu. */}
-      <div
-        className="pg-pm-panel"
-        style={{
-          zIndex: 2,
-          marginBottom: "clamp(96px, 13vh, 140px)",
-          opacity: showMenu ? 1 : 0,
-          transition: "opacity 0.3s ease-out",
-          pointerEvents: showMenu ? "auto" : "none"
-        }}
-      >
-        <button
-          ref={(el) => { btnRefs.current[0] = el; }}
-          className="pg-pm-btn pg-pm-btn-play"
-          style={{ animationDelay: "0.04s" }}
-          onPointerEnter={playMenuHover}
-          onClick={() => { playMenuClick(); onPlay(); }}
-        >
-          JOUER
-        </button>
-
-        {/* Boutons secondaires — regroupés et serrés, détachés du CTA « JOUER »
-            par un espace plus large pour hiérarchiser la lecture. */}
-        <div className="pg-pm-subgroup">
-          <button
-            ref={(el) => { btnRefs.current[1] = el; }}
-            className="pg-pm-btn"
-            style={{ animationDelay: "0.12s" }}
-            onPointerEnter={playMenuHover}
-            onClick={() => { playMenuClick(); onLeaderboard(); }}
-          >
-            CLASSEMENT
-          </button>
-
-          <button
-            ref={(el) => { btnRefs.current[2] = el; }}
-            className="pg-pm-btn"
-            style={{ animationDelay: "0.18s" }}
-            onPointerEnter={playMenuHover}
-            onClick={() => { playMenuClick(); setShowInstructions(true); }}
-          >
-            INSTRUCTIONS
-          </button>
-
-          <button
-            ref={(el) => { btnRefs.current[3] = el; }}
-            className="pg-pm-btn"
-            style={{ animationDelay: "0.24s" }}
-            onPointerEnter={playMenuHover}
-            onClick={() => { playMenuClick(); setShowSettings(true); }}
-          >
-            OPTIONS
-          </button>
-        </div>
-      </div>
+      {/* Menu diégétique — peg-boutons RENDUS EN CANVAS (cf. MenuButtonsCanvas),
+          posés au-dessus du décor. Pop décalé au reveal, hover/press au hit-test,
+          secousse aux impacts d'œufs. Le STYLE peg vient de renderer/ui/peg-button.ts
+          (source unique partagée avec les inserts du HUD). */}
+      <MenuButtonsCanvas
+        ref={menuBtnsRef}
+        buttons={menuButtons}
+        visible={showMenu}
+        onHover={playMenuHover}
+        onClick={playMenuClick}
+      />
 
       {/* Bannière version — petit peg doré épinglé en bas, cliquable pour les MAJ. */}
       {showMenu && (
@@ -216,7 +168,7 @@ export function MainMenu({
             className="pg-pm-version"
             onPointerEnter={playMenuHover}
             onClick={() => { playMenuClick(); setShowPatchNotes(true); }}
-            title="Voir le changelog"
+            title="View changelog"
           >
             CHANGELOG
             <br />

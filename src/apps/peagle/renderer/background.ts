@@ -1,7 +1,7 @@
 import { W, H, MAX_SHAKE } from "../engine/constants";
 import type { GameState } from "../engine/types";
 import type { GameTheme, BgTheme, ForetDecor, ForetDecorMode } from "../engine/game-theme";
-import { roundGlowRect, cornerHighlightL } from "./helpers";
+import { roundGlowRect, cornerHighlightL, chunkPlate } from "./helpers";
 
 // Décor Forêt de secours — utilisé si bg.decor est absent (ne devrait pas
 // arriver pour le thème Forêt, mais garde le renderer robuste). Valeurs neutres
@@ -20,8 +20,7 @@ const FORET_DECOR_MODE_FALLBACK: ForetDecorMode = {
 const FORET_DECOR_FALLBACK: ForetDecor = {
   day: FORET_DECOR_MODE_FALLBACK, fever: FORET_DECOR_MODE_FALLBACK,
   grass:     ["#22ff00"], grassTuft: "#1a8818",
-  rootEdge:  "#5a3a1a", rootCore: "#2a1a08", rootArch: "#0a1a06",
-  stoneTop:  "#606058", stoneBody: "#484840", stoneMoss: "#2a5a22", stoneHi: "#787068",
+  stoneTop:  "#606058", stoneBody: "#484840", stoneShadow: "#2c2a26", stoneMoss: "#2a5a22",
   sunCore:   ["#ffe98a", "#ffd24a", "#ffb22e"],
   sunRay:    "#ffcc44", sunRayHot: "#ffe98a", sunHalo: "#ffd24a",
   horizonGlow: "255,220,140",
@@ -57,6 +56,38 @@ function makePrng(seed: number): () => number {
   };
 }
 
+// ─── Champ de densité cohérent ───────────────────────────────────────────────
+// Bruit 1D lisse en x ∈ [0,1] : somme de 3 sinus de fréquences/phases tirées au
+// sort. Partagé par les couches (nuages, arbres, props) pour créer des CLAIRIÈRES
+// et des ZONES DENSES cohérentes au lieu d'une dispersion uniforme. Deux couches
+// nourries du même seed dérivé partagent donc le même relief de densité (les
+// trouées de la silhouette lointaine s'alignent avec les clairières au sol, etc.).
+type DensityField = (x: number) => number;
+
+// `contrast` > 1 creuse les vallées et gonfle les pics (clairières plus franches).
+function makeDensityField(seed: number, contrast = 1): DensityField {
+  const rnd = makePrng(seed);
+  // 3 octaves : grande houle (clairières larges) → détail (lisières dentelées).
+  const oct = [
+    { f: 1.2 + rnd() * 1.0,  a: 0.55, p: rnd() * Math.PI * 2 },
+    { f: 2.7 + rnd() * 1.6,  a: 0.30, p: rnd() * Math.PI * 2 },
+    { f: 5.5 + rnd() * 2.5,  a: 0.15, p: rnd() * Math.PI * 2 },
+  ];
+  return (x) => {
+    // x normalisé attendu ∈ [0,1] ; un tour de phase ≈ une à deux clairières.
+    let v = 0;
+    for (const o of oct) v += Math.sin(x * o.f * Math.PI * 2 + o.p) * o.a;
+    v = 0.5 + v * 0.5;                       // → [0,1] approx (somme des a = 1)
+    v = Math.max(0, Math.min(1, v));
+    return contrast === 1 ? v : Math.pow(v, contrast);
+  };
+}
+
+// Normalise une coordonnée de couche x ∈ [LX0, RX1] vers [0,1] pour le champ.
+function normX(x: number): number {
+  return (x - LX0) / (RX1 - LX0);
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // ─── FORÊT data — générée par run via forestSeed ─────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════
@@ -72,7 +103,19 @@ type FireflyItem = { x: number; y: number };
 type MidTreeDef  = {
   x: number; h: number; w: number; type: "oak" | "pine" | "shrub";
   trunkCol: string; leafDark: string; leafMid: string; leafHi: string;
+  // Couronne (tronc inclus) pré-rendue dans son propre sprite (origine = base
+  // du tronc au sol) → animée individuellement par frame (phase + rotation
+  // propres). null transitoirement entre la création et le bake post-tri.
+  canopy: CanopySprite | null;
+  // Décalages de vent propres à l'arbre, dérivés de x → la houle traverse la
+  // forêt au lieu de la faire pencher d'un bloc.
+  windPhase: number;  // déphasage de la sinusoïde (rad)
+  windAmp:   number;  // amplitude (px de balancement au sommet), ∝ hauteur
 };
+
+// Sprite d'une couronne, son origine (ax, ay) repérant la base du tronc dans
+// le sprite → au blit on place (ax, ay) sur (treeX, GROUND_Y) et on pivote là.
+type CanopySprite = { canvas: OffCanvas; ax: number; ay: number; w: number; h: number };
 
 function generateLeaves(seed: number, leafCols: readonly string[]): AmbientLeaf[] {
   const rnd = makePrng(seed);
@@ -750,7 +793,7 @@ function drawCelestialBody(
     // Soleil simple (autres thèmes en mode jour) — à GAUCHE (cohérent avec le reflet).
     // cx = centre du soleil ; cœur 16×16 aux coins arrondis 1px.
     const pulse = 0.9 + 0.1 * Math.sin(s.animClock * 0.5);
-    const cx = 42, cy = 28;
+    const cx = 42, cy = 68;
     ctx.fillStyle = `rgba(255,230,100,${0.9 * pulse})`;
     ctx.fillRect(cx - 8 + 1, cy - 8, 16 - 2, 16);   // colonne centrale
     ctx.fillRect(cx - 8, cy - 8 + 1, 16, 16 - 2);   // ligne centrale
@@ -981,12 +1024,78 @@ const LX0             = -LAYER_MARGIN;          // x du bord gauche d'une couche
 const RX1             = W + LAYER_MARGIN;       // x du bord droit visible
 const PARALLAX_CLAMP  = 150;                    // amplitude max du décalage lanceur
 
+// ─── Vent ─────────────────────────────────────────────────────────────────
+// Le balancement est un cisaillement horizontal de la couche autour du sol :
+// les cimes ondulent, les troncs restent ancrés (shear nul à GROUND_Y). Deux
+// sinusoïdes déphasées + lentes donnent un souffle organique plutôt qu'un
+// métronome. L'amplitude est une pente (px de décalage par px de hauteur au
+// sommet), petite → quelques px de balancement en haut des arbres.
+const WIND_SLOPE_BASE = 0.018;  // pente max du cisaillement (×windF de la couche)
+const WIND_FREQ_A     = 0.55;   // rad/s — houle principale
+const WIND_FREQ_B     = 1.30;   // rad/s — frémissement rapide superposé
+// Pivot du shear en coords écran (sol de la couche, déjà décalé de VPAD au blit).
+const WIND_PIVOT_Y    = GROUND_Y + VPAD;
+
+// Pente de cisaillement instantanée pour une couche (somme de 2 sinus).
+// Utilisé pour les arbres LOINTAINS (silhouette plate, balancement de bloc OK).
+function windShear(clock: number, windF: number): number {
+  if (windF <= 0) return 0;
+  const sway =
+    Math.sin(clock * WIND_FREQ_A) * 0.8 +
+    Math.sin(clock * WIND_FREQ_B + 1.7) * 0.2;
+  return sway * WIND_SLOPE_BASE * windF;
+}
+
+// Balancement instantané d'UNE couronne (mid layer). phase propre à l'arbre →
+// la houle traverse la forêt ; un déphasage entre les 2 sinus de chaque arbre
+// évite que tout reparte en phase. Renvoie un angle (rad) ∈ ~[-0.06, 0.06].
+const CANOPY_SWAY_ANGLE = 0.052;  // amplitude angulaire max (rad ≈ 3°)
+function canopySway(clock: number, phase: number, amp: number): number {
+  const sway =
+    Math.sin(clock * WIND_FREQ_A + phase) * 0.78 +
+    Math.sin(clock * WIND_FREQ_B + phase * 1.7 + 1.1) * 0.22;
+  return sway * CANOPY_SWAY_ANGLE * amp;
+}
+
+// Dessine chaque couronne d'arbre du milieu avec son balancement propre. Le
+// sprite est ancré par sa base (canopy.ax, canopy.ay) sur (treeX, GROUND_Y) en
+// coords de couche ; on pivote à cette base d'un petit angle + dérive latérale.
+// (layerX, layerY) = coin haut-gauche de la couche en coords écran.
+function drawMidCanopies(
+  ctx: CanvasRenderingContext2D, clock: number, trees: MidTreeDef[],
+  layerX: number, layerY: number,
+): void {
+  for (const t of trees) {
+    const c = t.canopy;
+    if (!c) continue;
+    // Base du tronc en coords écran (mêmes maths que le blit de couche).
+    const baseX = layerX + LAYER_MARGIN + t.x;
+    const baseY = layerY + VPAD + GROUND_Y;
+    const angle = canopySway(clock, t.windPhase, t.windAmp);
+    if (angle === 0) {
+      ctx.drawImage(c.canvas, Math.round(baseX - c.ax), Math.round(baseY - c.ay));
+      continue;
+    }
+    ctx.save();
+    ctx.translate(baseX, baseY);
+    ctx.rotate(angle);
+    // Léger glissement latéral en plus de la rotation → la cime « pousse » au
+    // vent au lieu de juste pivoter (sin partagé via l'angle, mis à l'échelle).
+    ctx.translate(angle * t.h * 0.6, 0);
+    ctx.drawImage(c.canvas, -c.ax, -c.ay);
+    ctx.restore();
+  }
+}
+
 interface ForetLayer {
-  canvas:   OffCanvas;
+  canvas:   OffCanvas | null; // null = couche-marqueur sans blit (arbres mid :
+                              //   dessinés par drawMidCanopies à sa position).
   parallax: number;   // 0 = fixe, 1 = suit le lanceur à fond
   shakeF:   number;   // 0 = immobile au shake, 1 = shake plein
   drift:    number;   // px/s de dérive continue (couche tilée)
   tiled:    boolean;  // true → blit répété horizontalement (nuages)
+  windF:    number;   // amplitude du balancement vent (0 = immobile). Cisaille
+                      //   la couche autour du sol : cimes qui ondulent, troncs ancrés.
 }
 
 interface ForetPalette {
@@ -1051,9 +1160,18 @@ function buildForetSky(pal: ForetPalette, clutchMode: boolean): OffCanvas {
 function buildForetClouds(pal: ForetPalette, seed: number): OffCanvas {
   const { canvas, ctx } = makeLayerCanvas();
   const rnd = makePrng(seed);
-  const count = 3 + Math.floor(rnd() * 3); // 3–5 nuages par run
+  // Champ de densité du ciel : les nuages se groupent en bancs (zones denses) et
+  // laissent des trouées de ciel clair, au lieu d'un étalement régulier.
+  const density = makeDensityField(seed ^ 0xc10d5b1f, 1.2);
+  const count = 4 + Math.floor(rnd() * 4); // 4–7 nuages candidats par run
   for (let i = 0; i < count; i++) {
-    const cx    = LX0 + 40 + (i / count) * (CW_L - 80) + (rnd() - 0.5) * 32;
+    // Position tirée puis biaisée vers les zones denses du champ : on échantillonne
+    // 2 x candidats et on garde le plus dense → bancs naturels.
+    let cx = LX0 + 40 + rnd() * (CW_L - 80);
+    const alt = LX0 + 40 + rnd() * (CW_L - 80);
+    if (density(normX(alt)) > density(normX(cx))) cx = alt;
+    // Trouée franche : si on tombe dans une zone très claire, on saute ce nuage.
+    if (density(normX(cx)) < 0.28 && rnd() > 0.35) continue;
     const cy    = 60 + rnd() * 90;
     const puffs = 4 + Math.floor(rnd() * 4);
     const baseW = 32 + rnd() * 42;
@@ -1147,15 +1265,24 @@ function buildForetFarTrees(pal: ForetPalette, seed: number): OffCanvas {
   // silhouette continue avec des "dents" rectangulaires bien visibles.
   interface Block { x: number; w: number; h: number }
 
+  // Champ de densité de la silhouette lointaine : creuse des baisses (trouées
+  // dans la crête) et des massifs hauts. contrast 1.3 → vallées nettes.
+  const density = makeDensityField(seed ^ 0xfa27ee5e, 1.3);
+
   function genBlocks(bSeed: number, hMin: number, hMax: number, minW: number, maxW: number): Block[] {
     const pr = makePrng(bSeed);
     const blocks: Block[] = [];
     let x = LX0;
     while (x < RX1) {
       const w = minW + Math.floor(pr() * (maxW - minW));
-      const h = hMin + Math.floor(pr() * (hMax - hMin));
+      // Densité au centre du bloc → hauteur modulée : clairière = crête basse,
+      // massif = pics hauts. Plage 0.45..1 pour garder une ligne d'arbres lisible.
+      const dens = density(normX(x + w / 2));
+      const hRaw = hMin + pr() * (hMax - hMin);
+      const h    = Math.round(hRaw * (0.45 + dens * 0.55));
       blocks.push({ x, w, h });
-      x += w + 1 + Math.floor(pr() * 8);
+      // Trouées plus larges dans les clairières (espace entre massifs).
+      x += w + 1 + Math.floor(pr() * 8) + Math.round((1 - dens) * 14);
     }
     return blocks;
   }
@@ -1272,14 +1399,42 @@ function drawShrubCanopy(
 
 // Algorithme de forêt par clusters — chaque cluster a une espèce dominante
 // et une échelle de taille cohérente. Les clusters se chevauchent partiellement,
+// Bake une couronne dans son propre sprite. Le dessinateur travaille en coords
+// absolues autour de (cx, baseY) ; on lui donne une origine locale telle que la
+// couronne tienne dans le sprite, avec une marge latérale pour la rotation au
+// vent (le sommet se déplace de ~sin(angle)·hauteur). ax/ay repèrent la base du
+// tronc → point d'ancrage ET pivot au blit.
+function bakeCanopySprite(
+  draw: (ctx: Ctx2D, cx: number, baseY: number) => void,
+  w: number, h: number,
+): CanopySprite {
+  const sidePad = Math.max(8, Math.round(h * 0.18)); // marge pour rotation + débords
+  const topPad  = 8;                                  // bosses qui dépassent en haut (≤7px)
+  const sw = w + sidePad * 2;
+  const sh = h + topPad + 2;
+  const ax = sw >> 1;       // base du tronc : centrée en x
+  const ay = sh;            // base du tronc : tout en bas du sprite
+  const canvas = makeOffscreen(sw, sh);
+  const ctx = canvas.getContext("2d") as Ctx2D;
+  draw(ctx, ax, ay);        // (cx, baseY) → (ax, ay)
+  return { canvas, ax, ay, w: sw, h: sh };
+}
+
 // créant des clairières naturelles et des zones denses. Troncs baked dans le
 // canvas statique ; couronnes animées par frame (vent).
-function buildForetMidLayer(pal: ForetPalette, seed: number): { canvas: OffCanvas; trees: MidTreeDef[] } {
-  const { canvas, ctx } = makeLayerCanvas();
+// La couche n'a plus de canvas propre : troncs ET couronnes vivent désormais
+// dans les sprites par-arbre (animés). On ne renvoie donc que les arbres ; le
+// blit de la couche mid est remplacé par drawMidCanopies.
+function buildForetMidLayer(pal: ForetPalette, seed: number): { trees: MidTreeDef[] } {
   const rnd = makePrng(seed);
 
   const ramp = pal.mode.trees;
   const pick = <T>(arr: readonly T[]) => arr[Math.floor(rnd() * arr.length)]!;
+
+  // Champ de densité : creuse des clairières (peu/pas d'arbres) et des bosquets
+  // denses. contrast 1.5 → vallées plus franches (vraies trouées). Le seed dérive
+  // de celui de la couche → relief stable pour cette partie, différent à chaque.
+  const density = makeDensityField(seed ^ 0xc1ea217e, 1.5);
 
   type ClusterKind = "oak" | "pine" | "mixed";
   interface Cluster { from: number; to: number; kind: ClusterKind; hScale: number }
@@ -1300,8 +1455,13 @@ function buildForetMidLayer(pal: ForetPalette, seed: number): { canvas: OffCanva
   for (const cluster of clusters) {
     let tx = cluster.from + 2 + Math.floor(rnd() * 10);
     while (tx < cluster.to) {
+      // Densité locale [0,1] : pilote l'espacement et les trouées.
+      const dens = density(normX(tx));
+
       const rawH = 50 + Math.floor(rnd() * 70);
-      const h    = Math.max(28, Math.min(140, Math.round(rawH * cluster.hScale)));
+      // Les arbres des zones denses sont un poil plus hauts (canopée touffue) ;
+      // ceux des clairières plus bas/épars.
+      const h    = Math.max(28, Math.min(140, Math.round(rawH * cluster.hScale * (0.78 + dens * 0.34))));
 
       const type: "oak" | "pine" | "shrub" =
         cluster.kind === "oak"  ? (rnd() < 0.80 ? "oak"   : "shrub") :
@@ -1315,65 +1475,184 @@ function buildForetMidLayer(pal: ForetPalette, seed: number): { canvas: OffCanva
 
       let w: number;
       let step: number;
+      let effH = h;
 
       if (type === "oak") {
         w = Math.round(h * (0.62 + rnd() * 0.52));
-        // Tronc baked (la couronne est animée séparément)
-        const tw     = Math.max(2, Math.round(h * 0.055));
-        const trunkH = Math.round(h * 0.36);
-        ctx.fillStyle = trunkCol;
-        ctx.fillRect(Math.round(tx) - (tw >> 1), GROUND_Y - trunkH, tw, trunkH);
         step = Math.round(w * (0.42 + rnd() * 0.30) + 4 + rnd() * 14);
       } else if (type === "pine") {
         w = Math.round(h * (0.26 + rnd() * 0.22));
-        // Tronc baked (le pin entier est aussi redessiné par frame, mais le tronc
-        // baked reste visible en fallback si le vent est nul)
-        const tw     = Math.max(2, Math.round(w * 0.11));
-        const trunkH = Math.max(4, Math.round(h * 0.14));
-        ctx.fillStyle = trunkCol;
-        ctx.fillRect(Math.round(tx) - (tw >> 1), GROUND_Y - trunkH, tw, trunkH);
         step = Math.round(w * (0.55 + rnd() * 0.35) + 3 + rnd() * 10);
       } else {
         // Arbuste : plus large que haut, pas de tronc
-        const sh = Math.min(28, h);
-        w    = Math.round(sh * (1.4 + rnd() * 1.0));
+        effH = Math.min(28, h);
+        w    = Math.round(effH * (1.4 + rnd() * 1.0));
         step = Math.round(w * 0.55 + 2 + rnd() * 10);
-        trees.push({ x: tx, h: sh, w, type, trunkCol, leafDark, leafMid, leafHi });
-        tx += step;
-        continue;
       }
 
-      trees.push({ x: tx, h, w, type, trunkCol, leafDark, leafMid, leafHi });
+      // Clairière : en zone peu dense, on saute l'arbre et on avance d'un grand
+      // pas → vraie trouée. Sinon l'espacement se resserre avec la densité.
+      if (dens < 0.32 && rnd() > dens * 2.4) {
+        tx += step + Math.round((0.4 - dens) * 120);
+        continue;
+      }
+      step = Math.round(step * (1.35 - dens * 0.5)); // dense → arbres serrés
+
+      trees.push({
+        x: tx, h: effH, w, type, trunkCol, leafDark, leafMid, leafHi,
+        canopy: null,             // baké après le tri
+        windPhase: 0, windAmp: 0, // calculés après le tri
+      });
       tx += step;
     }
   }
 
   trees.sort((a, b) => a.x - b.x);
 
-  // Couronnes bakées une fois dans le canvas de couche (statiques — plus de vent).
-  // Avant, elles étaient redessinées CHAQUE frame (boucle sur tous les arbres ×
-  // dizaines de fillRect chacun, cf. drawForetLayers) : c'était le plus gros coût
-  // CPU par frame sur le thème Forêt. Les baker ici supprime entièrement ce coût.
-  // Dessinées après le tri (ordre peintre gauche→droite) et au même z que les
-  // troncs → trunk + couronne enfin cohérents.
+  // Couronne (tronc inclus pour oak/pine) bakée dans le sprite propre de chaque
+  // arbre, puis animée par frame (cf. drawMidCanopies) : pivot à la base du
+  // tronc → couronne qui ondule, tronc quasi fixe. Coût/frame = un drawImage +
+  // transform par arbre (sprites pré-rendus, aucune rastérisation par frame —
+  // bien moins cher que l'ancien dessin pixel par pixel).
   for (const tree of trees) {
     if (tree.type === "oak") {
-      drawOakCanopy(ctx, tree.x, GROUND_Y, tree.h, tree.w, tree.leafDark, tree.leafMid, tree.leafHi);
+      tree.canopy = bakeCanopySprite(
+        (c, cx, baseY) => {
+          // Tronc d'abord (sous la couronne)
+          const tw     = Math.max(2, Math.round(tree.h * 0.055));
+          const trunkH = Math.round(tree.h * 0.36);
+          c.fillStyle = tree.trunkCol;
+          c.fillRect(cx - (tw >> 1), baseY - trunkH, tw, trunkH);
+          drawOakCanopy(c, cx, baseY, tree.h, tree.w, tree.leafDark, tree.leafMid, tree.leafHi);
+        },
+        tree.w, tree.h,
+      );
     } else if (tree.type === "pine") {
-      drawRectPine(ctx, tree.x, GROUND_Y, tree.h, tree.w,
-        tree.leafMid, tree.leafHi,
-        ramp.pineShadow,
-        tree.trunkCol,
+      tree.canopy = bakeCanopySprite(
+        (c, cx, baseY) => drawRectPine(c, cx, baseY, tree.h, tree.w,
+          tree.leafMid, tree.leafHi, ramp.pineShadow, tree.trunkCol),
+        tree.w, tree.h,
       );
     } else {
-      drawShrubCanopy(ctx, tree.x, GROUND_Y, tree.h, tree.w, tree.leafDark, tree.leafMid, tree.leafHi);
+      tree.canopy = bakeCanopySprite(
+        (c, cx, baseY) => drawShrubCanopy(c, cx, baseY, tree.h, tree.w, tree.leafDark, tree.leafMid, tree.leafHi),
+        tree.w, tree.h,
+      );
     }
+
+    // Vent propre à l'arbre : phase ∝ x (la houle traverse la forêt), amplitude
+    // ∝ hauteur (les grands arbres ondulent plus, les arbustes à peine).
+    tree.windPhase = tree.x * 0.013;
+    tree.windAmp   = (tree.type === "shrub" ? 0.10 : 0.45) * Math.max(0.3, tree.h / 100);
   }
 
-  return { canvas, trees };
+  return { trees };
 }
 
-function buildForetGround(clutchMode: boolean, bg: BgTheme, pal: ForetPalette, seed: number): OffCanvas {
+// ─── Props de sol (cailloux, racines, touffes) ──────────────────────────────
+// Tout le sous-bois est dispersé procéduralement (seedé) par un seul scatter :
+// densité, taille, forme et espacement variés, parfois en bouquets. Chaque prop
+// porte un flag `behind` → rendu au plan des arbres (parallaxe mid, avant les
+// troncs) pour dépasser de derrière ; sinon au sol (avant-plan). Fini les
+// listes de positions codées en dur (qui se répétaient à l'identique).
+
+type GroundProp =
+  | { kind: "stone"; x: number; behind: boolean; rw: number; rh: number }
+  | { kind: "tuft";  x: number; behind: boolean; h: number; blades: number; col: number };
+
+// Scatter unique : marche irrégulière gauche→droite, à chaque pas on tire un
+// type de prop (pondéré) et on l'ajoute, parfois en petit bouquet. L'espacement
+// dépend du type (l'herbe est plus dense, les souches plus rares).
+function generateGroundProps(seed: number, grassN: number): GroundProp[] {
+  const rnd = makePrng(seed);
+  const props: GroundProp[] = [];
+  // ~30 % de tout ce sous-bois passe derrière la ligne d'arbres.
+  const behind = () => rnd() < 0.30;
+  // Champ de densité du sous-bois : sous-bois touffu (gros trous comblés, herbe
+  // privilégiée) vs clairières nues. contrast 1.4 → clairières franches.
+  const density = makeDensityField(seed ^ 0x9b0773de, 1.4);
+  // Trou avant le prochain prop, resserré en zone dense (sous-bois) et élargi en
+  // clairière (sol nu) — facteur ×0.4..×1.8.
+  const gap = (base: number) => Math.round(base * (1.8 - density(normX(x)) * 1.4));
+
+  let x = LX0 + 12 + Math.floor(rnd() * 30);
+  while (x < RX1 - 12) {
+    const dens = density(normX(x));
+    // En zone dense on penche vers l'herbe (sous-bois), en clairière vers le sol
+    // nu (cailloux épars). On décale le seuil de tirage avec la densité.
+    const roll = rnd();
+    const stoneCut = 0.16 - dens * 0.06;        // moins de cailloux en sous-bois
+    if (roll < stoneCut) {
+      // ── Caillou (parfois en grappe qui se chevauche) ──
+      const clusterN = rnd() < 0.30 ? 2 + Math.floor(rnd() * 2) : 1;
+      const b = behind();
+      for (let i = 0; i < clusterN && x < RX1 - 12; i++) {
+        const rw = 12 + Math.floor(rnd() * 18);
+        const rh = Math.round(rw * (0.5 + rnd() * 0.18));
+        props.push({ kind: "stone", x: Math.round(x), behind: b, rw, rh });
+        x += rw * (0.55 + rnd() * 0.5) + 4;
+      }
+      x += gap(22 + Math.floor(rnd() * 70));
+    } else {
+      // ── Touffe d'herbe haute (bouquet plus fourni en zone dense) ──
+      const clusterMax = 1 + Math.round(dens * 3);
+      const clusterN = rnd() < 0.35 + dens * 0.3 ? 2 + Math.floor(rnd() * clusterMax) : 1;
+      const b = behind();
+      for (let i = 0; i < clusterN && x < RX1 - 12; i++) {
+        props.push({
+          kind: "tuft", x: Math.round(x), behind: b,
+          h: 9 + Math.floor(rnd() * 11),
+          blades: 3 + Math.floor(rnd() * 3),
+          col: Math.floor(rnd() * grassN),
+        });
+        x += 6 + Math.floor(rnd() * 10);
+      }
+      x += gap(12 + Math.floor(rnd() * 38));
+    }
+  }
+  return props;
+}
+
+function drawStoneProp(ctx: Ctx2D, p: Extract<GroundProp, { kind: "stone" }>, baseY: number, d: ForetDecor): void {
+  const x = Math.round(p.x - p.rw / 2);
+  const y = baseY - p.rh;
+  chunkPlate(ctx, x, y, p.rw, p.rh, {
+    fill: d.stoneBody, light: d.stoneTop, dark: d.stoneShadow, outline: d.stoneShadow,
+  });
+  // Mousse sur le dessus — touche forêt, posée par-dessus le bevel haut.
+  ctx.fillStyle = d.stoneMoss;
+  ctx.fillRect(p.x - Math.round(p.rw * 0.25), y - 2, Math.round(p.rw * 0.52), 4);
+}
+
+function drawTuftProp(ctx: Ctx2D, p: Extract<GroundProp, { kind: "tuft" }>, baseY: number, d: ForetDecor): void {
+  // Brins en éventail : le central le plus haut, les latéraux décroissent.
+  ctx.fillStyle = d.grass[p.col % d.grass.length] ?? d.grassTuft;
+  const half = p.blades >> 1;
+  for (let b = -half; b <= half; b++) {
+    const bh = p.h - Math.abs(b) * 2;
+    if (bh <= 0) continue;
+    ctx.fillRect(p.x + b * 3, baseY - bh, 2, bh);
+  }
+}
+
+function drawGroundProp(ctx: Ctx2D, p: GroundProp, baseY: number, d: ForetDecor): void {
+  if (p.kind === "stone") drawStoneProp(ctx, p, baseY, d);
+  else drawTuftProp(ctx, p, baseY, d);
+}
+
+// Bake les props `behind` dans un sprite de couche (plan des arbres mid).
+// Blitté avant les troncs/couronnes dans la passe mid → ils dépassent de
+// derrière les arbres. Renvoie null si aucun prop en fond (rien à blitter).
+function buildForetBackProps(pal: ForetPalette, props: GroundProp[]): OffCanvas | null {
+  if (!props.some((p) => p.behind)) return null;
+  const { canvas, ctx } = makeLayerCanvas();
+  for (const p of props) if (p.behind) drawGroundProp(ctx, p, GROUND_Y, pal.shared);
+  return canvas;
+}
+
+function buildForetGround(
+  clutchMode: boolean, bg: BgTheme, pal: ForetPalette, seed: number, props: GroundProp[],
+): OffCanvas {
   const { canvas, ctx } = makeLayerCanvas();
   const rnd = makePrng(seed);
   const d = pal.shared;
@@ -1384,57 +1663,15 @@ function buildForetGround(clutchMode: boolean, bg: BgTheme, pal: ForetPalette, s
   ctx.fillRect(LX0, GROUND_Y + 10, CW_L, CH_L);
 
   if (!clutchMode) {
-    // Herbe dense et variée
+    // Tapis d'herbe dense par pixel (base) — sous tous les props.
     for (let gx = LX0; gx < RX1; gx += 2) {
       const h = 2 + Math.floor(rnd() * 7);
       ctx.fillStyle = d.grass[Math.floor(rnd() * d.grass.length)]!;
       ctx.fillRect(gx, GROUND_Y - h, 2, h);
     }
-
-    // Touffes hautes avec brins épars
-    for (let gx = LX0 + 18; gx < RX1 - 18; gx += 26 + Math.floor(rnd() * 24)) {
-      const h = 10 + Math.floor(rnd() * 8);
-      ctx.fillStyle = d.grassTuft;
-      for (let b = -2; b <= 2; b++) {
-        ctx.fillRect(gx + b * 3, GROUND_Y - h - Math.abs(b) * 2, 2, h + Math.abs(b) * 2);
-      }
-    }
-
-    // Racines en surface — arches noueuses qui émergent du sol
-    const ROOTS = [
-      { x: LX0 + 28, dir:  1 }, { x:  85, dir: -1 }, { x: 198, dir:  1 },
-      { x:       312, dir: -1 }, { x: 398, dir:  1 }, { x: RX1 - 40, dir: -1 },
-    ] as const;
-    for (const rt of ROOTS) {
-      for (let i = 0; i < 26; i++) {
-        const t  = i / 25;
-        const rx = Math.round(rt.x + rt.dir * i * 4.2);
-        const ry = Math.round(GROUND_Y - Math.sin(t * Math.PI) * 13);
-        ctx.fillStyle = (i < 3 || i > 22) ? d.rootEdge : d.rootCore;
-        ctx.fillRect(rx, ry - 1, 3, 3);
-      }
-    }
-
-    // Pierres moussues arrondies
-    const STONES = [
-      { x:  50, rw: 18, rh: 11 }, { x: 148, rw: 25, rh: 15 },
-      { x: 258, rw: 16, rh:  9 }, { x: 372, rw: 28, rh: 17 },
-      { x: 460, rw: 14, rh:  8 },
-    ] as const;
-    for (const st of STONES) {
-      for (let dy = 0; dy < st.rh; dy++) {
-        const t  = dy / st.rh;
-        const hw = Math.round(st.rw / 2 * Math.sqrt(1 - (2 * t - 1) ** 2));
-        ctx.fillStyle = dy < 3 ? d.stoneTop : d.stoneBody;
-        ctx.fillRect(st.x - hw, GROUND_Y - st.rh + dy, hw * 2, 1);
-      }
-      // Mousse sur le dessus
-      ctx.fillStyle = d.stoneMoss;
-      ctx.fillRect(st.x - Math.round(st.rw * 0.25), GROUND_Y - st.rh - 2, Math.round(st.rw * 0.52), 4);
-      // Reflet
-      ctx.fillStyle = d.stoneHi;
-      ctx.fillRect(st.x - Math.round(st.rw * 0.28), GROUND_Y - st.rh + 2, Math.round(st.rw * 0.26), 2);
-    }
+    // Props d'avant-plan (les `behind` sont rendus au plan des arbres, cf.
+    // buildForetBackProps). Cailloux à la DA chunky, racines, touffes.
+    for (const p of props) if (!p.behind) drawGroundProp(ctx, p, GROUND_Y, d);
   } else {
     for (let gx = LX0; gx < RX1; gx += 4) {
       const h = 2 + (Math.abs((gx >> 2) * 13 + 7) % 5);
@@ -1450,37 +1687,12 @@ function buildForetGround(clutchMode: boolean, bg: BgTheme, pal: ForetPalette, s
   return canvas;
 }
 
-// Canvas statique : arches de racines seulement.
-function buildForetForeLayer(clutchMode: boolean, pal: ForetPalette): { canvas: OffCanvas } {
-  const { canvas, ctx } = makeLayerCanvas();
-
-  // Arches de racines : statiques, ne bougent pas avec le vent
-  if (!clutchMode) {
-    const ARCHES = [
-      { cx: LX0 + 38,             hw: 28, maxH: 20 },
-      { cx: Math.round(W * 0.56), hw: 32, maxH: 24 },
-      { cx: RX1 - 44,             hw: 25, maxH: 18 },
-    ] as const;
-    for (const arch of ARCHES) {
-      ctx.fillStyle = pal.shared.rootArch;
-      for (let dx = -arch.hw; dx <= arch.hw; dx++) {
-        const t     = dx / arch.hw;
-        const y     = Math.round(GROUND_Y - arch.maxH * (1 - t * t));
-        const thick = Math.max(2, Math.round(3 * (1 - Math.abs(t) * 0.6)));
-        ctx.fillRect(arch.cx + dx - (thick >> 1), y - (thick >> 1), thick, thick);
-      }
-    }
-  }
-
-  return { canvas };
-}
-
 // Position du soleil — doit coïncider avec drawCelestialBody (mode jour).
 // Descendu sous l'enseigne HUD (cf. LAUNCHER_Y / HUD_H) pour rester visible.
 // Placé à GAUCHE : le reflet pixel des astres est en haut-gauche, donc la source de
 // lumière vient de la gauche → soleil/lune logiquement de ce côté.
 const SUN_X = 42;
-const SUN_Y = 54;
+const SUN_Y = 72;
 
 // Petit rebond vertical du soleil (partagé avec drawCelestialBody pour que les
 // rayons restent accrochés au soleil).
@@ -1569,35 +1781,6 @@ function drawDuskBg(ctx: CanvasRenderingContext2D, t: number): void {
   ctx.fillRect(0, 0, W, GROUND_Y);
 }
 
-// Assombrissement progressif avant que le fever mode s'enclenche.
-// progress 0→1 : de plein jour (aucun orange dépensé) à juste avant le seuil fever.
-// Pas de mouvement du soleil — seul le ciel s'assombrit et se teinte de chaud.
-function drawPreClutchDuskOverlay(ctx: CanvasRenderingContext2D, progress: number): void {
-  if (progress < 0.02) return;
-  const t = progress;
-  const t2 = t * t; // ease-in
-
-  // Voile de nuit qui monte doucement depuis le haut
-  const darkA = t2 * 0.44;
-  ctx.fillStyle = `rgba(8,3,30,${darkA.toFixed(3)})`;
-  ctx.fillRect(0, 0, W, H);
-
-  // Lueur orangée/rouge à l'horizon — chaleur du coucher de soleil naissant.
-  // Dégradé continu (et non des bandes empilées) pour éviter les traits rouges
-  // visibles à chaque jointure de rectangle.
-  const glowTop = GROUND_Y - 100;
-  const grad = ctx.createLinearGradient(0, glowTop, 0, GROUND_Y + 10);
-  const STOPS = 8;
-  for (let i = 0; i <= STOPS; i++) {
-    const rt = i / STOPS;
-    const a = t2 * 0.30 * (1 - rt * rt);
-    const g = Math.round(55 + rt * 50);
-    grad.addColorStop(rt, `rgba(255,${g},15,${a.toFixed(3)})`);
-  }
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, glowTop, W, GROUND_Y + 10 - glowTop);
-}
-
 // Voile sombre plein-écran : s'assombrit (entering=true) ou s'éclaircit (entering=false).
 function drawDuskFg(ctx: CanvasRenderingContext2D, t: number, entering: boolean): void {
   const fade = entering ? easeInCubic(t) : 1 - easeOutCubic(t);
@@ -1651,6 +1834,7 @@ interface ForetCacheEntry {
   leaves:      AmbientLeaf[];
   fireflies:   FireflyItem[];
   midTrees:    MidTreeDef[];
+  backProps:   OffCanvas | null; // props (cailloux/racines/touffes) derrière les arbres (plan mid), ou null
 }
 
 // Cache à plusieurs entrées (clé `clutchMode:seed`). On garde simultanément la
@@ -1668,30 +1852,37 @@ function buildForetEntry(clutchMode: boolean, bg: BgTheme, seed: number): ForetC
   const leaves     = generateLeaves(seed ^ 0x1eaf7a11, pal.shared.ambientLeaves);
   const fireflies  = generateFireflies(seed ^ 0x10f1f111);
   const midResult  = buildForetMidLayer(pal, seed ^ 0xbada55e1);
-  const foreResult = buildForetForeLayer(clutchMode, pal);
+  const props      = generateGroundProps(seed ^ 0x57011e99, pal.shared.grass.length);
+  const backProps  = buildForetBackProps(pal, props);
   const layers: ForetLayer[] = [
-    { canvas: buildForetSky(pal, clutchMode),                      parallax: 0,    shakeF: 0.10, drift: 0, tiled: false },
-    { canvas: buildForetClouds(pal, seed ^ 0x5eed1234),           parallax: 0.04, shakeF: 0.10, drift: 5, tiled: true  },
-    { canvas: buildForetHills(pal, seed ^ 0x41116000),            parallax: 0.12, shakeF: 0.20, drift: 0, tiled: false },
-    { canvas: buildForetFarTrees(pal, seed),                      parallax: 0.22, shakeF: 0.30, drift: 0, tiled: false },
-    { canvas: midResult.canvas,                                    parallax: 0.40, shakeF: 0.55, drift: 0, tiled: false },
-    { canvas: buildForetGround(clutchMode, bg, pal, seed ^ 0x60077a55), parallax: 0, shakeF: 1.00, drift: 0, tiled: false },
-    { canvas: foreResult.canvas,                                   parallax: 0.70, shakeF: 1.00, drift: 0, tiled: false },
+    { canvas: buildForetSky(pal, clutchMode),                      parallax: 0,    shakeF: 0.10, drift: 0, tiled: false, windF: 0    },
+    { canvas: buildForetClouds(pal, seed ^ 0x5eed1234),           parallax: 0.04, shakeF: 0.10, drift: 5, tiled: true,  windF: 0    },
+    { canvas: buildForetHills(pal, seed ^ 0x41116000),            parallax: 0.12, shakeF: 0.20, drift: 0, tiled: false, windF: 0    },
+    { canvas: buildForetFarTrees(pal, seed),                      parallax: 0.22, shakeF: 0.30, drift: 0, tiled: false, windF: 0.6  },
+    // Couche-marqueur mid : drawMidCanopies y blitte les props de fond puis les
+    // troncs/couronnes (cailloux/racines/touffes qui dépassent de derrière).
+    { canvas: null,             /* arbres mid → drawMidCanopies */ parallax: 0.40, shakeF: 0.55, drift: 0, tiled: false, windF: 0    },
+    { canvas: buildForetGround(clutchMode, bg, pal, seed ^ 0x60077a55, props), parallax: 0, shakeF: 1.00, drift: 0, tiled: false, windF: 0 },
   ];
-  return { key, layers, pal, leaves, fireflies, midTrees: midResult.trees };
+  return { key, layers, pal, leaves, fireflies, midTrees: midResult.trees, backProps };
+}
+
+function closeOffscreen(c: OffCanvas): void {
+  // OffscreenCanvas.close() est une API non-standard absente des navigateurs
+  // récents — on l'appelle seulement si elle existe. Sinon le GC libère le
+  // canvas dès que le cache est vidé.
+  if (c instanceof OffscreenCanvas) {
+    const close = (c as OffscreenCanvas & { close?: () => void }).close;
+    if (typeof close === "function") close.call(c);
+  }
 }
 
 function disposeForetEntry(e: ForetCacheEntry): void {
   if (typeof OffscreenCanvas === "undefined") return;
-  for (const L of e.layers) {
-    // OffscreenCanvas.close() est une API non-standard absente des navigateurs
-    // récents — on l'appelle seulement si elle existe. Sinon le GC libère le
-    // canvas dès que le cache est vidé.
-    if (L.canvas instanceof OffscreenCanvas) {
-      const close = (L.canvas as OffscreenCanvas & { close?: () => void }).close;
-      if (typeof close === "function") close.call(L.canvas);
-    }
-  }
+  for (const L of e.layers) if (L.canvas) closeOffscreen(L.canvas);
+  // Sprites de couronnes (un par arbre du milieu).
+  for (const t of e.midTrees) if (t.canopy) closeOffscreen(t.canopy.canvas);
+  if (e.backProps) closeOffscreen(e.backProps);
 }
 
 // Précharge la variante opposée (jour ↔ fever) du seed courant pendant un temps
@@ -1734,7 +1925,7 @@ function getForetLayers(clutchMode: boolean, bg: BgTheme, seed: number): ForetCa
 // ─── Composition de la forêt (par frame) ─────────────────────────────────────
 
 function drawForetLayers(
-  ctx: CanvasRenderingContext2D, s: GameState, clutchMode: boolean, bg: BgTheme, preClutchDusk: number,
+  ctx: CanvasRenderingContext2D, s: GameState, clutchMode: boolean, bg: BgTheme,
 ): void {
   // État de transition fever calculé avant tout — pilote le choix des couches.
   // Sur game over (lost), on force la transition terminée pour éviter les effets dusk.
@@ -1762,7 +1953,7 @@ function drawForetLayers(
     // Soleil / lune après le ciel (i=0), avant les nuages (i=1)
     if (i === 1) {
       if (!clutchMode) {
-        // ═══ MODE JOUR ═══ — soleil statique + décalage pré-fever
+        // ═══ MODE JOUR ═══ — soleil statique + descente progressive pré-fever
         const preDusk = Math.round(s.duskProgress * 180);
         ctx.save(); ctx.translate(0, preDusk);
         drawCelestialBody(ctx, s, false, "foret", bg.decor);
@@ -1788,7 +1979,15 @@ function drawForetLayers(
       }
     }
 
-    if (L.tiled) {
+    if (L.canvas === null) {
+      // Couche-marqueur (arbres du milieu), parallaxe/shake partagés. D'abord
+      // les props de fond (derrière les troncs), puis les couronnes animées
+      // (chacune ondule, pivot à sa base).
+      if (cache.backProps) {
+        ctx.drawImage(cache.backProps, Math.round(ex), Math.round(ey) + ty);
+      }
+      drawMidCanopies(ctx, s.animClock, cache.midTrees, Math.round(ex), Math.round(ey) + ty);
+    } else if (L.tiled) {
       const driftPx = (s.animClock * L.drift) % CW_L;
       let start = (ex - driftPx) % CW_L;
       while (start > LX0) start -= CW_L;
@@ -1796,7 +1995,18 @@ function drawForetLayers(
         ctx.drawImage(L.canvas, Math.round(x), Math.round(ey) + ty);
       }
     } else {
-      ctx.drawImage(L.canvas, Math.round(ex), Math.round(ey) + ty);
+      const shear = windShear(s.animClock, L.windF);
+      if (shear !== 0) {
+        // Cisaillement horizontal pivoté au sol : x' = x + shear·(groundY − y).
+        // Les cimes (y petit) se décalent, les troncs (y ≈ groundY) restent fixes.
+        const groundScreenY = Math.round(ey) + ty + WIND_PIVOT_Y;
+        ctx.save();
+        ctx.transform(1, 0, -shear, 1, shear * groundScreenY, 0);
+        ctx.drawImage(L.canvas, Math.round(ex), Math.round(ey) + ty);
+        ctx.restore();
+      } else {
+        ctx.drawImage(L.canvas, Math.round(ex), Math.round(ey) + ty);
+      }
     }
   }
 
@@ -1804,13 +2014,9 @@ function drawForetLayers(
   drawAmbientLeaves(ctx, s, clutchMode, leaves, bg.decor ?? FORET_DECOR_FALLBACK);
   drawFireflies(ctx, s, clutchMode, fireflies);
 
-  // Voiles plein-écran : crépuscule/aube (transitions fever) + assombrissement pré-fever
+  // Voiles plein-écran : crépuscule/aube (transitions fever)
   if (!clutchMode) {
-    if (inDusk) {
-      drawDuskFg(ctx, clutchT, false); // retour jour : éclaircissement
-    } else if (preClutchDusk > 0.02) {
-      drawPreClutchDuskOverlay(ctx, preClutchDusk);
-    }
+    if (inDusk) drawDuskFg(ctx, clutchT, false); // retour jour : éclaircissement
   } else if (inDusk) {
     drawDuskFg(ctx, clutchT, true); // entrée fever : assombrissement
   }
@@ -1826,13 +2032,12 @@ export function drawBackground(
   s: GameState,
   clutchIntensity: number,
   theme: GameTheme,
-  preClutchDusk = 0,
 ): void {
   const clutchMode = clutchIntensity > 0.3;
 
   if (theme.id === "foret") {
     // Décor forêt : couches procédurales avec parallaxe (lanceur + dérive + shake)
-    drawForetLayers(ctx, s, clutchMode, theme.bg, preClutchDusk);
+    drawForetLayers(ctx, s, clutchMode, theme.bg);
   } else {
     // Autres thèmes : fond statique unique (blit depuis OffscreenCanvas)
     ctx.drawImage(getStaticBg(clutchMode, theme), -BG_PAD, -BG_PAD);
@@ -1841,8 +2046,6 @@ export function drawBackground(
       case "enfer": drawEnferAnimated(ctx, s, clutchMode); break;
       case "glace": drawGlaceAnimated(ctx, s, clutchMode); break;
     }
-    // Assombrissement progressif pré-fever pour les thèmes non-forêt
-    if (preClutchDusk > 0.02) drawPreClutchDuskOverlay(ctx, preClutchDusk);
   }
 
   // Corps céleste — géré dans drawForetLayers pour la forêt (passe derrière les nuages)

@@ -213,12 +213,12 @@ export function LoadingScreen({ onReady }: LoadingScreenProps) {
             marginBottom: 2,
           }}
         >
-          ASTUCE
+          TIP
         </span>
         <span
           style={{
             fontFamily: "var(--pg-font-ui)",
-            fontSize: 14,
+            fontSize: 11,
             color: PG.text,
             textAlign: "center",
             lineHeight: 1.4,

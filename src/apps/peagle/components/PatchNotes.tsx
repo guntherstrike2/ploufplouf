@@ -13,7 +13,7 @@ interface PatchNotesProps {
 }
 
 function formatDate(d: string) {
-  return new Date(d).toLocaleDateString("fr-FR", {
+  return new Date(d).toLocaleDateString("en-US", {
     day: "2-digit",
     month: "long",
     year: "numeric",
@@ -44,7 +44,7 @@ export function PatchNotes({ onClose }: PatchNotesProps) {
             {PEAGLE_VERSIONS.length} version{PEAGLE_VERSIONS.length !== 1 ? "s" : ""}
           </span>
           <PegBtn variant="primary" size="sm" onClick={handleClose}>
-            FERMER
+            CLOSE
           </PegBtn>
         </>
       }

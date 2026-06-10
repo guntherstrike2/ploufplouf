@@ -3,6 +3,16 @@
    Importé uniquement dans les composants Peagle — ne pollue pas le thème global.
    ──────────────────────────────────────────────────────────────────────────── */
 
+/* Police bitmap maison — GÉNÉRÉE depuis renderer/dmd/font-pixel.ts par
+   scripts/gen-pixel-font.mjs (chaque pixel = un carré vectoriel). Les menus Peagle
+   l'utilisent à la place de Press Start 2P (next/font/google) → zéro dépendance
+   externe côté Peagle. Le bitmap reste la source unique ; ce .ttf en est un dérivé. */
+@font-face {
+  font-family: "PeagleBitmap";
+  src: url("/fonts/PeagleBitmap.ttf") format("truetype");
+  font-display: swap;
+}
+
 .peagle-root {
   /* ─── Design system « Bosquet » — pixel art forêt, plat et net ─────────────
      Les variables COULEUR (--pg-bg, --pg-green, --pg-gold…) ne sont plus
@@ -34,9 +44,14 @@
   --pg-drop-btn:   drop-shadow(4px 4px 0 rgba(3,8,2,0.8));
   --pg-drop-panel: drop-shadow(6px 7px 0 rgba(0,0,0,0.55));
 
-  /* Font */
-  --pg-font: var(--font-press-start), "Courier New", monospace;
-  --pg-font-ui: var(--font-vt323), monospace;
+  /* Font — police bitmap MAISON (PeagleBitmap, cf. @font-face ci-dessus) au lieu de
+     Press Start 2P Google. Fallback monospace le temps du chargement. Le --font-press-start
+     de l'OS reste dispo ailleurs ; Peagle est désormais autonome.
+     --pg-font-ui pointait sur VT323 (chiffres compacts) ; désormais TOUT le texte menu
+     est unifié sur la bitmap maison. On garde la variable (utilisée un peu partout) mais
+     elle résout vers la même police → un seul look pixel cohérent. */
+  --pg-font: "PeagleBitmap", "Courier New", monospace;
+  --pg-font-ui: "PeagleBitmap", "Courier New", monospace;
 
   font-family: var(--pg-font);
   /* --pg-text / --pg-text-muted injectés depuis palette.ts. Le fallback couvre
@@ -1050,7 +1065,7 @@
 .pg-menu-tip {
   text-align: center;
   font-family: var(--pg-font-ui);
-  font-size: clamp(11px, 3vw, 14px);
+  font-size: clamp(9px, 2.4vw, 11px);
   color: var(--pg-text);
   line-height: 1.4;
   margin-top: clamp(6px, 1.5vh, 10px);
@@ -1277,7 +1292,7 @@
   border-radius: 10px;
   padding: 9px 16px;
   font-family: var(--pg-font-ui);
-  font-size: 15px;
+  font-size: 12px;
   color: #1a1a1a;
   text-align: center;
   line-height: 1.4;
@@ -1773,7 +1788,7 @@
 
 .pg-diag-tip-text {
   font-family: var(--pg-font-ui);
-  font-size: 14px;
+  font-size: 11px;
   color: var(--pg-text);
   text-align: center;
   line-height: 1.4;
@@ -1793,6 +1808,23 @@
   --pm-spring: cubic-bezier(0.34, 2.6, 0.5, 1);
   /* Rayon « blob » doux des pegs-boutons (assez pour adoucir, pas assez pour faire web). */
   --pm-radius: 8px;
+
+  /* ── Silhouette PIXEL ébréchée — calque du `pegPlate` du HUD (renderer/hud.ts) ──
+     Le `pegPlate` canvas retire `r = 4px` à chaque coin par marches diagonales de 1px
+     (un vrai « border-radius » pixel-art). On réplique ce rayon-4 par un escalier à
+     DEUX paliers (4px sur un axe → 2px sur l'autre, puis 2px → 4px) : chaque coin est
+     biseauté en deux marches comme le canvas, pas en une seule coupe à 45°. Résultat :
+     boutons à la silhouette « peg » EXACTEMENT comme les inserts du HUD, sans arrondi
+     anti-aliasé. Le `drop-shadow` (l'ombre dure) épouse automatiquement ce clip-path. */
+  --pm-clip: polygon(
+    4px 0,   calc(100% - 4px) 0,
+    calc(100% - 4px) 2px, calc(100% - 2px) 2px, calc(100% - 2px) 4px, 100% 4px,
+    100% calc(100% - 4px), calc(100% - 2px) calc(100% - 4px),
+    calc(100% - 2px) calc(100% - 2px), calc(100% - 4px) calc(100% - 2px),
+    calc(100% - 4px) 100%, 4px 100%,
+    4px calc(100% - 2px), 2px calc(100% - 2px), 2px calc(100% - 4px), 0 calc(100% - 4px),
+    0 4px, 2px 4px, 2px 2px, 4px 2px
+  );
 }
 
 /* ─── Entrée bouncy d'un peg-bouton (pop depuis le bas, gros overshoot juicy) ────
@@ -1864,15 +1896,23 @@
   padding: clamp(8px, 1.4vh, 12px) 12px;
   width: 100%;
   cursor: pointer;
-  border: 3px solid var(--pg-ink);
-  border-radius: var(--pm-radius);
+  /* Silhouette PIXEL ébréchée (octogone en escalier) — calque du `pegPlate` HUD.
+     Plus de `border-radius` lisse ni de `border` 3px : le contour `ink` est tracé
+     par un inset shadow net, et la découpe se fait au `clip-path` pixel. L'ombre
+     DURE portée est rendue par un `filter: drop-shadow` (rayon 0) car un box-shadow
+     externe serait rogné par le `clip-path` ; le drop-shadow, lui, épouse l'octogone. */
+  clip-path: var(--pm-clip);
   background: var(--pg-green);
-  /* Arête claire haut/gauche + sombre bas/droite (bevel pixel net, pas de flou). */
+  /* Contour ink 2px + arête claire haut/gauche + sombre bas/droite (bevel pixel net). */
   box-shadow:
-    inset 2px 2px 0 0 var(--pg-green-hi),
-    inset -2px -2px 0 0 var(--pg-green-deep),
-    /* Ombre DURE décalée — le peg « flotte » posé sur la surface. */
-    4px 4px 0 0 rgba(3, 8, 2, 0.85);
+    inset 0 0 0 2px var(--pg-ink),
+    inset 4px 4px 0 0 var(--pg-green-hi),
+    inset -4px -4px 0 0 var(--pg-green-deep);
+  /* Ombre DURE décalée — réplique EXACTE du `dropShadow` des inserts HUD : décalage
+     net FIXE (≈3px), couleur ink à ~0.78, qui épouse la silhouette pixel (drop-shadow
+     suit le clip-path). Elle ne grandit PAS au hover — comme le HUD, c'est le peg qui
+     bondit, pas l'ombre qui s'étire. */
+  filter: drop-shadow(3px 3px 0 rgba(3, 8, 2, 0.78));
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.3);
   image-rendering: pixelated;
   -webkit-tap-highlight-color: transparent;
@@ -1927,22 +1967,24 @@
   --pm-hy: -5px;
   --pm-hs: 1.06;
   box-shadow:
-    inset 2px 2px 0 0 var(--pg-green-hi),
-    inset -2px -2px 0 0 var(--pg-green-deep),
-    8px 10px 0 0 rgba(3, 8, 2, 0.85);
-  filter: brightness(1.1);
+    inset 0 0 0 2px var(--pg-ink),
+    inset 4px 4px 0 0 var(--pg-green-hi),
+    inset -4px -4px 0 0 var(--pg-green-deep);
+  /* Ombre INCHANGÉE (décalage fixe, comme le HUD) — seul le peg bondit + s'éclaircit. */
+  filter: drop-shadow(3px 3px 0 rgba(3, 8, 2, 0.78)) brightness(1.1);
 }
 
-/* Press : il s'enfonce d'un coup dans son ombre (bevel inversé). */
+/* Press : il s'enfonce d'un coup dans son ombre (bevel inversé, ombre dure résorbée). */
 .pg-pm-btn:active {
   --pm-hx: 3px;
   --pm-hy: 3px;
   --pm-hs: 0.94;
   box-shadow:
-    inset 2px 2px 0 0 var(--pg-green-deep),
-    inset -2px -2px 0 0 var(--pg-green-hi),
-    0 0 0 0 rgba(3, 8, 2, 0.85);
-  filter: brightness(0.92);
+    inset 0 0 0 2px var(--pg-ink),
+    inset 4px 4px 0 0 var(--pg-green-deep),
+    inset -4px -4px 0 0 var(--pg-green-hi);
+  /* Enfoncé : l'ombre se résorbe (le peg rejoint sa surface). */
+  filter: drop-shadow(0 0 0 rgba(3, 8, 2, 0.78)) brightness(0.92);
 }
 
 /* Désactivé : plus de hover/press, curseur neutre, peg « éteint ». */
@@ -1951,7 +1993,7 @@
   --pm-hx: 0px;
   --pm-hy: 0px;
   --pm-hs: 1;
-  filter: grayscale(0.4) brightness(0.85);
+  filter: drop-shadow(3px 3px 0 rgba(3, 8, 2, 0.78)) grayscale(0.4) brightness(0.85);
   opacity: 0.5;
 }
 
@@ -1963,9 +2005,10 @@
   color: #1a0a03;
   background: var(--pg-orange);
   box-shadow:
-    inset 2px 2px 0 0 var(--pg-orange-glow),
-    inset -2px -2px 0 0 var(--pg-orange-deep),
-    5px 5px 0 0 rgba(3, 8, 2, 0.85);
+    inset 0 0 0 2px var(--pg-ink),
+    inset 4px 4px 0 0 var(--pg-orange-glow),
+    inset -4px -4px 0 0 var(--pg-orange-deep);
+  filter: drop-shadow(3px 3px 0 rgba(3, 8, 2, 0.78));
   /* Pop d'entrée puis respiration en boucle — les DEUX pilotent les mêmes variables
      --pm-pop-* (jamais transform directement) → zéro conflit avec hover/press. */
   animation:
@@ -1977,20 +2020,20 @@
   --pm-hy: -5px;
   --pm-hs: 1.06;
   box-shadow:
-    inset 2px 2px 0 0 var(--pg-orange-glow),
-    inset -2px -2px 0 0 var(--pg-orange-deep),
-    9px 11px 0 0 rgba(3, 8, 2, 0.85);
-  filter: brightness(1.1);
+    inset 0 0 0 2px var(--pg-ink),
+    inset 4px 4px 0 0 var(--pg-orange-glow),
+    inset -4px -4px 0 0 var(--pg-orange-deep);
+  filter: drop-shadow(3px 3px 0 rgba(3, 8, 2, 0.78)) brightness(1.1);
 }
 .pg-pm-btn-play:active {
   --pm-hx: 3px;
   --pm-hy: 3px;
   --pm-hs: 0.94;
   box-shadow:
-    inset 2px 2px 0 0 var(--pg-orange-deep),
-    inset -2px -2px 0 0 var(--pg-orange-glow),
-    0 0 0 0 rgba(3, 8, 2, 0.85);
-  filter: brightness(0.92);
+    inset 0 0 0 2px var(--pg-ink),
+    inset 4px 4px 0 0 var(--pg-orange-deep),
+    inset -4px -4px 0 0 var(--pg-orange-glow);
+  filter: drop-shadow(0 0 0 rgba(3, 8, 2, 0.78)) brightness(0.92);
 }
 
 /* ─── Modificateurs <PegBtn> ─────────────────────────────────────────────────────
@@ -2017,7 +2060,8 @@
 .pg-pm-btn-ghost {
   background: transparent;
   color: var(--pg-text-muted);
-  box-shadow: none;
+  /* Atténué : un simple contour ink fin (pas de bevel, pas d'ombre dure portée). */
+  box-shadow: inset 0 0 0 2px var(--pg-ink);
   text-shadow: none;
   filter: none;
   animation: none;
@@ -2027,20 +2071,19 @@
   --pm-hx: -2px;
   --pm-hy: -3px;
   --pm-hs: 1.04;
-  border-color: var(--pg-leaf);
   color: var(--pg-leaf);
-  box-shadow: none;
+  box-shadow: inset 0 0 0 2px var(--pg-leaf);
   filter: none;
 }
 .pg-pm-btn-ghost:active {
   --pm-hx: 1px;
   --pm-hy: 1px;
   --pm-hs: 0.98;
-  box-shadow: none;
+  box-shadow: inset 0 0 0 2px var(--pg-ink);
 }
 .pg-pm-btn-ghost.pg-pm-btn-warn:hover {
-  border-color: var(--pg-orange);
   color: var(--pg-orange);
+  box-shadow: inset 0 0 0 2px var(--pg-orange);
 }
 
 /* ─── Bannière version — petit peg doré discret, posé en bas ─────────────────────── */
@@ -2054,13 +2097,14 @@
   text-align: center;
   padding: 8px 14px;
   cursor: pointer;
-  border: 3px solid var(--pg-ink);
-  border-radius: var(--pm-radius);
+  /* Même silhouette pixel + ombre dure fixe que les pegs (calque HUD), en doré. */
+  clip-path: var(--pm-clip);
   background: var(--pg-gold);
   box-shadow:
-    inset 2px 2px 0 0 #ffe870,
-    inset -2px -2px 0 0 #b08010,
-    4px 4px 0 0 rgba(3, 8, 2, 0.85);
+    inset 0 0 0 2px var(--pg-ink),
+    inset 4px 4px 0 0 #ffe870,
+    inset -4px -4px 0 0 #b08010;
+  filter: drop-shadow(3px 3px 0 rgba(3, 8, 2, 0.78));
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
   image-rendering: pixelated;
   transition: transform 0.08s var(--pm-spring), box-shadow 0.08s, filter 0.08s;
@@ -2069,17 +2113,18 @@
 .pg-pm-version:hover {
   transform: translate(-2px, -3px) scale(1.04);
   box-shadow:
-    inset 2px 2px 0 0 #ffe870,
-    inset -2px -2px 0 0 #b08010,
-    7px 8px 0 0 rgba(3, 8, 2, 0.85);
-  filter: brightness(1.08);
+    inset 0 0 0 2px var(--pg-ink),
+    inset 4px 4px 0 0 #ffe870,
+    inset -4px -4px 0 0 #b08010;
+  filter: drop-shadow(3px 3px 0 rgba(3, 8, 2, 0.78)) brightness(1.08);
 }
 .pg-pm-version:active {
   transform: translate(2px, 2px) scale(0.99);
   box-shadow:
-    inset 2px 2px 0 0 #b08010,
-    inset -2px -2px 0 0 #ffe870,
-    1px 1px 0 0 rgba(3, 8, 2, 0.85);
+    inset 0 0 0 2px var(--pg-ink),
+    inset 4px 4px 0 0 #b08010,
+    inset -4px -4px 0 0 #ffe870;
+  filter: drop-shadow(0 0 0 rgba(3, 8, 2, 0.78));
 }
 
 .pg-pm-version-num {

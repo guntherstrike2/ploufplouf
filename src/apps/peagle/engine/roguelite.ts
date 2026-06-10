@@ -21,10 +21,10 @@ export interface Upgrade {
 }
 
 export const UPGRADES: Record<UpgradeId, Upgrade> = {
-  extra_ball:  { id: "extra_ball",  name: "Œuf en plus",  desc: "+1 œuf au démarrage de chaque niveau." },
-  heavy_ball:  { id: "heavy_ball",  name: "Œuf lourd",    desc: "L'œuf rebondit 30% plus fort sur les cibles." },
-  bigger_ball: { id: "bigger_ball", name: "Gros œuf",     desc: "Rayon de l'œuf +30%. Plus facile à toucher." },
-  sharp_aim:   { id: "sharp_aim",   name: "Œil de lynx",  desc: "Ligne de visée 60% plus longue." },
+  extra_ball:  { id: "extra_ball",  name: "Extra Egg",  desc: "+1 egg at the start of every level." },
+  heavy_ball:  { id: "heavy_ball",  name: "Heavy Egg",    desc: "The egg bounces 30% harder off targets." },
+  bigger_ball: { id: "bigger_ball", name: "Big Egg",     desc: "Egg radius +30%. Easier to land hits." },
+  sharp_aim:   { id: "sharp_aim",   name: "Eagle Eye",  desc: "Aim line 60% longer." },
 };
 
 // ─── Run state (persiste entre les niveaux d'une partie) ─────────────────────

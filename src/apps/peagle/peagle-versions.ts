@@ -1,4 +1,4 @@
-export const PEAGLE_CURRENT_VERSION = "0.4.2";
+export const PEAGLE_CURRENT_VERSION = "0.5.0";
 
 export interface PeagleRelease {
   version: string;
@@ -7,6 +7,21 @@ export interface PeagleRelease {
 }
 
 export const PEAGLE_VERSIONS: PeagleRelease[] = [
+  {
+    version: "0.5.0",
+    releasedAt: "2026-06-10",
+    notes: [
+      "Nouveau score « bleu × orange » : les pegs normaux comptent les points, les cibles oranges montent un multiplicateur — le tour est versé d'un coup en fin de manche",
+      "Le multiplicateur orange se conserve d'un tour à l'autre tant que vous rattrapez l'œuf au panier, et se brise dès qu'un œuf sort de l'écran : risque contre récompense",
+      "Versement de fin de tour spectaculaire : les bonus (série, jackpot, tableau vidé, œufs restants) défilent en or puis le compteur s'égrène jusqu'au total, avec son de comptage qui accélère",
+      "HUD entièrement refait façon flipper : grand afficheur plasma à points au centre qui joue des mini-animations sur chaque moment fort (série, frenzy, clutch, jackpot, record, niveau gagné, game over)",
+      "Bonus de SÉRIE de paniers : enchaîner les rattrapages qualifiants rapporte un bonus croissant et des œufs supplémentaires",
+      "Inserts façon flipper autour de l'afficheur (cibles, œufs, niveau) qui s'allument sur leur événement, plus un bouton pause dédié",
+      "Menu principal : boutons « peg » redessinés et rendus en canvas, qui réagissent à l'œuf qui tape le titre",
+      "Textes du jeu passés en anglais : astuces, mots de combo et répliques de l'aigle",
+      "Décor : forêt et ambiance de coucher de soleil avant le mode clutch retravaillées",
+    ],
+  },
   {
     version: "0.4.2",
     releasedAt: "2026-06-08",

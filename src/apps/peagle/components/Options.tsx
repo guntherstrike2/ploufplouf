@@ -89,7 +89,7 @@ export function Options({
       <div className="pg-settings-card" onClick={(e) => e.stopPropagation()}>
         <div className="pg-settings-body">
           <ToggleRow
-            label="MUSIQUE"
+            label="MUSIC"
             on={!musicMuted}
             onHover={playMenuHover}
             onToggle={() => { playMenuClick(); onToggleMusic(); }}
@@ -110,7 +110,7 @@ export function Options({
           />
 
           <ToggleRow
-            label="TREMBLEMENT"
+            label="SCREEN SHAKE"
             on={shake}
             onHover={playMenuHover}
             onToggle={() => { playMenuClick(); const v = !shake; setScreenShake(v); setShake(v); }}
@@ -123,7 +123,7 @@ export function Options({
               Au menu : champ de saisie pour lancer un code précis. */}
           {inGame ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <span style={{ fontSize: 7, letterSpacing: "0.06em", color: PG.textMuted }}>SEED EN COURS</span>
+              <span style={{ fontSize: 7, letterSpacing: "0.06em", color: PG.textMuted }}>CURRENT SEED</span>
               <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
                 <span style={{
                   flex: 1,
@@ -140,13 +140,13 @@ export function Options({
                   onPointerEnter={playMenuHover}
                   onClick={copySeed}
                 >
-                  {seedCopied ? "COPIÉ !" : "COPIER"}
+                  {seedCopied ? "COPIED!" : "COPY"}
                 </PegBtn>
               </div>
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <span style={{ fontSize: 7, letterSpacing: "0.06em", color: PG.textMuted }}>SEED (6 CAR.)</span>
+              <span style={{ fontSize: 7, letterSpacing: "0.06em", color: PG.textMuted }}>SEED (6 CHARS)</span>
               <div style={{ display: "flex", gap: 4 }}>
                 <input
                   type="text"
@@ -175,12 +175,12 @@ export function Options({
                   onPointerEnter={playMenuHover}
                   onClick={handlePlaySeed}
                 >
-                  JOUER
+                  PLAY
                 </PegBtn>
               </div>
               {seedError && (
                 <span style={{ fontSize: 6, color: PG.red, letterSpacing: "0.04em" }}>
-                  Entre un code valide (A-Z, 0-9)
+                  Enter a valid code (A-Z, 0-9)
                 </span>
               )}
             </div>
@@ -192,7 +192,7 @@ export function Options({
             onPointerEnter={playMenuHover}
             onClick={() => { playMenuClick(); onClose(); }}
           >
-            FERMER
+            CLOSE
           </PegBtn>
         </div>
       </div>

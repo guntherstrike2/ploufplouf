@@ -15,6 +15,7 @@ export interface RenderOpts {
   showHitboxes?: boolean;
   orangeTotal?:  number;
   isNewRecord?:  boolean;
+  bestScore?:    number;   // meilleur score connu (scène DMD « RECORD » + attract)
 }
 
 export function drawFrame(
@@ -32,14 +33,12 @@ export function drawFrame(
   const slowVis = Math.max(0, Math.min(1, (1 - s.timeWarp) / 0.85));
   const inSlowMo = slowVis > 0.08;
 
-  const preClutchDusk = (inClutch || isLost) ? 0 : s.duskProgress;
-
   ctx.save();
 
   // Caméra : plus de zoom en fin de niveau, juste le screen shake.
   ctx.translate(s.shakeX, s.shakeY);
 
-  drawBackground(ctx, s, clutchIntensity, theme, preClutchDusk);
+  drawBackground(ctx, s, clutchIntensity, theme);
   drawImpactRings(ctx, s);   // ondes de choc dans le décor, derrière les pegs
   drawAimLine(ctx, s, aimAngle);
   drawPegs(ctx, s, inClutch, clutchIntensity, theme);
@@ -49,7 +48,6 @@ export function drawFrame(
 
   drawFloatingTexts(ctx, s);
   drawHypeTexts(ctx, s);
-  drawLauncher(ctx, s, aimAngle);
   drawBuckets(ctx, s);
 
   ctx.restore(); // fin transform caméra
@@ -61,8 +59,16 @@ export function drawFrame(
 
   // HUD façon mobile : enseigne in-canvas, par-dessus tout sauf le flash écran
   if (s.phase !== "lost" && s.phase !== "won") {
-    drawHud(ctx, s, orangeLeft, orangeTotal, theme);
+    drawHud(ctx, s, orangeLeft, orangeTotal, theme, opts.bestScore ?? 0, opts.isNewRecord ?? false);
   }
+
+  // L'aigle/lanceur passe DEVANT le HUD (il peut chevaucher l'enseigne quand on le
+  // glisse en haut). Redessiné ici, après le HUD, mais toujours sous le screen-shake
+  // de la caméra pour rester solidaire du playfield.
+  ctx.save();
+  ctx.translate(s.shakeX, s.shakeY);
+  drawLauncher(ctx, s, aimAngle);
+  ctx.restore();
 
   if (showHitboxes) drawDebugHitboxes(ctx, s);
 

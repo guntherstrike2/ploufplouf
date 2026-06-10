@@ -10,23 +10,10 @@ import { circleCollide } from "../physics";
 import { spawnParticles, spawnImpactRing, spawnLeafBurst } from "./effects";
 import { spawnBirds } from "./birds";
 import { TEXT_FX } from "../palette";
+import { HYPE_TIERS, hypeTier } from "../hype";
 
-// ─── Exclamations « hype » : aigle × épopée militaire, en calembours ──────────
-// Croisement « rapace prédateur » × grandiloquence guerrière, poussé du sobre
-// vers le mégalo ridicule à mesure que le combo monte. Vrais jeux de mots :
-//   BEC-TIQUE = bec/tactique · SERRES-IEUX = serres/sérieux · AÉ-RIEN = aérien/rien
-//   PORTE-BEC = porte-bonheur · TÊTE D'AIGLE = tête de pont · PLUMÉ = déplumé/ruiné
-// Contraintes : mots COURTS (width-fit → trop long = rétréci, moins d'impact) et
-// SANS ligature Œ (absente de Press Start 2P).
-const EAGLE_HYPE: readonly (readonly string[])[] = [
-  ["BEC-TIQUE!", "SERRES-IEUX?", "PLUMÉ!", "BIEN VISÉ!"],
-  ["EN PIQUÉ!", "PORTE-BEC!", "SERRE LES RANGS!", "TIR D'AIGLE!"],
-  ["FRAPPE AÉ-RIEN!", "TÊTE D'AIGLE!", "BEC AU CLAIRON!", "RAPACE ARMÉ!"],
-  ["AIGLE DE GUERRE!", "BEC-TIQUE NUKE!", "SERRES FATALES!", "PLUMÉ VIF!"],
-  ["GÉNÉRAL RAPACE!", "FRAPPE TOTAL-AILE!", "AIGLE 5 ÉTOILES!", "BEC ATOMIQUE!"],
-  ["EMPEREUR DES BECS!", "RAPACE NUCLÉAIRE!", "AIGLE ABSOLU... LOL!", "BEC DE GUERRE TOTAL!"],
-];
-
+// Les MOTS hype vivent dans engine/hype.ts (source unique partagée avec le DMD) ;
+// ici on ne garde que les COULEURS par palier.
 const HYPE_COLORS = TEXT_FX.hype;
 
 // Expression de combo ancrée À CÔTÉ du peg qui vient d'éclater (x, y), décalée
@@ -34,8 +21,8 @@ const HYPE_COLORS = TEXT_FX.hype;
 // par une légère dérive. Le mot et sa couleur escaladent avec le palier ; le
 // multiplicateur chiffré reste lisible sur le +N près du peg.
 function pushEagleHype(s: GameState, mult: number, x: number, y: number): void {
-  const tier = Math.max(0, Math.min(EAGLE_HYPE.length - 1, mult - 1));
-  const words = EAGLE_HYPE[tier]!;
+  const tier = Math.max(0, Math.min(HYPE_TIERS.length - 1, mult - 1));
+  const words = hypeTier(mult).playfield;
   const fontSize = Math.min(26, 15 + tier * 2);
 
   // Décalage diagonal : on s'écarte vers le côté qui a le plus de place (le peg
@@ -170,11 +157,21 @@ export function processBallPhysics(
       s.lastHitClock = s.animClock;
       s.lastHitWasOrange = def.isTarget;
 
-      // Score : base × multiplicateur de combo
+      // Score « bleu × orange » : on n'ajoute PLUS au total ici. On accumule dans les
+      // compteurs — les points bleus (combo inclus) d'un côté, le multiplicateur orange
+      // de l'autre. Le produit est versé à endOfTurn. `comboMult` (rafale court terme)
+      // multiplie UNIQUEMENT les points bleus.
       const comboMult = Math.max(1, Math.floor(s.combo / BALANCE.combo.interval));
-      const totalMult = comboMult * s.scoreMultiplier;
-      const earned = Math.round(def.baseScore * totalMult);
-      s.score += earned;
+      const earned = Math.round(def.baseScore * comboMult);
+      if (def.isTarget) {
+        // Cible orange : NE donne PAS de points directs. Elle monte le multiplicateur
+        // orange (turnOrangeCount), plafonné. Ce compteur N'EST PAS reset au lancer tant
+        // qu'on enchaîne les rattrapages au panier (cf. useGameLoop) ; un œuf perdu le
+        // remet à 0 (plus bas). Le multiplicateur effectif est (1 + turnOrangeCount).
+        s.turnOrangeCount = Math.min(BALANCE.score.orangeMultMax - 1, s.turnOrangeCount + 1);
+      } else {
+        s.turnBluePts += earned;                  // bleu (peg normal) → points du tour
+      }
 
       // Intensité visuelle qui monte avec le combo : 1.0 au premier peg → ~2.5 à combo 10+.
       // Cela amplifie progressivement les particules, l'onde de choc et le screenshake
@@ -214,7 +211,7 @@ export function processBallPhysics(
             s.hitFreezeFrames = Math.max(s.hitFreezeFrames, 14);
             s.slowMoFrames = SLOW_MO_DURATION;
             s.flashWhite = 1.0;
-            s.floatingTexts.push({ x: W / 2, y: H / 2 - 30, text: "DERNIÈRE PROIE !", life: 1, maxLife: 2.5, color: TEXT_FX.clutch, combo: true, exclaim: true, fontSize: 20, spin: 0 });
+            s.floatingTexts.push({ x: W / 2, y: H / 2 - 30, text: "LAST PREY!", life: 1, maxLife: 2.5, color: TEXT_FX.clutch, combo: true, exclaim: true, fontSize: 20, spin: 0 });
           }
         }
       } else {
@@ -225,29 +222,31 @@ export function processBallPhysics(
         p.scale = 1.8;
 
         // Score escaladant : chaque bumper du tir vaut 50% de plus que le précédent.
+        // Le bumper n'est pas une cible orange → il alimente les points BLEUS du tour.
         const bumperBonus = Math.round(earned * (s.bumperChainShot - 1) * 0.5);
-        s.score += bumperBonus;
+        s.turnBluePts += bumperBonus;
 
         // BUMPER FRENZY au 3e bumper du tir
         if (s.bumperChainShot === 3) {
           s.flashWhite = Math.max(s.flashWhite, 0.35);
           s.hitFreezeFrames = Math.max(s.hitFreezeFrames, 10);
-          s.floatingTexts.push({ x: W / 2, y: H / 2 - 50, text: "BUMPER FRENZY !", life: 1, maxLife: 2, color: TEXT_FX.hype[4]!, combo: true, exclaim: true, fontSize: 22, spin: (s.rng() - 0.5) * 1.5 });
+          s.floatingTexts.push({ x: W / 2, y: H / 2 - 50, text: "BUMPER FRENZY!", life: 1, maxLife: 2, color: TEXT_FX.hype[4]!, combo: true, exclaim: true, fontSize: 22, spin: (s.rng() - 0.5) * 1.5 });
         } else if (s.bumperChainShot === 5) {
           s.flashWhite = Math.max(s.flashWhite, 0.5);
-          s.floatingTexts.push({ x: W / 2, y: H / 2 - 50, text: "BUMPER MANIAC !", life: 1, maxLife: 2, color: TEXT_FX.gold, combo: true, exclaim: true, fontSize: 24, spin: (s.rng() - 0.5) * 2 });
+          s.floatingTexts.push({ x: W / 2, y: H / 2 - 50, text: "BUMPER MANIAC!", life: 1, maxLife: 2, color: TEXT_FX.gold, combo: true, exclaim: true, fontSize: 24, spin: (s.rng() - 0.5) * 2 });
         }
       }
 
       // Texte de score flottant (discret, près du peg, anti-collision).
+      // Orange : pas de points directs → on affiche le MULTIPLICATEUR qu'elle vient de
+      // faire monter (×N), pas un faux « +pts ». Bleu/bumper : « +points » (×comboMult si >1).
       const comboBonus = s.combo >= BALANCE.combo.interval && s.combo % BALANCE.combo.interval === 0;
-      const popFontSize = Math.min(18, 11 + Math.floor(totalMult * 1.5));
+      const popFontSize = Math.min(18, 11 + Math.floor(comboMult * 1.5));
       const textColor = def.isTarget ? TEXT_FX.clutch : p.kind === "bumper" ? TEXT_FX.gold : TEXT_FX.score;
-      pushScoreText(
-        s, p.x + (s.rng() - 0.5) * 20, p.y,
-        totalMult > 1 ? `+${earned} ×${comboMult}` : `+${earned}`,
-        textColor, popFontSize,
-      );
+      const scoreLabel = def.isTarget
+        ? `×${1 + s.turnOrangeCount}`
+        : comboMult > 1 ? `+${earned} ×${comboMult}` : `+${earned}`;
+      pushScoreText(s, p.x + (s.rng() - 0.5) * 20, p.y, scoreLabel, textColor, popFontSize);
       if (comboBonus) {
         // Palier de combo franchi → l'expression hype claque à côté du peg, en
         // diagonale, et un arpège pixel ascendant récompense la montée en palier.
@@ -269,19 +268,30 @@ export function processBallPhysics(
     s.bucketFlash = 1;
     b.active = false;
 
+    // ── MULTIPLICATEUR CONSERVÉ ──────────────────────────────────────────────
+    // RISK/REWARD : rattraper l'œuf au panier CONSERVE le multiplicateur orange pour le
+    // tour suivant (turnOrangeCount n'est PAS reset au lancer — cf. useGameLoop). On le
+    // signale visuellement quand un mult est en jeu. Un œuf perdu (hors écran) le casse.
+    if (s.turnOrangeCount > 0) {
+      s.floatingTexts.push({ x: bucketCx, y: bucketTop - 46, text: `MULT ×${1 + s.turnOrangeCount} KEPT`, life: 1, maxLife: 2, color: TEXT_FX.goldHi, combo: true, exclaim: true, fontSize: 16, spin: (s.rng() - 0.5) * 1.2 });
+      spawnImpactRing(s, b.x, bucketTop, TEXT_FX.goldHi, 0.6);
+    }
+
     // JACKPOT : la dernière proie est déjà tombée et l'œuf retombe pile dans le
-    // panier pendant le ralenti final → récompense maximale.
+    // panier pendant le ralenti final → récompense maximale. Le bonus de SCORE part
+    // en attente (pendingJackpot) pour être versé via une PayoutLine à endOfTurn (le
+    // DMD payout le rejoue) ; les œufs sont crédités là aussi. Le juice reste immédiat.
     if (s.orangeLeft === 0) {
       const bonus = BALANCE.score.jackpotBase * s.level;
-      s.score += bonus;
-      s.balls += BALANCE.score.jackpotBalls;
+      s.pendingJackpot += bonus;
+      s.pendingJackpotBalls += BALANCE.score.jackpotBalls;
       s.flashWhite = 1;
       s.trauma = 1;
       s.slowMoFrames = Math.max(s.slowMoFrames, SLOW_MO_DURATION);
       spawnParticles(s, b.x, bucketTop, true, 28);
       spawnImpactRing(s, b.x, bucketTop, TEXT_FX.gold, 1);
-      s.floatingTexts.push({ x: W / 2, y: H / 2 - 60, text: "JACKPOT !!!", life: 1, maxLife: 3.5, color: TEXT_FX.gold, combo: true, exclaim: true, fontSize: 30, spin: 0 });
-      s.floatingTexts.push({ x: W / 2, y: H / 2 - 24, text: `+${bonus.toLocaleString()}  ·  +${BALANCE.score.jackpotBalls} OEUFS`, life: 1, maxLife: 3, color: TEXT_FX.goldHi, combo: true, fontSize: 16 });
+      s.floatingTexts.push({ x: W / 2, y: H / 2 - 60, text: "JACKPOT!!!", life: 1, maxLife: 3.5, color: TEXT_FX.gold, combo: true, exclaim: true, fontSize: 30, spin: 0 });
+      s.floatingTexts.push({ x: W / 2, y: H / 2 - 24, text: `+${bonus.toLocaleString()}  ·  +${BALANCE.score.jackpotBalls} EGGS`, life: 1, maxLife: 3, color: TEXT_FX.goldHi, combo: true, fontSize: 16 });
       events.push({ kind: "sound", id: "jackpot" });
     } else {
       s.balls += 1;
@@ -293,38 +303,45 @@ export function processBallPhysics(
         s.bucketStreak += 1;
 
         if (s.bucketStreak >= 2) {
-          // Bonus de SÉRIE : grimpe à chaque rattrapage qualifiant consécutif.
+          // Bonus de SÉRIE : grimpe à chaque rattrapage qualifiant consécutif. Mis en
+          // attente (pendingStreakBonus) → versé via une PayoutLine à endOfTurn, comme
+          // le jackpot, pour que le DMD payout le rejoue et que le total reste cohérent.
           const streakBonus = BALANCE.bucketStreak.base * (s.bucketStreak - 1) * s.level;
-          s.score += streakBonus;
+          s.pendingStreakBonus += streakBonus;
           s.flashWhite = Math.max(s.flashWhite, 0.4);
           s.trauma = Math.min(1, s.trauma + 0.1);
           spawnParticles(s, b.x, bucketTop, true, 10 + s.bucketStreak * 2);
           spawnImpactRing(s, b.x, bucketTop, TEXT_FX.gold, Math.min(1, 0.4 + s.bucketStreak * 0.1));
-          s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 32, text: `SÉRIE ×${s.bucketStreak}`, life: 1, maxLife: 2, color: TEXT_FX.gold, combo: true, exclaim: true, fontSize: Math.min(26, 16 + s.bucketStreak), spin: (s.rng() - 0.5) * 1.2 });
+          s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 32, text: `STREAK ×${s.bucketStreak}`, life: 1, maxLife: 2, color: TEXT_FX.gold, combo: true, exclaim: true, fontSize: Math.min(26, 16 + s.bucketStreak), spin: (s.rng() - 0.5) * 1.2 });
           s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 14, text: `+${streakBonus.toLocaleString()}`, life: 1, maxLife: 1.8, color: TEXT_FX.goldHi, combo: true, fontSize: 14 });
         } else {
-          s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 14, text: "OEUF SAUVÉ !", life: 1, maxLife: 1.8, color: TEXT_FX.boon, combo: true, exclaim: true, fontSize: 16, spin: (s.rng() - 0.5) * 1.5 });
+          s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 14, text: "EGG SAVED!", life: 1, maxLife: 1.8, color: TEXT_FX.boon, combo: true, exclaim: true, fontSize: 16, spin: (s.rng() - 0.5) * 1.5 });
         }
 
         // +1 œuf bonus tous les N rattrapages d'affilée.
         if (s.bucketStreak % BALANCE.bucketStreak.eggEvery === 0) {
           s.balls += 1;
-          s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 50, text: "+1 OEUF !", life: 1, maxLife: 2, color: TEXT_FX.boon, combo: true, fontSize: 15 });
+          s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 50, text: "+1 EGG!", life: 1, maxLife: 2, color: TEXT_FX.boon, combo: true, fontSize: 15 });
         }
 
         events.push({ kind: "sound", id: s.bucketStreak >= 2 ? "jackpot" : "victory" });
       } else {
         // Rattrapage direct, sans avoir touché de peg : ne compte pas, casse la série.
         s.bucketStreak = 0;
-        s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 14, text: "OEUF SAUVÉ !", life: 1, maxLife: 1.8, color: TEXT_FX.boon, combo: true, exclaim: true, fontSize: 16, spin: (s.rng() - 0.5) * 1.5 });
+        s.floatingTexts.push({ x: s.bucket + BUCKET_W / 2, y: bucketTop - 14, text: "EGG SAVED!", life: 1, maxLife: 1.8, color: TEXT_FX.boon, combo: true, exclaim: true, fontSize: 16, spin: (s.rng() - 0.5) * 1.5 });
         events.push({ kind: "sound", id: "victory" });
       }
     }
   }
 
-  // L'œuf sort de l'écran → œuf manqué, la série de paniers est rompue.
+  // L'œuf sort de l'écran → œuf manqué : la série de paniers est rompue ET le
+  // multiplicateur orange ne se conservera PAS au tour suivant. ATTENTION : on ne reset
+  // PAS turnOrangeCount ici — endOfTurn tourne dans le même tick, juste après, et doit
+  // encore voir le mult pour l'appliquer au versement DE CE TOUR. On pose juste un flag ;
+  // endOfTurn applique le mult, l'affiche perdu, puis remet le compteur à 0.
   if (b.active && b.y > H + 40) {
     b.active = false;
     s.bucketStreak = 0;
+    if (s.turnOrangeCount > 0) s.orangeLostThisTurn = true;
   }
 }

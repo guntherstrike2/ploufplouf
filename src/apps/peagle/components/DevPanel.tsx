@@ -77,7 +77,7 @@ export function DevPanel({ initial, onClose, onLaunch, onTriggerScreen }: DevPan
         <div style={{ padding: "16px 16px 14px" }}>
           {/* God mode */}
           <div style={row}>
-            <span style={label}>ŒUFS INFINIS</span>
+            <span style={label}>INFINITE EGGS</span>
             <button onClick={() => set("godMode", !cfg.godMode)} style={toggleBtn(cfg.godMode)}>
               {cfg.godMode ? "ON" : "OFF"}
             </button>
@@ -93,7 +93,7 @@ export function DevPanel({ initial, onClose, onLaunch, onTriggerScreen }: DevPan
 
           {/* Start level */}
           <div style={row}>
-            <span style={label}>NIVEAU DE DÉPART</span>
+            <span style={label}>START LEVEL</span>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <button onClick={() => set("startLevel", Math.max(1, cfg.startLevel - 1))} style={stepBtn}>−</button>
               <span style={{ fontSize: 10, color: PG.cyan, fontFamily: "var(--pg-font)", minWidth: 24, textAlign: "center" }}>{cfg.startLevel}</span>
@@ -117,7 +117,7 @@ export function DevPanel({ initial, onClose, onLaunch, onTriggerScreen }: DevPan
           </div>
 
           {/* Upgrades de départ */}
-          <div style={{ ...label, marginBottom: 6 }}>UPGRADES DE DÉPART</div>
+          <div style={{ ...label, marginBottom: 6 }}>STARTING UPGRADES</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 16 }}>
             {ALL_UPGRADES.map(id => {
               const on = cfg.upgrades.includes(id);
@@ -164,20 +164,20 @@ export function DevPanel({ initial, onClose, onLaunch, onTriggerScreen }: DevPan
               letterSpacing: "0.04em",
             }}
           >
-            🎨 GALERIE D&apos;ASSETS
+            🎨 ASSET GALLERY
           </button>
 
           {onTriggerScreen && (
             <>
               <div className="pg-sep" style={{ marginBottom: 10 }} />
-              <div style={{ ...label, marginBottom: 8 }}>DÉCLENCHER ÉCRAN</div>
+              <div style={{ ...label, marginBottom: 8 }}>TRIGGER SCREEN</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 6 }}>
                 {(
                   [
-                    { id: "day",   icon: "☀", text: "JOUR",     color: "#ffdd66" },
-                    { id: "night", icon: "🌙", text: "NUIT",     color: "#88aaff" },
-                    { id: "win",   icon: "★",  text: "VICTOIRE", color: "#44cc88" },
-                    { id: "lose",  icon: "✕",  text: "DÉFAITE",  color: "#cc4444" },
+                    { id: "day",   icon: "☀", text: "DAY",     color: "#ffdd66" },
+                    { id: "night", icon: "🌙", text: "NIGHT",     color: "#88aaff" },
+                    { id: "win",   icon: "★",  text: "WIN", color: "#44cc88" },
+                    { id: "lose",  icon: "✕",  text: "LOSE",  color: "#cc4444" },
                   ] as const
                 ).map(({ id, icon, text, color }) => (
                   <button
@@ -245,7 +245,7 @@ export function DevPanel({ initial, onClose, onLaunch, onTriggerScreen }: DevPan
                   letterSpacing: "0.04em",
                 }}
               >
-                CHOIX DE BONUS
+                BONUS CHOICE
               </button>
             </>
           )}
@@ -272,7 +272,7 @@ export function DevPanel({ initial, onClose, onLaunch, onTriggerScreen }: DevPan
               textShadow: "0 1px 0 rgba(0,0,0,0.5)",
             }}
           >
-            LANCER LA PARTIE DEV
+            START DEV GAME
           </button>
         </div>
       </div>

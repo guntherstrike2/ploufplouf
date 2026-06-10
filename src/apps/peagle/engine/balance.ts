@@ -27,8 +27,19 @@ export const BALANCE = {
     ringRadiusFull: 54,  // +rayon à intensité 1
   },
   score: {
-    orangeBase: 100,
+    orangeBase: 100,    // baseScore d'une cible orange — sert au pop/affichage (l'orange monte le MULT, cf. ball.ts)
     normalBase: 10,
+    // Score « bleu × orange » : les points bleus (pegs normaux + bumpers) du TOUR
+    // sont accumulés en live, puis multipliés par (1 + nbOrange × orangeMultStep)
+    // et versés au total à la fin du tour (cf. state/turn.ts). orangeMultStep règle
+    // la puissance d'une cible orange (1 = chaque orange ajoute +1 au multiplicateur).
+    orangeMultStep: 1,
+    // ── MULTIPLICATEUR ORANGE « streak bucket » (cf. state/ball.ts, turn.ts) ────
+    // Règle simple : score d'un tour = bleu × (1 + nbOrange). Le compteur d'oranges
+    // (turnOrangeCount) S'ACCUMULE de tour en tour TANT QU'on rattrape l'œuf au panier
+    // (streak). Un œuf perdu (hors écran) le remet à 0. Plus on enchaîne les rattrapages,
+    // plus le multiplicateur grimpe → tension risk/reward. Plafonné pour rester lisible.
+    orangeMultMax: 12,         // plafond du multiplicateur (1 + nbOrange accumulés)
     ballBonus: 1000,         // points par œuf restant en fin de niveau
     // JACKPOT : l'œuf retombe dans le panier juste après la dernière proie.
     jackpotBase: 5000,       // bonus de score = jackpotBase × niveau

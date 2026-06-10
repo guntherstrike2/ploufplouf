@@ -1,9 +1,17 @@
 import { W, H } from "../engine/constants";
+import { TEXT_FX } from "../engine/palette";
 import type { GameState } from "../engine/types";
 import type { GameTheme } from "../engine/game-theme";
-import { pgDisplayFont, pgUiFont } from "./fonts";
+import { pgUiFont } from "./fonts";
+import { drawBitmapText, bitmapTextWidth, PX_HYPE } from "./text-bitmap";
 import { roundGlowRect, roundStrokeRect } from "./helpers";
-import { TEXT_FX } from "../engine/palette";
+
+// fontSize (px, hérité de l'ère ctx.font) → scale de dot bitmap. La cellule fait
+// PX_HYPE.rows dots de haut ; on vise ~fontSize px de haut, arrondi à l'entier le plus
+// proche (≥1) pour des dots NETS. Ex (cellule 8) : fontSize 13 → 2 (16px), 11 → 1 (8px).
+function scaleForFont(fontSize: number): number {
+  return Math.max(1, Math.round(fontSize / PX_HYPE.rows));
+}
 
 export function drawParticles(ctx: CanvasRenderingContext2D, s: GameState): void {
   const count = s.particles.length;
@@ -153,8 +161,10 @@ export function drawFloatingTexts(ctx: CanvasRenderingContext2D, s: GameState): 
     }
 
     ctx.scale(popScale * scaleX, popScale * scaleY);
-    ctx.font = t.exclaim ? pgDisplayFont(fontSize) : pgUiFont(fontSize + 2);
     ctx.textAlign = "center";
+    // Le hype (exclaim) est désormais bitmap → pas de ctx.font. Le badge (else)
+    // garde VT323 (pgUiFont) pour son texte de bannière.
+    if (!t.exclaim) ctx.font = pgUiFont(fontSize + 2);
 
     if (t.exclaim) {
       // Étoile pixel burst : 8 rayons au spawn (remplace l'aberration chromatique)
@@ -242,6 +252,12 @@ export function drawHypeTexts(ctx: CanvasRenderingContext2D, s: GameState): void
     const age = 1 - h.life;
     const fade = Math.min(1, h.life * 2.2);
 
+    // Palier « FOU » (tier ≥ 5) : la couleur clignote vert↔orange. On alterne sur
+    // l'âge du mot (~10 Hz) → clignotement net et lisible le temps qu'il s'affiche.
+    const color = h.tier >= 5
+      ? (Math.floor(age * 30) % 2 === 0 ? TEXT_FX.hypeCrazyA : TEXT_FX.hypeCrazyB)
+      : h.color;
+
     // Les GROS paliers (tier ≥ 3) reçoivent le traitement « impact » : hit-stop,
     // punch-in, ombre portée, onde de choc. Les petits combos restent légers.
     const isBig = h.tier >= 3;
@@ -289,8 +305,7 @@ export function drawHypeTexts(ctx: CanvasRenderingContext2D, s: GameState): void
     ctx.globalAlpha = fade;
     ctx.translate(h.x + jx, h.y + jy);
     ctx.rotate(h.spin * 0.05 + wobble);
-    ctx.font = pgDisplayFont(h.fontSize);
-    ctx.textAlign = "center";
+    ctx.textAlign = "center";   // hype = bitmap → plus de ctx.font
 
     // Onde de choc : un anneau pixel-art jaillit du mot au spawn et se propage en
     // s'estompant → le texte « sort » d'une explosion. Dessiné AVANT le scale du
@@ -304,7 +319,7 @@ export function drawHypeTexts(ctx: CanvasRenderingContext2D, s: GameState): void
           ctx.save();
           ctx.globalCompositeOperation = "lighter";
           ctx.globalAlpha = fade * sw * sw * 0.55;
-          ctx.fillStyle = h.color;
+          ctx.fillStyle = color;
           roundStrokeRect(ctx, -rad, -rad, rad * 2, 1 + Math.round(sw * 2));
           ctx.restore();
         }
@@ -312,7 +327,7 @@ export function drawHypeTexts(ctx: CanvasRenderingContext2D, s: GameState): void
     }
 
     // Width-fit : rétrécit si le mot dépasserait l'espace dispo jusqu'au bord.
-    const tw = ctx.measureText(h.text).width || 1;
+    const tw = bitmapTextWidth(h.text, scaleForFont(h.fontSize)) || 1;
     const maxW = 2 * Math.max(40, Math.min(h.x - 6, W - 6 - h.x));
     const fit = Math.min(1, maxW / tw);
     ctx.scale(popScale * scaleX * fit, popScale * scaleY * fit);
@@ -322,7 +337,7 @@ export function drawHypeTexts(ctx: CanvasRenderingContext2D, s: GameState): void
     if (isNewest && burstI > 0.02) {
       ctx.save();
       ctx.globalAlpha = fade * burstI * 0.5;
-      ctx.strokeStyle = h.color;
+      ctx.strokeStyle = color;
       ctx.lineWidth = Math.max(1, Math.round(burstI * 2));
       ctx.lineCap = "square";
       const r0 = h.fontSize * 0.3;
@@ -337,111 +352,70 @@ export function drawHypeTexts(ctx: CanvasRenderingContext2D, s: GameState): void
       ctx.restore();
     }
 
-    // Chromatic punch : déphasage qui claque à la sortie du hit-stop puis se
-    // résorbe en ~0.12s, réservé aux paliers élevés (tier ≥ 3).
-    const chroma = isBig ? Math.max(0, 1 - animAge / 0.12) * (1.5 + h.tier * 0.5) : 0;
-    // Gradient « métal » seulement quand l'escalade a déjà viré au doré (tier 2-4) :
-    // on préserve le vert feuille des premiers paliers ET le violet du sommet, qui
-    // ne doivent pas être écrasés par l'or.
-    const gradMetal = h.tier >= 2 && h.tier <= 4;
     // Ombre portée : profondeur sur les gros mots (en px-monde, atténuée par le scale).
+    // (Le dégradé métal et l'aberration chromatique ont disparu avec le passage bitmap.)
     const shadow = isBig ? 4 : 0;
-    drawExclaimText(ctx, h.text, h.color, h.fontSize, fade, { gradMetal, chroma, shadow });
+    drawExclaimText(ctx, h.text, color, h.fontSize, fade, { shadow });
     ctx.restore();
   }
 }
 
-// Options de juice ponctuelles, panachées par l'appelant pour ne PAS toutes
-// s'empiler sur le même mot (sinon bouillie illisible) :
-//   • gradMetal : remplit le corps d'un dégradé doré vertical (look métal précieux),
-//     systématique sur les mots de combo « hype ».
-//   • chroma : déphasage chromatique rouge/cyan ténu (offset px) qui claque
-//     l'impact façon CRT — réservé aux paliers élevés, au spawn.
-//   • jitter : décalage sub-pixel (x,y) appliqué par l'appelant via translate —
-//     ici on en tient compte juste pour le corps. (Géré côté appelant.)
+// Options de juice ponctuelles du texte hype. Depuis le passage en bitmap, seule
+// l'ombre portée subsiste (le dégradé métal et l'aberration chromatique, qui
+// reposaient sur le rendu vectoriel de fillText, ont été retirés).
 interface ExclaimFx {
-  gradMetal?: boolean;
-  chroma?: number;   // amplitude du déphasage en px (0 = off)
   shadow?: number;   // décalage de l'ombre portée en px (0 = off)
 }
 
-// Dégradé doré du corps : caché par fontSize (clé de cache simple). Reconstruit
-// seulement quand la taille change → évite un createLinearGradient par frame.
-let _metalGrad: CanvasGradient | null = null;
-let _metalGradKey = -1;
-function metalGradient(ctx: CanvasRenderingContext2D, fontSize: number): CanvasGradient {
-  if (_metalGrad === null || _metalGradKey !== fontSize) {
-    const g = ctx.createLinearGradient(0, -fontSize * 0.8, 0, fontSize * 0.25);
-    g.addColorStop(0, TEXT_FX.hypeGradTop);
-    g.addColorStop(0.55, TEXT_FX.hypeGradMid);
-    g.addColorStop(1, TEXT_FX.hypeGradBot);
-    _metalGrad = g;
-    _metalGradKey = fontSize;
-  }
-  return _metalGrad;
-}
-
-// Exclamation hype : glow doux + contour pixel noir + corps coloré + highlight fin.
+// Exclamation hype : glow doux + contour pixel noir + corps coloré.
 // Le pixel burst est rendu par l'appelant avant cet appel.
+//
+// ── Rendu BITMAP (font-pixel.ts) ─────────────────────────────────────────────
+// Plus de ctx.font/fillText : le texte est blitté en dots (drawBitmapText), comme le
+// HUD. Le `scale` (taille d'un dot) est dérivé de fontSize pour garder ~la même taille
+// à l'écran, arrondi à l'entier le plus proche pour des dots NETS. Les effets riches
+// vectoriels (dégradé métal, aberration chromatique, highlight clippé) sont abandonnés
+// — non reproductibles proprement en bitmap sans canvas offscreen ; on garde le trio
+// ombre + glow + contour, qui suffit à faire « claquer » le mot.
 function drawExclaimText(
   ctx: CanvasRenderingContext2D, text: string, color: string, fontSize: number, lifeRatio: number,
   fx?: ExclaimFx,
 ): void {
-  // ⓪ Ombre portée : copie noire décalée en bas-droite → le mot décolle du décor
-  // et flotte au-dessus du jeu (profondeur + lisibilité immédiate). Dessinée AVANT
-  // tout le reste pour rester dessous.
+  const scale = scaleForFont(fontSize);
+  // L'ancien fillText posait la baseline à y=0 (corps au-dessus). On reproduit ce
+  // cadrage en centrant le bloc bitmap un peu au-dessus de 0.
+  const cy = -fontSize * 0.35;
+
+  // ⓪ Ombre portée : copie noire décalée bas-droite → le mot décolle du décor.
   if (fx?.shadow && fx.shadow > 0.2) {
     const o = fx.shadow;
     ctx.save();
     ctx.globalAlpha = lifeRatio * 0.5;
     ctx.fillStyle = "rgba(0,0,0,0.85)";
-    ctx.fillText(text, o, o);
+    drawBitmapText(ctx, text, o, cy + o, scale);
     ctx.restore();
   }
 
-  // ① Glow additif doux (réduit pour moins de surbrillance — le burst fait le travail)
+  // ① Glow additif doux (le burst fait l'essentiel du travail).
   ctx.save();
   ctx.globalCompositeOperation = "lighter";
   ctx.globalAlpha = lifeRatio * 0.22;
   ctx.fillStyle = color;
-  ctx.fillText(text, 0, 0);
-  ctx.fillText(text, 0, 0);
+  drawBitmapText(ctx, text, 0, cy, scale);
+  drawBitmapText(ctx, text, 0, cy, scale);
   ctx.restore();
 
-  // ② Contour pixel noir (8 directions)
+  // ② Contour pixel noir (8 directions, décalage = 1 dot pour rester net).
   ctx.fillStyle = "rgba(0,0,0,0.85)";
   for (let dx = -1; dx <= 1; dx++) {
     for (let dy = -1; dy <= 1; dy++) {
-      if (dx || dy) ctx.fillText(text, dx, dy);
+      if (dx || dy) drawBitmapText(ctx, text, dx * scale, cy + dy * scale, scale);
     }
   }
 
-  // ②bis Déphasage chromatique (CRT punch) : copies rouge/cyan additives, décalées
-  // de ±chroma px. Ténu et bref (l'appelant fait décroître `chroma` avec l'âge).
-  if (fx?.chroma && fx.chroma > 0.05) {
-    const c = fx.chroma;
-    ctx.save();
-    ctx.globalCompositeOperation = "lighter";
-    ctx.globalAlpha = lifeRatio * 0.5;
-    ctx.fillStyle = "#ff2a2a";
-    ctx.fillText(text, -c, 0);
-    ctx.fillStyle = "#2affff";
-    ctx.fillText(text, c, 0);
-    ctx.restore();
-  }
-
-  // ③ Corps : dégradé doré « métal » pour les mots hype, sinon aplat coloré.
-  ctx.fillStyle = fx?.gradMetal ? metalGradient(ctx, fontSize) : color;
-  ctx.fillText(text, 0, 0);
-
-  // ④ Highlight pixel-art : bande fine sur le tiers supérieur seulement
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(-300, -fontSize, 600, fontSize * 0.38);
-  ctx.clip();
-  ctx.fillStyle = "rgba(255,255,255,0.42)";
-  ctx.fillText(text, 0, 0);
-  ctx.restore();
+  // ③ Corps coloré (aplat — plus de dégradé métal).
+  ctx.fillStyle = color;
+  drawBitmapText(ctx, text, 0, cy, scale);
 }
 
 // Overlay de ralenti : teinte bleue glacée + vignette froide qui respire.

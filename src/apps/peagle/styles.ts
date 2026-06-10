@@ -114,7 +114,7 @@ export const chipInset: CSSProperties = {
 
 // ─── Boutons pixel plats ──────────────────────────────────────────────────────
 export const btnBase: CSSProperties = {
-  fontFamily: "var(--font-press-start), monospace",
+  fontFamily: "var(--pg-font), monospace",
   fontSize: 8,
   cursor: "pointer",
   padding: "11px 16px",

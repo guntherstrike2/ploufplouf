@@ -1,6 +1,15 @@
 import { FACE, HI, SHD, DARK } from "./theme";
 const NAVY = "#ff6b35"; // warm orange for nest pixel art
 
+// Hex opaque (#rrggbb ou #rgb) → rgba(r,g,b,a). Indispensable pour le HUD : les tokens
+// ROLE.* de la palette sont des hex opaques, or le HUD est translucide sur le ciel.
+export function alpha(hex: string, a: number): string {
+  let h = hex.replace("#", "");
+  if (h.length === 3) h = h[0]! + h[0]! + h[1]! + h[1]! + h[2]! + h[2]!;
+  const n = parseInt(h, 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
+
 // Halo/glow rectangulaire aux coins ébréchés 1px — même langage pixel-art que les pegs,
 // œufs, boutons et astres. À utiliser à la place d'un fillRect pour tout glow, afin que
 // les angles vifs du halo ne réintroduisent pas une silhouette carrée autour d'un élément

@@ -200,62 +200,62 @@ function PauseMascot({ size = 80 }: { size?: number }) {
 }
 
 const WIN_QUIPS = [
-  "L'aigle est satisfait. C'est rare. Profitez-en.",
-  "Toutes les cibles détruites ! L'aigle vous invite à son nid. Refusez.",
-  "Victoire ! Le phénix a pleuré. Personne ne s'en souvient mais c'est noté.",
-  "Parfait. L'aigle mentionne votre score à ses amis ornithologues.",
-  "Niveau bouclé. L'aigle vous remet une plume d'honneur fictive.",
-  "GG. L'aigle a filmé ça sur son iPhone. Il n'a pas d'iPhone.",
+  "The eagle is satisfied. That's rare. Enjoy it.",
+  "All targets down! The eagle invites you to his nest. Decline.",
+  "Victory! The phoenix shed a tear. Nobody remembers it but it's noted.",
+  "Perfect. The eagle mentions your score to his ornithologist friends.",
+  "Level cleared. The eagle awards you a fictional feather of honor.",
+  "GG. The eagle filmed that on his iPhone. He doesn't have an iPhone.",
 ];
 
 const LOSE_QUIPS = [
-  "Tu vises comme un manchot. Et les manchots n'ont pas de mains.",
-  "Même mes œufs ont plus de talent que toi.",
-  "J'ai vu des tortues faire mieux. Des tortues mortes.",
-  "Continue comme ça et je vais être obligé de migrer.",
-  "Mes plumes tombent une par une à chaque fois que tu joues.",
-  "J'ai survécu à des tornades. Pas à ce score.",
-  "Tu sais que les aigles ont une vision 8× supérieure aux humains ? Toi t'as loupé des trucs de 50 pixels.",
-  "Je suis un symbole de liberté et de grandeur. Toi tu es une honte.",
-  "Même un poussin sorti de l'œuf hier ferait mieux.",
-  "L'Empire romain avait un aigle comme emblème. Ils ont quand même chuté. Je comprends mieux pourquoi.",
-  "Comment t'as joué, là ? Sans les yeux ?",
-  "Je ne pleurerai pas. Les aigles ne pleurent pas. *pleure*",
-  "On dit que l'aigle vole toujours seul. Après t'avoir regardé jouer, je comprends.",
-  "J'ai des serres acérées. Je ne commente pas davantage.",
-  "Quelqu'un devrait t'interdire de toucher à ce jeu.",
-  "Je suis le roi des cieux. Toi t'es même pas roi de ton clavier.",
-  "Les écureuils jouent mieux que toi. Oui. Les écureuils.",
-  "Je vole à 150 km/h en piqué. Toi tu tombes en score.",
-  "Ma grand-mère aigle joue mieux. Et elle a 40 ans.",
-  "J'ai vu des lapins prendre de meilleures décisions stratégiques.",
-  "À ce rythme, les cibles vont te demander de l'argent.",
-  "Je suis inscrit sur les armoiries de 15 nations. Pas pour ça.",
-  "Tu veux que je te montre comment on fait ? J'ai pas de mains non plus.",
-  "Même Icare a tenu plus longtemps. Et il avait des ailes en cire.",
-  "Un aigle ne perd jamais la face. Toi tu la perds à chaque partie.",
-  "Ton score va rester dans les annales. Pas pour les bonnes raisons.",
-  "Il paraît que c'est en jouant qu'on devient joueur. Apparemment pas pour toi.",
-  "Les cibles orange t'ont vu venir de loin. Très loin.",
-  "C'est officiel : l'aigle a honte. L'aigle n'a jamais honte.",
-  "Je pensais que c'était un bug. Non, c'est juste toi.",
-  "Même les pigeons te regardent de travers. Les pigeons.",
-  "Tu as le même niveau que quelqu'un qui n'a jamais joué. Sauf que toi t'as joué.",
-  "L'aigle plisse les yeux. Pas d'admiration. De perplexité.",
-  "Si la médiocrité était un sport, tu serais champion olympique.",
+  "You aim like a penguin. And penguins don't have hands.",
+  "Even my eggs have more talent than you.",
+  "I've seen turtles do better. Dead turtles.",
+  "Keep this up and I'll be forced to migrate.",
+  "My feathers fall out one by one every time you play.",
+  "I've survived tornadoes. Not this score.",
+  "Did you know eagles have vision 8× sharper than humans? You missed stuff 50 pixels wide.",
+  "I'm a symbol of freedom and grandeur. You're a disgrace.",
+  "Even a chick that hatched yesterday would do better.",
+  "The Roman Empire had an eagle as its emblem. They still fell. Now I understand why.",
+  "How did you even play that? With your eyes shut?",
+  "I will not cry. Eagles don't cry. *cries*",
+  "They say the eagle always flies alone. After watching you play, I get it.",
+  "I have razor-sharp talons. I'll say no more.",
+  "Someone should ban you from touching this game.",
+  "I'm the king of the skies. You're not even king of your keyboard.",
+  "Squirrels play better than you. Yes. Squirrels.",
+  "I dive at 150 km/h. You just dive in score.",
+  "My eagle grandmother plays better. And she's 40 years old.",
+  "I've seen rabbits make better strategic decisions.",
+  "At this rate, the targets are going to charge you money.",
+  "I'm on the coats of arms of 15 nations. Not for this.",
+  "Want me to show you how it's done? I don't have hands either.",
+  "Even Icarus lasted longer. And he had wax wings.",
+  "An eagle never loses face. You lose it every single game.",
+  "Your score will go down in history. Not for the right reasons.",
+  "They say you become a player by playing. Apparently not you.",
+  "The orange targets saw you coming from a mile away. A long mile.",
+  "It's official: the eagle is ashamed. The eagle is never ashamed.",
+  "I thought it was a bug. No, it's just you.",
+  "Even the pigeons are giving you side-eye. The pigeons.",
+  "You're on the level of someone who's never played. Except you have played.",
+  "The eagle squints. Not in admiration. In bewilderment.",
+  "If mediocrity were a sport, you'd be an Olympic champion.",
 ];
 
 const RECORD_QUIPS = [
-  "Nouveau record... ton ancien score était tellement bas que c'était facile.",
-  "Félicitations. La barre était tellement basse qu'un ver de terre l'aurait franchie.",
-  "Record battu ! C'est triste pour l'ancien record.",
-  "Tu t'es surpassé. Ça veut pas dire grand chose, mais quand même.",
-  "Nouveau record ! L'aigle applaudit... avec ses ailes. Ça fait du bruit.",
-  "Pour une fois, tu n'es pas une honte totale. Presque.",
-  "Record personnel ! Tu fêtes ça comment ? Avec des graines ?",
-  "Bien joué. J'ai dit 'bien'. Pas 'très bien'. Nuance.",
-  "L'aigle reconnaît tes efforts. À contrecœur.",
-  "Tu as battu ton record. L'aigle va noter ça dans ses plumes.",
+  "New record... your old score was so low it was easy.",
+  "Congratulations. The bar was so low an earthworm could've cleared it.",
+  "Record broken! Feel bad for the old record.",
+  "You outdid yourself. Doesn't mean much, but still.",
+  "New record! The eagle applauds... with his wings. It's loud.",
+  "For once, you're not a total disgrace. Almost.",
+  "Personal best! How do you celebrate? With seeds?",
+  "Well played. I said 'well'. Not 'very well'. There's a difference.",
+  "The eagle acknowledges your efforts. Grudgingly.",
+  "You beat your record. The eagle will note that in his feathers.",
 ];
 
 // ─── Mini-classement diégétique pour le game over ───────────────────────────
@@ -271,7 +271,7 @@ function RankRow({ entry, rank, me }: { entry: LeaderboardEntry; rank: number; m
     <div className={`pg-go-rank-row${me ? " pg-go-rank-me" : ""}`}>
       <span className={badgeCls} style={{ width: 18, height: 18, fontSize: 7 }}>{rank}</span>
       <span className="pg-go-rank-name">
-        {name}{me && <span className="pg-go-rank-you"> · vous</span>}
+        {name}{me && <span className="pg-go-rank-you"> · you</span>}
       </span>
       <span className="pg-go-rank-score">{entry.score.toLocaleString()}</span>
     </div>
@@ -297,7 +297,7 @@ function GameOverRanking({
   if (loading && entries.length === 0) {
     return (
       <div className="pg-go-rank">
-        <div className="pg-go-rank-hint">Lecture du registre des chasseurs…</div>
+        <div className="pg-go-rank-hint">Reading the hunters&apos; registry...</div>
       </div>
     );
   }
@@ -314,7 +314,7 @@ function GameOverRanking({
 
   return (
     <div className="pg-go-rank">
-      <div className="pg-go-rank-label">CIEL DES CHASSEURS</div>
+      <div className="pg-go-rank-label">HUNTERS&apos; SKY</div>
       {podium.map((e, i) => (
         <RankRow key={e.userId} entry={e} rank={i + 1} me={i === myIdx} />
       ))}
@@ -332,7 +332,7 @@ function GameOverRanking({
           <div className="pg-go-rank-row pg-go-rank-me">
             <span className="pg-lb-badge pg-lb-badge-plain" style={{ width: 18, height: 18, fontSize: 7 }}>—</span>
             <span className="pg-go-rank-name">
-              vous<span className="pg-go-rank-you"> · hors top 10</span>
+              you<span className="pg-go-rank-you"> · outside top 10</span>
             </span>
             <span className="pg-go-rank-score">{playerScore.toLocaleString()}</span>
           </div>
@@ -340,7 +340,7 @@ function GameOverRanking({
       )}
 
       {!isLoggedIn && (
-        <div className="pg-go-rank-hint">Connectez-vous pour marquer votre nid au classement.</div>
+        <div className="pg-go-rank-hint">Log in to stake your nest on the leaderboard.</div>
       )}
     </div>
   );
@@ -480,17 +480,17 @@ function GameCanvasComponent({
                 « play », surdimensionné comme le bouton JOUER du menu principal. */}
             <div className="pg-diag-btns">
               <PegBtn onClick={onResume} variant="play" fullWidth>
-                REPRENDRE
+                RESUME
               </PegBtn>
               <PegBtn onClick={onReplay} variant="primary" fullWidth>
-                RECOMMENCER
+                RESTART
               </PegBtn>
               <div className="pg-diag-sep" />
               <PegBtn onClick={() => setShowOptions(true)} variant="primary" fullWidth>
                 OPTIONS
               </PegBtn>
               <PegBtn onClick={onMenu} variant="primary" fullWidth>
-                MENU PRINCIPAL
+                MAIN MENU
               </PegBtn>
             </div>
 
@@ -506,7 +506,7 @@ function GameCanvasComponent({
                     variant="neutral"
                     style={{ color: PG.purpleHi, textShadow: `0 0 8px ${PG.purple}, 0 2px 3px rgba(0,0,0,0.95)` }}
                   >
-                    NIVEAU SUIVANT
+                    NEXT LEVEL
                   </PegBtn>
                 )}
                 <PegBtn
@@ -521,7 +521,7 @@ function GameCanvasComponent({
 
             {/* Astuce — tout en bas, après les boutons */}
             <div className="pg-diag-tip" style={{ marginTop: 28, marginBottom: 0 }}>
-              <span className="pg-diag-tip-label">ASTUCE</span>
+              <span className="pg-diag-tip-label">TIP</span>
               <span className="pg-diag-tip-text">{pauseTip}</span>
             </div>
            </div>
@@ -560,12 +560,12 @@ function GameCanvasComponent({
 
             {/* Score */}
             <div className="pg-diag-score">
-              <div className="pg-diag-score-label">SCORE FINAL</div>
+              <div className="pg-diag-score-label">FINAL SCORE</div>
               <div className="pg-diag-score-val">{ui.score.toLocaleString()}</div>
             </div>
 
             {isRecord && (
-              <div className="pg-diag-record">NOUVEAU RECORD !</div>
+              <div className="pg-diag-record">NEW RECORD!</div>
             )}
 
             {/* Mini-classement — la place du joueur, montrée sur place */}
@@ -583,19 +583,19 @@ function GameCanvasComponent({
                 action principale (REJOUER) en peg orange « play » comme JOUER du menu. */}
             <div className="pg-diag-btns">
               <PegBtn onClick={onReplay} variant="play" fullWidth>
-                REJOUER
+                PLAY AGAIN
               </PegBtn>
               <PegBtn onClick={onLeaderboard} variant="primary" fullWidth>
-                CLASSEMENT
+                LEADERBOARD
               </PegBtn>
               <PegBtn onClick={onMenu} variant="primary" fullWidth>
-                MENU PRINCIPAL
+                MAIN MENU
               </PegBtn>
             </div>
 
             {/* Astuce — tout en bas, après les boutons */}
             <div className="pg-diag-tip pg-diag-tip-go" style={{ marginTop: 28, marginBottom: 0 }}>
-              <span className="pg-diag-tip-label">ASTUCE</span>
+              <span className="pg-diag-tip-label">TIP</span>
               <span className="pg-diag-tip-text">{gameOverTip}</span>
             </div>
            </div>

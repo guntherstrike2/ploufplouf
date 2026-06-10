@@ -1,14 +1,18 @@
 import type { GameState, Particle } from "../types";
 import { BALANCE } from "../balance";
+import { RAMP } from "../palette";
 
-// Default particle color pools — renderer-independent, baked into each particle at spawn.
+// Default particle color pools — renderer-independent, baked into each particle
+// at spawn. Toutes dérivées de la palette « Bosquet » (palette.ts) : les pegs
+// normaux crachent du vert feuille (et non l'ancien bleu arcade hardcodé qui
+// jurait avec la forêt), les cibles/bombes restent dans la rampe or→orange→rouge.
 const PARTICLE_COLORS = {
-  orange: ["#ff5500", "#ffaa00", "#ffdd44", "#ffffff", "#ff2200"] as const,
-  normal: ["#2233aa", "#4455ff", "#0011aa", "#aaaaff", "#1122cc"] as const,
-  bomb:   ["#ff1133", "#ff8800", "#ffcc00", "#ffffff", "#cc0022"] as const,
+  orange: [RAMP.orange[400], RAMP.gold[300], RAMP.gold[100], RAMP.cream, RAMP.orange[600]] as const,
+  normal: [RAMP.green[200], RAMP.green[300], RAMP.green[100], RAMP.green[50], RAMP.green[400]] as const,
+  bomb:   [RAMP.red, RAMP.orange[400], RAMP.gold[300], RAMP.cream, RAMP.orange[600]] as const,
 } as const;
 
-const LEAF_COLORS = ["#4ab832", "#7acc44", "#aadd22", "#c4cc22", "#88bb33", "#55cc44", "#a8e040"] as const;
+const LEAF_COLORS = [RAMP.green[300], RAMP.green[200], RAMP.green[100], RAMP.green[400], RAMP.green[500], RAMP.green[600], RAMP.green[50]] as const;
 
 // ─── Pool d'objets Particle ──────────────────────────────────────────────────
 // Sur les gros combos, des centaines de particules sont créées puis jetées par

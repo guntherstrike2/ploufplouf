@@ -2,21 +2,21 @@
 // Rédigées pour refléter les vraies mécaniques du jeu.
 
 export const PEAGLE_TIPS: string[] = [
-  "Enchaîne les hits sans pause pour grimper le multiplicateur de combo.",
-  "Vider toutes les cibles orange rapporte 10 000 × le numéro du niveau.",
-  "Les bumpers dorés propulsent ton œuf très fort — sers-t'en pour atteindre les coins.",
-  "Le panier se déplace : anticipe l'angle de sortie pour récupérer ton œuf.",
-  "En mode CLUTCH (≤ 3 œufs), l'aigle panique. Toi, reste calme.",
-  "Les pegs normaux disparaissent eux aussi et rapportent des points bonus.",
-  "Les rebonds sur les bords sont élastiques — les angles rasants sont tes amis.",
-  "Avec Œil de Lynx, la ligne de visée est 60 % plus longue : essentiel aux niveaux hauts.",
-  "Œuf Lourd rebondit 30 % plus fort sur les cibles : parfait pour les ricochets en chaîne.",
-  "Gros Œuf facilite les impacts, mais modifie les trajectoires sur les rebonds serrés.",
-  "Le seed de 6 caractères dans Réglages permet de rejouer la même partie.",
-  "Vise d'abord les cibles orange les plus hautes — elles sont souvent les plus dures à atteindre.",
-  "Chaque combo battu donne plus de points : les longues chaînes font la différence.",
-  "Attraper l'œuf avec le panier peut te sauver un tour critique.",
-  "Planifie tes upgrades : Œuf en plus est roi si tu peines à finir les niveaux.",
+  "Chain hits without pause to crank up your combo multiplier.",
+  "Clearing every orange target scores 10,000 × the level number.",
+  "Golden bumpers launch your egg hard — use them to reach the corners.",
+  "The bucket moves: anticipate the exit angle to catch your egg.",
+  "In CLUTCH mode (≤ 3 eggs), the eagle panics. You, stay calm.",
+  "Normal pegs vanish too and rack up bonus points.",
+  "Edge bounces are springy — grazing angles are your friends.",
+  "With Eagle Eye, the aim line is 60% longer: essential on high levels.",
+  "Heavy Egg bounces 30% harder off targets: perfect for chain ricochets.",
+  "Big Egg makes impacts easier, but shifts trajectories on tight bounces.",
+  "The 6-character seed in Settings lets you replay the same game.",
+  "Aim for the highest orange targets first — they're often the hardest to reach.",
+  "Every combo beaten scores more points: long chains make the difference.",
+  "Catching the egg with the bucket can save you a critical turn.",
+  "Plan your upgrades: Extra Egg is king if you struggle to finish levels.",
 ];
 
 /** Renvoie une astuce aléatoire. */

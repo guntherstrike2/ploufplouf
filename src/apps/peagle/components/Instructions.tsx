@@ -13,35 +13,35 @@ interface InstructionsProps {
 
 const SECTIONS = [
   {
-    label: "OBJECTIF",
+    label: "OBJECTIVE",
     color: PG.gold,
     lines: [
-      "Détruis tous les pegs orange pour passer au niveau suivant.",
+      "Clear every orange peg to advance to the next level.",
     ],
   },
   {
-    label: "CONTRÔLES",
+    label: "CONTROLS",
     color: PG.leaf,
     lines: [
-      "Vise avec la souris (ou le doigt), relâche pour tirer.",
-      "P ou ESC pour mettre en pause.",
+      "Aim with the mouse (or finger), release to shoot.",
+      "P or ESC to pause.",
     ],
   },
   {
     label: "PEGS",
     color: PG.orange,
     lines: [
-      "🟠 Orange — à détruire pour gagner.",
-      "🔵 Bleu — bonus de points, disparaît au contact.",
-      "🟡 Doré — bumper fixe, propulse l'œuf.",
-      "Le panier en bas récupère ton œuf si tu l'y envoies.",
+      "🟠 Orange — clear these to win.",
+      "🔵 Blue — point bonus, vanishes on contact.",
+      "🟡 Gold — fixed bumper, launches the egg.",
+      "The basket at the bottom catches your egg if you land it there.",
     ],
   },
   {
     label: "UPGRADES",
     color: PG.green,
     lines: [
-      "Entre chaque niveau, choisis un bonus parmi 3.",
+      "Between each level, pick one bonus out of 3.",
     ],
   },
 ];
@@ -57,7 +57,7 @@ export function Instructions({ onClose }: InstructionsProps) {
   return (
     <PegDialog
       icon="?"
-      title="COMMENT JOUER"
+      title="HOW TO PLAY"
       badge="PEAGLE 98"
       badgeColor={PG.leaf}
       width="min(340px, 92%)"
@@ -65,7 +65,7 @@ export function Instructions({ onClose }: InstructionsProps) {
       onClose={handleClose}
       footer={
         <PegBtn variant="primary" size="sm" onClick={handleClose}>
-          COMPRIS !
+          GOT IT!
         </PegBtn>
       }
     >

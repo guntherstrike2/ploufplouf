@@ -609,6 +609,40 @@ export function usePeagleSounds() {
   }, [cd]);
 
   /**
+   * Count-up — son de PIÈCE en boucle ultra-rapide pendant que le score se déverse vers
+   * le total (« brrrr » de comptage classique, type Mario/Sonic). Joué CHAQUE frame (~60/s),
+   * donc ultra-court et sec (onde carrée ~22ms) pour ne pas baver. Le pitch MONTE légèrement
+   * avec la progression (prog 0→1) → la récompense « grimpe » jusqu'au ding final.
+   */
+  const playCountTick = useCallback((prog = 0) => {
+    const r = cd(); if (!r) return;
+    const { ctx, dest } = r;
+    // Glissando discret sur une plage restreinte (reste « pièce », pas mélodie), une octave
+    // plus bas qu'avant pour un timbre plus doux/rond : ~B4 → ~E5.
+    const f = 494 + prog * 165;
+    // Le volume MONTE légèrement vers la fin → accélération-récompense audible avant le ding.
+    const vol = 0.040 + prog * 0.030;
+    // Onde TRIANGLE (plus douce que la carrée, moins criarde). Court car il y en a beaucoup.
+    tone(ctx, dest, f, 0.024, "triangle", vol);
+  }, [cd]);
+
+  /**
+   * Count-up terminé — petit « ding » de clôture quand le verre est vide et que
+   * « vert × orange » revient. Récompense brève et satisfaisante, sans voler la vedette.
+   */
+  const playCountFinish = useCallback(() => {
+    const r = cd(); if (!r) return;
+    const { ctx, dest } = r;
+    // Tierce montante C5→E5 + corps → petit accord de résolution (octave plus bas qu'avant,
+    // pour rester dans le registre doux du « brrr » des pièces).
+    detuned(ctx, dest, 523.25, 10, 0.18, "sine", 0.11, 0);
+    detuned(ctx, dest, 659.25, 10, 0.20, "sine", 0.10, 0.03);
+    fm(ctx, dest, 523.25, 2, 0.7, 0.20, 0.02);
+    tone(ctx, dest, 196.0, 0.11, "sine", 0.09, 0, 150);  // sub léger pour le « poids »
+    noise(ctx, dest, 0.03, 0.020, 1600, 0.02, 1.6);      // étincelle discrète, moins sifflante
+  }, [cd]);
+
+  /**
    * Saisie de l'aigle — froissement de plumes avec ton doux.
    */
   const playGrab = useCallback(() => {
@@ -644,5 +678,7 @@ export function usePeagleSounds() {
     playUpgradeSkip,
     playGrab,
     playFirework,
+    playCountTick,
+    playCountFinish,
   };
 }

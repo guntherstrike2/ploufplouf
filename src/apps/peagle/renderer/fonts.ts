@@ -1,12 +1,12 @@
 // ─── Polices canvas alignées sur la DA ───────────────────────────────────────
-// Le reste du jeu (menus, boutons, HUD DOM) s'affiche en Press Start 2P /
-// VT323 (cf. peagle.css : --pg-font / --pg-font-ui), mais le canvas dessinait
-// tout en "MS Sans Serif" — d'où des textes hors-charte. On résout ici les noms
-// de familles générés par next/font (exposés via variables CSS) pour pouvoir les
-// passer à ctx.font. Tant que la fonte n'est pas prête, on retombe sur monospace
-// (le canvas ne déclenche pas le chargement lui-même → fallback silencieux sinon).
+// Le canvas dessine les scores chiffrés « +N » en VT323 (cf. peagle.css :
+// --pg-font-ui) via ctx.font. On résout ici le nom de famille généré par next/font
+// (exposé en variable CSS). Tant que la fonte n'est pas prête, on retombe sur
+// monospace (le canvas ne déclenche pas le chargement → fallback silencieux sinon).
+//
+// NB : le texte HYPE (combos/exclamations, ex-Press Start 2P) est passé en police
+// BITMAP (renderer/text-bitmap.ts) → il ne dépend plus du CSS du tout.
 
-let _display: string | null = null; // Press Start 2P — exclamations / hype
 let _ui: string | null = null;      // VT323 — scores chiffrés compacts
 
 function resolve(varName: string, fallback: string): string {
@@ -19,16 +19,6 @@ function resolve(varName: string, fallback: string): string {
     if (f) { f.load(`16px ${raw}`); f.load(`28px ${raw}`); }
   } catch {}
   return raw;
-}
-
-/** Police « hero » arcade (Press Start 2P) — exclamations de combo, bannières. */
-export function pgDisplayFont(size: number): string {
-  if (_display === null || _display === "pending") {
-    const r = resolve("--font-press-start", "");
-    if (!r) { _display = "pending"; return `${size}px "Courier New", monospace`; }
-    _display = `${r}, "Courier New", monospace`;
-  }
-  return `${size}px ${_display}`;
 }
 
 /** Police UI compacte (VT323) — scores chiffrés « +N », lisibles en dense. */

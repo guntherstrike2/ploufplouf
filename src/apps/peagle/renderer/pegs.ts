@@ -81,7 +81,9 @@ function hexAlpha(hex: string, a: number): string {
 function drawOrangePeg(ctx: CanvasRenderingContext2D, p: Peg, r: number, inClutch: boolean, clutchIntensity: number, t: PegTheme): void {
   if (!p.hit) {
     if (inClutch) {
-      pixelSquare(ctx, p.x, p.y, r, t.orangeClutch, t.orangeGlow, t.orangeDark, t.orangeGlow, 14 + clutchIntensity * 14);
+      // Clutch : peg cible et halo en orange (le rose est désactivé), juste un glow
+      // plus intense que le repos pour garder le punch de la fièvre.
+      pixelSquare(ctx, p.x, p.y, r, t.orange, t.orangeHi, t.orangeDark, hexAlpha(t.orange, 0.5), 14 + clutchIntensity * 14);
     } else {
       pixelSquare(ctx, p.x, p.y, r, t.orange, t.orangeHi, t.orangeDark, hexAlpha(t.orange, 0.4), 5);
     }
@@ -92,7 +94,10 @@ function drawOrangePeg(ctx: CanvasRenderingContext2D, p: Peg, r: number, inClutc
 
 function drawNormalPeg(ctx: CanvasRenderingContext2D, p: Peg, r: number, t: PegTheme): void {
   if (!p.hit) {
-    pixelSquare(ctx, p.x, p.y, r, t.normal, t.normalHi, t.normalDark);
+    // Halo vert « flou » discret façon glow des boutons OPTIONS (même langage que
+    // le glow doux du peg orange au repos), pour que le vert vif respire sur le ciel.
+    const glow = t.normalGlow ?? t.normalHi;
+    pixelSquare(ctx, p.x, p.y, r, t.normal, t.normalHi, t.normalDark, hexAlpha(glow, 0.4), 5);
   } else {
     pixelSquareHit(ctx, p.x, p.y, r, t.normalDark);
   }
@@ -175,7 +180,7 @@ export function drawPegs(ctx: CanvasRenderingContext2D, s: GameState, inClutch: 
       // sobre, c'est le rebond élastique qui porte le punch.
       const flash = Math.max(0, 1 - revT / 0.3);
       if (flash > 0.01) {
-        const glowColor = p.kind === "orange" ? "#ffbb44" : p.kind === "bumper" ? "#ffee55" : "#9fb8ff";
+        const glowColor = p.kind === "orange" ? "#ffbb44" : p.kind === "bumper" ? "#ffee55" : "#b4ec6a";
         const glowR = PEG_R * (2.5 + flash * 3.5);
         ctx.globalAlpha = flash * 0.5;
         ctx.fillStyle = glowColor;

@@ -43,16 +43,24 @@ export interface BallStyle {
 
 export const PEG_PALETTES: AssetVariant<PegTheme>[] = [
   {
-    id: "foret", name: "Forêt",
+    id: "foret", name: "Forest",
+    // Palette par défaut « Forêt » : entièrement dérivée de RAMP (palette.ts), la
+    // source unique de vérité. Aucune couleur en dur ici → re-thémer la forêt se
+    // fait depuis la rampe. (Les autres palettes ci-dessous sont des identités
+    // visuelles distinctes — bleu/rouge/glace — donc gardent leurs hex propres.)
     value: {
-      normal: "#2233aa", normalHi: "#4455ff", normalDark: "#000d44",
-      orange: "#ff5500", orangeHi: "#ffdd44", orangeDark: "#882200",
-      orangeClutch: "#ff00cc", orangeGlow: "#ff88ee",
-      popRing: { normal: "#4455ff", orange: "#ffaa00" },
+      // Pegs « normaux » = vert vif des boutons OPTIONS (RAMP.green 400/200/700).
+      normal: RAMP.green[400], normalHi: RAMP.green[200], normalDark: RAMP.green[700],
+      normalGlow: RAMP.green[300],
+      // Cibles = rampe orange chaude de la palette.
+      orange: RAMP.orange[400], orangeHi: RAMP.gold[100], orangeDark: RAMP.orange[600],
+      // Cible « clutch » / pré-jackpot = or chaud lumineux (l'ancien rose #ff00cc orphelin).
+      orangeClutch: RAMP.gold[300], orangeGlow: RAMP.gold[100],
+      popRing: { normal: RAMP.green[300], orange: "#ffaa00" },
     },
   },
   {
-    id: "abime", name: "Abîme",
+    id: "abime", name: "Abyss",
     value: {
       normal: "#1144cc", normalHi: "#4488ff", normalDark: "#00082a",
       orange: "#ff7700", orangeHi: "#ffcc44", orangeDark: "#883300",
@@ -61,7 +69,7 @@ export const PEG_PALETTES: AssetVariant<PegTheme>[] = [
     },
   },
   {
-    id: "enfer", name: "Enfer",
+    id: "enfer", name: "Hell",
     value: {
       normal: "#882200", normalHi: "#dd4400", normalDark: "#330800",
       orange: "#ff8800", orangeHi: "#ffcc00", orangeDark: "#884400",
@@ -70,7 +78,7 @@ export const PEG_PALETTES: AssetVariant<PegTheme>[] = [
     },
   },
   {
-    id: "glace", name: "Glace",
+    id: "glace", name: "Ice",
     value: {
       normal: "#224488", normalHi: "#88aaff", normalDark: "#001133",
       orange: "#ee6622", orangeHi: "#ffcc88", orangeDark: "#883311",
@@ -116,8 +124,7 @@ const FORET_DECOR: ForetDecor = {
   },
   grass:     ["#5aa82c", "#6cb834", "#7ec23e", "#4a9422", "#6ec234", "#44901e"],
   grassTuft: "#3a7a1e",
-  rootEdge:  "#5a3c18", rootCore: "#2a1c06", rootArch: RAMP.green[900],
-  stoneTop:  "#605e54", stoneBody: "#48463c", stoneMoss: "#326018", stoneHi: "#787064",
+  stoneTop:  "#605e54", stoneBody: "#48463c", stoneShadow: "#2c2a22", stoneMoss: "#326018",
   // Soleil chaud — partage la rampe or de l'UI (RAMP.gold).
   sunCore:   ["#ffe98a", RAMP.gold[300], "#ffb22e"],
   sunRay:    "#ffcc44", sunRayHot: "#ffe98a", sunHalo: RAMP.gold[300],
@@ -130,7 +137,7 @@ const FORET_DECOR: ForetDecor = {
 
 export const BACKGROUNDS: AssetVariant<BgVariant>[] = [
   {
-    id: "foret", name: "Forêt",
+    id: "foret", name: "Forest",
     value: {
       bg: {
         skyTop: [70, 155, 245], skyBot: [150, 205, 250],
@@ -142,11 +149,11 @@ export const BACKGROUNDS: AssetVariant<BgVariant>[] = [
         hasTrees: true, hasFireflies: true,
         decor: FORET_DECOR,
       },
-      flash: { normal: "#4455ff", clutch: "#ff00cc" },
+      flash: { normal: RAMP.green[300], clutch: RAMP.gold[300] },   // = couleur des pegs (vert forêt / clutch or)
     },
   },
   {
-    id: "abime", name: "Abîme",
+    id: "abime", name: "Abyss",
     value: {
       bg: {
         skyTop: [2, 0, 10], skyBot: [6, 0, 18],
@@ -161,7 +168,7 @@ export const BACKGROUNDS: AssetVariant<BgVariant>[] = [
     },
   },
   {
-    id: "enfer", name: "Enfer",
+    id: "enfer", name: "Hell",
     value: {
       bg: {
         skyTop: [38, 6, 2], skyBot: [74, 18, 4],
@@ -176,7 +183,7 @@ export const BACKGROUNDS: AssetVariant<BgVariant>[] = [
     },
   },
   {
-    id: "glace", name: "Glace",
+    id: "glace", name: "Ice",
     value: {
       bg: {
         skyTop: [140, 180, 210], skyBot: [200, 225, 240],
@@ -299,7 +306,7 @@ export const EAGLE_WING_ANCHOR = { x: -9, y: -6 };
 export const BIRD_SPRITES: AssetVariant<BirdSprite>[] = [
   // Aigle de face, ailes déployées (48×48). Généré via scripts/gen-eagle.mjs
   // (sculpté par formes + contour auto), puis affiné. L'oiseau ne tourne pas.
-  { id: "aigle", name: "Aigle", value: {
+  { id: "aigle", name: "Eagle", value: {
     grid: [
       "................................................",
       "...................kkkkkkkkkk...................",
@@ -346,7 +353,7 @@ export const BIRD_SPRITES: AssetVariant<BirdSprite>[] = [
       B: "#a06a34", m: "#7a4a22", d: "#4f2f16", D: "#301c0d", L: "#f0a81e",
     },
   } },
-  { id: "piou_bleu", name: "Piou bleu", value: {
+  { id: "piou_bleu", name: "Blue Chick", value: {
     grid: [
       ".......yy.......",
       "......kyyk......",
@@ -367,35 +374,35 @@ export const BIRD_SPRITES: AssetVariant<BirdSprite>[] = [
     ],
     palette: { k: "#20142e", B: "#4a9ee8", b: "#8fd0ff", d: "#2c6fbf", w: "#ffffff", e: "#20142e", y: "#ffb02e" },
   } },
-  { id: "pelican_1", name: "Pélican", value: {
+  { id: "pelican_1", name: "Pelican", value: {
     grid: ["...y.y...", "...www...", "..wywyw..", "..wwwyy.", ".wbbbbbb.", "wwbbbbbww", ".wbbbbbw.", "...wbbw...", "...www..."],
     palette: { w: "#f0ece0", b: "#d4c4a0", y: "#f5c542" },
   } },
-  { id: "pelican_2", name: "Pélican tropical", value: {
+  { id: "pelican_2", name: "Tropical Pelican", value: {
     grid: ["...y.y...", "...www...", "..wywyw..", "...wbbw..", ".wbbbbwa.", "wwbbbbwa.", "..wbbbba.", "...wbbww.", "....www.."],
     palette: { w: "#e8f4ff", b: "#c8e0ff", a: "#ff7722", y: "#ffdd44" },
   } },
-  { id: "pelican_5", name: "Pélican doré", value: {
+  { id: "pelican_5", name: "Golden Pelican", value: {
     grid: ["...r.r...", "...ggg...", "..gorgg..", "..goorr..", ".gooooog.", "ggooooogg", ".gooooog.", "..ggoog..", "...ggg..."],
     palette: { g: "#ffd700", o: "#ffeeaa", r: "#ff4422" },
   } },
-  { id: "corbeau_1", name: "Corbeau", value: {
+  { id: "corbeau_1", name: "Raven", value: {
     grid: ["..b...b..", "..bb.bb..", "..bbbbb..", ".bbbbbbb.", "bbbbbbbb.", ".bbbbbbb.", "..bbbbb..", "..brrbb..", "...bbb..."],
     palette: { b: "#1a1a2e", r: "#ff2244" },
   } },
-  { id: "corbeau_3", name: "Corbeau sorcier", value: {
+  { id: "corbeau_3", name: "Witch Raven", value: {
     grid: ["..p...p..", "..pp.pp..", "..ppppp..", ".ppppppp.", "pppppppp.", ".ppppppp.", "..ppppp..", "..pvvpp..", "...ppp..."],
     palette: { p: "#2d0a4e", v: "#cc00ff" },
   } },
-  { id: "faucon_1", name: "Faucon", value: {
+  { id: "faucon_1", name: "Falcon", value: {
     grid: ["...y..y..", "..mbbm...", "..mbbm...", ".mbbbbbm.", "mmwwwwwmm", ".mwwwwwm.", "..mwwwm..", "..mbbwm..", "...mmm..."],
     palette: { m: "#1a1a1a", b: "#8b6040", w: "#f0ece8", y: "#f5c542" },
   } },
-  { id: "faucon_4", name: "Faucon arctique", value: {
+  { id: "faucon_4", name: "Arctic Falcon", value: {
     grid: ["...y..y..", "..w..w...", "..wwsww..", ".wwwwwww.", "wwswwsww.", ".wwwwwww.", "..wwwww..", "..wsbww..", "...www..."],
     palette: { w: "#f8fcff", s: "#334455", b: "#4488cc", y: "#f5c542" },
   } },
-  { id: "faucon_5", name: "Faucon cyber", value: {
+  { id: "faucon_5", name: "Cyber Falcon", value: {
     grid: ["...e..e..", "..c..c...", "..ceec...", ".cceeecc.", "cccccccc.", ".ccccccc.", "..ccccc..", "..cnnccc.", "...ccc..."],
     palette: { c: "#003344", n: "#00ffff", e: "#00ff88" },
   } },
@@ -404,19 +411,19 @@ export const BIRD_SPRITES: AssetVariant<BirdSprite>[] = [
 // ─── Styles de panier (le nid) ───────────────────────────────────────────────────
 
 export const BUCKET_STYLES: AssetVariant<BucketStyle>[] = [
-  { id: "classique", name: "Nid classique", value: {
+  { id: "classique", name: "Classic Nest", value: {
     egg: "#e8e4d8", eggHi: "#ffffff",
     nestDark: "#1c0a02", nestMid: "#4a2208", nestLight: "#6b3c12", nestRim: "#8c5020",
   } },
-  { id: "dore", name: "Nid doré", value: {
+  { id: "dore", name: "Golden Nest", value: {
     egg: "#e8c840", eggHi: "#ffe870",
     nestDark: "#2a1a02", nestMid: "#5a3a08", nestLight: "#8a6010", nestRim: "#c89030",
   } },
-  { id: "sombre", name: "Nid d'ombre", value: {
+  { id: "sombre", name: "Shadow Nest", value: {
     egg: "#5599ee", eggHi: "#99ccff",
     nestDark: "#0a0a12", nestMid: "#1a1a28", nestLight: "#2a2a3a", nestRim: "#4a4a60",
   } },
-  { id: "mousse", name: "Nid moussu", value: {
+  { id: "mousse", name: "Mossy Nest", value: {
     egg: "#dcecc4", eggHi: "#ffffff",
     nestDark: "#10180a", nestMid: "#2a3a14", nestLight: "#4a6020", nestRim: "#6a8838",
   } },
@@ -425,12 +432,12 @@ export const BUCKET_STYLES: AssetVariant<BucketStyle>[] = [
 // ─── Œufs (le projectile lancé) ──────────────────────────────────────────────────
 
 export const BALL_STYLES: AssetVariant<BallStyle>[] = [
-  { id: "blanc", name: "Œuf blanc", value: { body: "#e0e0ff", glow: "#aaaaff", speckle: "rgba(80,60,40,0.45)" } },
-  { id: "dore",  name: "Œuf doré",  value: { body: "#ffe870", glow: "#ffcc44", speckle: "rgba(120,80,0,0.40)" } },
-  { id: "bleu",  name: "Œuf bleu",  value: { body: "#aaccff", glow: "#5599ee", speckle: "rgba(40,60,120,0.40)" } },
-  { id: "vert",  name: "Œuf vert",  value: { body: "#aaffcc", glow: "#44cc88", speckle: "rgba(20,80,40,0.40)" } },
-  { id: "rose",  name: "Œuf rosé",  value: { body: "#ffccdd", glow: "#ff88aa", speckle: "rgba(120,40,70,0.40)" } },
-  { id: "noir",  name: "Œuf corbeau", value: { body: "#5a5a78", glow: "#8888cc", speckle: "rgba(0,0,0,0.55)" } },
+  { id: "blanc", name: "White Egg", value: { body: "#e0e0ff", glow: "#aaaaff", speckle: "rgba(80,60,40,0.45)" } },
+  { id: "dore",  name: "Golden Egg",  value: { body: "#ffe870", glow: "#ffcc44", speckle: "rgba(120,80,0,0.40)" } },
+  { id: "bleu",  name: "Blue Egg",  value: { body: "#aaccff", glow: "#5599ee", speckle: "rgba(40,60,120,0.40)" } },
+  { id: "vert",  name: "Green Egg",  value: { body: "#aaffcc", glow: "#44cc88", speckle: "rgba(20,80,40,0.40)" } },
+  { id: "rose",  name: "Pink Egg",  value: { body: "#ffccdd", glow: "#ff88aa", speckle: "rgba(120,40,70,0.40)" } },
+  { id: "noir",  name: "Raven Egg", value: { body: "#5a5a78", glow: "#8888cc", speckle: "rgba(0,0,0,0.55)" } },
 ];
 
 // ─── Catégories (utilisé par la Galerie pour s'auto-construire) ──────────────────
@@ -439,10 +446,10 @@ export type AssetCategory = "pegPalette" | "background" | "bird" | "ball" | "buc
 
 export const ASSET_CATEGORIES: { id: AssetCategory; label: string; variants: AssetVariant<unknown>[] }[] = [
   { id: "pegPalette", label: "Pegs",        variants: PEG_PALETTES },
-  { id: "background", label: "Arrière-plan", variants: BACKGROUNDS },
-  { id: "bird",       label: "Oiseau",      variants: BIRD_SPRITES },
-  { id: "ball",       label: "Œuf",         variants: BALL_STYLES },
-  { id: "bucket",     label: "Panier",      variants: BUCKET_STYLES },
+  { id: "background", label: "Background", variants: BACKGROUNDS },
+  { id: "bird",       label: "Bird",      variants: BIRD_SPRITES },
+  { id: "ball",       label: "Egg",         variants: BALL_STYLES },
+  { id: "bucket",     label: "Basket",      variants: BUCKET_STYLES },
 ];
 
 const DEFAULT_IDS: Record<AssetCategory, string> = {

@@ -1,6 +1,7 @@
 import type { UpgradeId } from "./roguelite";
 import type { PegKind } from "./peg-kinds";
 import type { Rng } from "./rng";
+import type { ScorePayout } from "./payout";
 
 export type { UpgradeId, PegKind };
 
@@ -138,7 +139,6 @@ export interface GameState {
   // Série de rattrapages au panier consécutifs ayant chacun touché ≥1 peg.
   // Un panier sans peg touché, ou un œuf manqué (hors écran), remet à 0.
   bucketStreak: number;
-  scoreMultiplier: number;
   particles: Particle[];
   floatingTexts: FloatingText[];
   hypeTexts: HypeText[];
@@ -166,6 +166,36 @@ export interface GameState {
   birds: BgBird[];
   turnScoreStart: number;
   orangeLeft: number;
+
+  // Score « bleu × orange » :
+  //   • turnBluePts     = points bleus du TOUR (pegs normaux + bumpers, combo inclus).
+  //                       Reset à chaque œuf lancé ; versé à la fin de chaque tour.
+  //   • turnOrangeCount = multiplicateur orange ACCUMULÉ. Il grimpe à chaque cible
+  //                       touchée et N'EST PAS reset au lancer tant qu'on enchaîne les
+  //                       rattrapages au panier (streak). Un œuf perdu (hors écran) le
+  //                       remet à 0. À chaque tour : score += turnBluePts × (1 + turnOrangeCount).
+  // Le HUD les affiche en live (ligne haute du DMD score).
+  turnBluePts: number;
+  turnOrangeCount: number;
+  // Œuf perdu hors écran CE tour-ci : le multiplicateur orange s'applique quand même au
+  // versement de ce tour (endOfTurn), puis est remis à 0 pour le tour suivant. On ne peut
+  // PAS reset turnOrangeCount dès la sortie d'écran : endOfTurn tourne après, dans le même
+  // tick, et lirait alors un mult de 1 (→ multiplication perdue). Cf. state/ball.ts.
+  orangeLostThisTurn: boolean;
+
+  // Dernier versement de fin de tour (breakdown des bonus) — produit par endOfTurn,
+  // consommé par le HUD pour jouer la scène DMD « payout ». `payoutAt` est l'animClock
+  // du versement : le HUD détecte le front montant pour déclencher la scène une fois.
+  // null/0 = aucun versement encore (intro, ou tour totalement raté → rien à verser).
+  lastPayout: ScorePayout | null;
+  payoutAt: number;
+
+  // Bonus encaissés EN LIVE pendant le tir (jackpot, série de paniers) mis en attente
+  // pour être versés via une PayoutLine à endOfTurn → le DMD payout les rejoue proprement
+  // et `scoreBefore + payout.total === score` reste vrai. Remis à 0 après versement.
+  pendingJackpot: number;       // bonus jackpot du tir (0 = aucun)
+  pendingJackpotBalls: number;  // œufs offerts par le jackpot, à créditer à endOfTurn
+  pendingStreakBonus: number;   // bonus de série de paniers accumulé ce tir (0 = aucun)
 
   // Nombre d'œufs au départ du niveau (pour la progression pré-fever)
   startBalls: number;

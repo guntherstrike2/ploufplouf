@@ -11,10 +11,10 @@ import { usePeagleSounds } from "../hooks/usePeagleSounds";
 
 // Couleur de bande par upgrade id — donne une identité visuelle (rareté) à chaque bonus.
 const CARD_COLORS: Record<UpgradeId, { band: string; name: string; label: string }> = {
-  extra_ball:  { band: PG.rarityCommon, name: PG.rarityCommon,   label: "COMMUN"  },
+  extra_ball:  { band: PG.rarityCommon, name: PG.rarityCommon,   label: "COMMON"  },
   heavy_ball:  { band: PG.rarityRare,   name: PG.rarityRareText, label: "RARE"    },
   bigger_ball: { band: PG.rarityRare,   name: PG.rarityRareText, label: "RARE"    },
-  sharp_aim:   { band: PG.rarityEpic,   name: PG.rarityEpicText, label: "ÉPIQUE"  },
+  sharp_aim:   { band: PG.rarityEpic,   name: PG.rarityEpicText, label: "EPIC"    },
 };
 
 interface UpgradePickerProps {
@@ -41,7 +41,7 @@ export function UpgradePicker({ offers, level, score, onPick, onSkip }: UpgradeP
           {/* En-tête diégétique : pastille glyphe + intitulé du palier */}
           <div className="pg-upg-head">
             <span className="pg-caption-btn">🏆</span>
-            <span className="pg-upg-head-title">NIVEAU {level} TERMINÉ</span>
+            <span className="pg-upg-head-title">LEVEL {level} COMPLETE</span>
           </div>
 
           {/* Score — champ creux pixel, comme les autres écrans */}
@@ -53,7 +53,7 @@ export function UpgradePicker({ offers, level, score, onPick, onSkip }: UpgradeP
           <div className="pg-settings-divider" aria-hidden />
 
           {/* Invite + cartes de bonus */}
-          <span className="pg-upg-prompt">CHOISIS UN BONUS</span>
+          <span className="pg-upg-prompt">PICK A BONUS</span>
 
           <div className="pg-upg-cards">
             {offers.map((id, i) => {
@@ -95,7 +95,7 @@ export function UpgradePicker({ offers, level, score, onPick, onSkip }: UpgradeP
             onPointerEnter={playUpgradeHover}
             onClick={() => { playUpgradeSkip(); onSkip(); }}
           >
-            PASSER
+            SKIP
           </PegBtn>
         </div>
       </div>

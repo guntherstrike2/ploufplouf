@@ -8,6 +8,9 @@ import { getActivePegPalette, getActiveBackground, getActiveAssetId } from "./as
 
 export interface PegTheme {
   normal: string; normalHi: string; normalDark: string;
+  // Halo « flou » des pegs normaux (façon glow des boutons). Optionnel : fallback
+  // sur `normalHi` dans le renderer si absent.
+  normalGlow?: string;
   orange: string; orangeHi: string; orangeDark: string;
   orangeClutch: string; orangeGlow: string;
   // Bumper (obstacle permanent) — optionnel : le renderer a un fallback doré.
@@ -78,13 +81,10 @@ export interface ForetDecor {
   // Sol jour (détails non animés, partagés) — fluo à calmer lors du rework.
   grass:       readonly string[]; // brins d'herbe (variété)
   grassTuft:   string;            // touffes hautes
-  rootEdge:    string;            // bouts d'arches de racines
-  rootCore:    string;            // cœur des racines
-  rootArch:    string;            // arches de racines (avant-plan)
-  stoneTop:    string;            // pierres : face éclairée
+  stoneTop:    string;            // pierres : face éclairée (bevel clair)
   stoneBody:   string;            // pierres : corps
+  stoneShadow: string;            // pierres : arête sombre bas/droite (bevel + contour)
   stoneMoss:   string;            // mousse sur pierres
-  stoneHi:     string;            // reflet pierres
   // Soleil (mode jour) — cœur dégradé + rayons + halo
   sunCore:     readonly [string, string, string]; // clair → chaud (haut → bas)
   sunRay:      string;

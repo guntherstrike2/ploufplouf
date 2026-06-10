@@ -71,7 +71,7 @@ export function Leaderboard({ entries, loading, currentUserId, onRefresh, showLo
           }}
         >
           <PixelSprite name="eagle" scale={2} />
-          GRANDS CHASSEURS — TOP 10
+          GREAT HUNTERS — TOP 10
         </span>
 
         <PegBtn
@@ -80,7 +80,7 @@ export function Leaderboard({ entries, loading, currentUserId, onRefresh, showLo
           variant="ghost"
           size="sm"
         >
-          {loading ? "..." : "ACTUALISER"}
+          {loading ? "..." : "REFRESH"}
         </PegBtn>
       </div>
 
@@ -109,7 +109,7 @@ export function Leaderboard({ entries, loading, currentUserId, onRefresh, showLo
             zIndex: 1,
           }}
         >
-          {(["#", "CHASSEUR", "VOL", "SCORE"] as const).map((h, i) => (
+          {(["#", "HUNTER", "FLIGHT", "SCORE"] as const).map((h, i) => (
             <span
               key={h}
               style={{
@@ -135,7 +135,7 @@ export function Leaderboard({ entries, loading, currentUserId, onRefresh, showLo
               letterSpacing: "0.08em",
             }}
           >
-            Chargement...
+            Loading...
           </div>
         )}
 
@@ -151,7 +151,7 @@ export function Leaderboard({ entries, loading, currentUserId, onRefresh, showLo
               fontFamily: "var(--pg-font-ui)",
             }}
           >
-            Aucun aigle inscrit.<br />Le ciel est vide.<br />Soyez le premier prédateur.
+            No eagle on record.<br />The sky is empty.<br />Be the first predator.
           </div>
         )}
 
@@ -193,7 +193,7 @@ export function Leaderboard({ entries, loading, currentUserId, onRefresh, showLo
               >
                 {name}
                 {isMe && (
-                  <span style={{ color: PG.leafDim, fontWeight: "normal" }}> (votre nid)</span>
+                  <span style={{ color: PG.leafDim, fontWeight: "normal" }}> (your nest)</span>
                 )}
               </span>
 
@@ -233,7 +233,7 @@ export function Leaderboard({ entries, loading, currentUserId, onRefresh, showLo
             fontFamily: "var(--pg-font-ui)",
           }}
         >
-          Connectez-vous pour marquer votre territoire dans le classement des nids
+          Log in to stake your territory in the nest rankings
         </div>
       )}
     </div>
